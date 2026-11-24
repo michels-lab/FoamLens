@@ -31,6 +31,49 @@ assert(valid.regions[0].provenance[0].sourcePath.includes('postProcessing'));
 assert.deepStrictEqual(valid.grid,[0,1,3]);
 assert.strictEqual(valid.regions[0].dimensions[0],'compatible');
 
+// Granada: SI prefixes are case-sensitive physical evidence. The original
+// lowercase parser interpreted mW/mJ as mega- rather than milli-: 10^9x.
+for(const [symbol,dimension,factor] of [
+  ['J','J',1],['mJ','J',1e-3],['kJ','J',1e3],['MJ','J',1e6],
+  ['W','W',1],['mW','W',1e-3],['kW','W',1e3],['MW','W',1e6]
+]){
+ const u=lib.unit(symbol);
+ assert(u,'Expected explicitly spelled physical SI unit '+symbol);
+ assert.equal(u.dimension,dimension);
+ near(u.factor,factor,1e-15);
+ assert.equal(u.sourceUnit,symbol,'Source spelling must be retained in exported provenance');
+}
+assert.equal(lib.unit('MW').factor/lib.unit('mW').factor,1e9);
+assert.equal(lib.unit('MJ').factor/lib.unit('mJ').factor,1e9);
+for(const badUnit of [null,undefined,0,'mw','mj','Kw','Mw','m j','m w','k W','MW/s','MJ/kg','kilowatts']){
+ assert.equal(lib.unit(badUnit),null,'Ambiguous or nonintegrated SI units fail closed: '+String(badUnit));
+}
+const milli=input();
+for(const region of milli.regions){
+ region.inventory.unit='mJ';region.inventory.y=region.inventory.y.map(v=>v*1000);
+ region.interfaceFlux.unit='mW';region.interfaceFlux.y=region.interfaceFlux.y.map(v=>v*1000);
+}
+const milliResult=lib.eval(milli);
+assert(milliResult.valid,'Real mJ/mW sources must conserve: '+milliResult.reason);
+near(milliResult.regions[0].deltaInventory,-12);
+near(milliResult.regions[0].intInterface,12);
+near(milliResult.interface.integratedMismatch,0);
+near(milliResult.system.residual,0);
+assert.equal(milliResult.regions[0].provenance[0].unit,'mJ');
+assert.equal(milliResult.regions[0].provenance[1].unit,'mW');
+const mega=input();
+for(const region of mega.regions){
+ region.inventory.unit='MJ';region.inventory.y=region.inventory.y.map(v=>v/1e6);
+ region.interfaceFlux.unit='MW';region.interfaceFlux.y=region.interfaceFlux.y.map(v=>v/1e6);
+}
+const megaResult=lib.eval(mega);
+assert(megaResult.valid,'Real MJ/MW sources must conserve: '+megaResult.reason);
+near(megaResult.regions[0].deltaInventory,-12);
+near(megaResult.regions[0].intInterface,12);
+near(megaResult.system.residual,0);
+assert.equal(megaResult.regions[0].provenance[0].unit,'MJ');
+assert.equal(megaResult.regions[0].provenance[1].unit,'MW');
+
 const nonuniform=input();
 nonuniform.regions[1].interfaceFlux=mk('mold','kW',[0,.5,2,3],[-.004,-.004,-.004,-.004],{dimensions:dimW});
 const sync=lib.eval(nonuniform);assert(sync.valid,sync.reason);

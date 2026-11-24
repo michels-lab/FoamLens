@@ -1,4 +1,8 @@
-# FoamLens Desktop v1.8.21
+# FoamLens Desktop v1.8.22
+
+**v1.8.22 is the release source pending publication**: integrated comparison layout presets, linked native postrun timelines with real saved samples, scientific Field/Data/Analysis/CAD source corrections. Owner manual validation follows official release. The latest published version must be verified at [GitHub Releases/latest](https://github.com/michels-lab/FoamLens/releases/latest).
+
+## Previous published stable: v1.8.21
 
 **FoamLens Desktop v1.8.21 with frontend v51** is the [**published stable Windows release**](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.21) from exact source commit [`98f5a958`](https://github.com/michels-lab/FoamLens/commit/98f5a95895a402b9f52783c555b5dbbeebea3268). [QuickCup, native 64-bit Setup/Portable runtime and visual evidence](https://github.com/michels-lab/FoamLens/actions/runs/44594122858) **SUCCESS**, followed by [independent actual downloaded executable/checksum audit](https://github.com/michels-lab/FoamLens/actions/runs/44595471470) **SUCCESS**. B/C/D source selectors enumerate every imported OpenFOAM case and accurately distinguish unready 3D data; an initially empty A now starts on a genuinely-ready case when present. Original measured times, source fields and GPU renderers remain unchanged. The B14 case's actual indexing readiness and owner's physical Windows aesthetic acceptance were not proven by CI; direct GitHub binaries may be unsigned.
 

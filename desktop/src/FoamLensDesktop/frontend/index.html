@@ -2767,7 +2767,15 @@ function currentViewSeries(){
   if(currentDataView==='profile'&&profilePlaybackUsesGlobalClock())return profilePlaybackRenderSeries.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s));
   return series.filter(s=>seriesMatchesGlobalContext(s)&&seriesInCurrentView(s))
 }
-function visibleCurrentSeries(){return currentViewSeries().filter(seriesIsVisible)}
+function visibleCurrentSeries(){
+  const visible=currentViewSeries().filter(seriesIsVisible);
+  if(currentDataView!=='timeseries'||typeof tsdPlotAxisPreflight!=='function')return visible;
+  // The chart/export renderer exposes two Y axes only. An incompatible
+  // third source scale (or contradictory metadata under one name) cannot
+  // be rendered honestly: preserve the series in Data and require a filter.
+  const preflight=tsdPlotAxisPreflight(visible);
+  return preflight.ok?visible:[]
+}
 function caseDash(caseId){
   const c=caseById(caseId);
   return c?.dash||'solid'
@@ -5947,7 +5955,7 @@ function uniqueLogFiles(){return new Set(logContextOptionsBase().map(s=>s.source
 
 function diagEs(){return $('language')?.value==='es'}
 function flUi(en,es){return diagEs()?es:en}
-function flDesktopVersion(){return document.documentElement.dataset.foamLensDesktopVersion||'1.8.21'}
+function flDesktopVersion(){return document.documentElement.dataset.foamLensDesktopVersion||'1.8.22'}
 function flBuildIdentity(){return 'FoamLens v51 / Desktop v'+flDesktopVersion()}
 function flSyncVersionLabels(){
   const label='Desktop v'+flDesktopVersion();
@@ -7988,7 +7996,7 @@ function updateCurveMetrics(s){
   $('curveMetricsUnit').textContent=yunit||'—';
   $('metricMin').textContent=formatValue(min.raw,s.field);$('metricMinX').textContent=`${trimZeros(Number(min.x).toFixed(5))} ${xunit}`;
   $('metricMax').textContent=formatValue(max.raw,s.field);$('metricMaxX').textContent=`${trimZeros(Number(max.x).toFixed(5))} ${xunit}`;
-  const mean=sum/pts.length;$('metricMean').textContent=formatValue(s.field.quantity==='temperature'&&$('tempUnit').value==='C'?mean+273.15:mean,s.field);
+  const meanRaw=pts.reduce((total,p)=>total+p.raw,0)/pts.length;$('metricMean').textContent=formatValue(meanRaw,s.field);
   const isVelocity=s.field.quantity==='velocity'||s.field.quantity==='velocity_component'||/^U_/.test(s.field.canonical||'');
   $('metricRms').textContent=isVelocity?trimZeros(Math.sqrt(sum2/pts.length).toFixed(6)):'—';
   $('metricZero').textContent=s.field.canonical==='U_y'?String(zeroCrossings(pts.map(p=>p.y))):'—';
@@ -8018,7 +8026,15 @@ function trimZeros(s){
 }
 
 function displayValue(v,field){
-  if(field?.quantity==='temperature'&&!field?.isDelta&&$('tempUnit').value==='C')return v-273.15;
+  if(field?.quantity==='temperature'&&!field?.isDelta){
+    // Native OpenFOAM T normally uses K. An explicitly declared °C
+    // source must not receive a second 273.15 subtraction.
+    const sourceUnit=String(field.unit??'K').trim();
+    const sourceC=/^(?:°C|C|degC|celsius)$/i.test(sourceUnit);
+    const targetC=$('tempUnit').value==='C';
+    if(sourceC)return targetC?v:v+273.15;
+    if(targetC)return v-273.15;
+  }
   return v
 }
 
@@ -8749,8 +8765,22 @@ function draw(){
       $('empty').innerHTML='<div><b>'+flUi('No spatial-profile outputs detected','No se detectaron perfiles espaciales')+
         '</b><p>'+flUi('Imported time frames and solver logs are not spatial profiles. Select loaded cases to compare real outputs, compare available time series, or import postProcessing profiles.','Los tiempos importados y los registros del solver no son perfiles espaciales. Selecciona casos cargados con perfiles reales, compara series temporales o importa perfiles de postProcessing.')+'</p></div>'
     }else{
-      $('plotInfo').textContent=tr('noData');
-      $('empty').innerHTML='<div><b>'+flUi('No matching curves','Sin curvas coincidentes')+'</b></div>'
+      // Fail closed when more physical scales exist than this two-axis
+      // renderer can represent. Keep original curves selectable in Data.
+      const axisGuard=typeof tsdPlotAxisPreflight==='function'?
+        tsdPlotAxisPreflight(currentViewSeries().filter(seriesIsVisible)):null;
+      if(axisGuard&&!axisGuard.ok){
+        $('plotInfo').textContent=flUi('Scientific comparison blocked · sources preserved',
+          'Comparación científica bloqueada · fuentes conservadas');
+        $('empty').innerHTML='<div><b>'+flUi(
+          'Cannot combine these original source scales on two Y axes',
+          'No se pueden combinar estas escalas originales en dos ejes Y')+'</b><p>'+flUi(
+          'Select one compatible case or at most two physical quantities. Review the original units and dimensions before comparing; no data were discarded.',
+          'Selecciona un caso compatible o como máximo dos magnitudes físicas. Revisa unidades y dimensiones originales antes de comparar; no se descartaron datos.')+'</p></div>'
+      }else{
+        $('plotInfo').textContent=tr('noData');
+        $('empty').innerHTML='<div><b>'+flUi('No matching curves','Sin curvas coincidentes')+'</b></div>'
+      }
     }
     c.style.width='';
     c.style.height='';

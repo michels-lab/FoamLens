@@ -1,3 +1,11 @@
+## Desktop v1.8.22 — GRANADA integrated comparison and native scientific timeline (2026-11-23)
+
+- **Field comparison deck:** persistent Automatic, Two columns and Widest safe row arrangements; independent scene sizes or shared compact, balanced and large scene-height presets, responsive to the actual panel width, one-click layout reset. No new horizontal scrollbars or changes to individual source, camera, region or physical time.
+- **Scientific Case Health — native postrun timeline:** load actual OpenFOAM reduction CSVs locally, immediately inspect original saved times, choose two numeric metrics with independent Y scales, synchronized exact-sample cursor, selectable saved-sample window, export selected source samples to CSV and both plots as SVG. No interpolation of missing CFD states or inferred units. Original case ownership and physical validation remain explicitly unverified.
+- **Integrated Field A–D:** all independently selectable loaded cases, native metal/mold regions, physical dimensions and source-aware comparison, strict field associations, original frames and clocks.
+- **Integrated Data and Analysis:** source-specific Time Series units/axes, dual-variable and profiles integrity, multi-region energy and thermocouple guards, solidification-front geometry and OBJ reconstruction, phase/momentum source provenance, CAD surface validation and 2D/3D equivalence safeguards.
+- **Publication:** owner explicitly requested the next stable Windows release for post-release manual review. Exact-source automated Windows build, installed and Portable launch, visual and checksum gates remain mandatory. Physical review of B14/C14 and C3D-04/05 is not claimed. Authenticode optional for direct GitHub distribution; SmartScreen may warn.
+
 ## Desktop v1.8.21 — Original 3D case-catalog and initial canvas recovery (2026-11-19)
 
 - **Regression reported by owner:** v1.8.20 could enter Field with A on a B14 case lacking any 3D-ready region/field/timestamp; linked B/C/D then remained blank even if their own selected case contained loaded 3D fields. The user's older v1.8.18 screenshot demonstrated that actual OpenFOAM mesh rendering worked when both sources were ready.

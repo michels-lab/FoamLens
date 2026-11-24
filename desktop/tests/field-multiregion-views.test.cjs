@@ -63,6 +63,12 @@ assert.notStrictEqual(api.fcPhysicalFor(stateB).choices,api.fcPhysicalFor(stateC
   'B and C may not share mutable region selections');
 const bMold=api.fcPhysicalFor(stateB).choices.get('mold');
 const cMold=api.fcPhysicalFor(stateC).choices.get('mold');
+assert.strictEqual(bMold.visible,true,
+  'New B case must show the real mold WITH metal without manual activation');
+assert.strictEqual(cMold.visible,true,
+  'New C/D cases also show each real region by default');
+assert.strictEqual(api.fcPhysicalFor(stateB).choices.get('metal').visible,true,
+  'The active B metal primary must remain visible along with its mold');
 bMold.visible=true;bMold.visibilityExplicit=true;cMold.visible=false;cMold.visibilityExplicit=true;bMold.opacity=.55;
 assert.strictEqual(cMold.visible,false,'B change must not mutate C');
 assert.strictEqual(bMold.visible,true);

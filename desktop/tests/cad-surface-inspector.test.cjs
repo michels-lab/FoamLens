@@ -37,6 +37,18 @@ assert.deepStrictEqual(summary(twoParts.triangles).parts.map(p=>p.name),['metal'
 assert.throws(()=>parseObj('v 0 0 0\nf 1 1 4'),/outside vertex/);
 assert.throws(()=>parseObj('v 0 0 0\nv 1 0 0\nv 0 1 0\nf 0 1 2'),/Invalid OBJ face/);
 assert.throws(()=>parseObj('v NaN 0 0\nf 1 1 1'),/Non-finite/);
+const {numeric:cadNumeric}=new Function(script.slice(start,end)+
+  ';return {numeric:cgNumber}')();
+for(const bad of [null,undefined,false,true,'',' ','0x10','0b11','0o7','Infinity','1e999']){
+  assert.throws(()=>cadNumeric(bad),/Non-finite geometry coordinate/,
+    'CAD coordinate must come from actual finite decimal/scientific source: '+String(bad));
+}
+assert.equal(cadNumeric(0),0);
+assert.equal(cadNumeric('-2.5e-3'),-0.0025);
+assert.throws(()=>parseObj('v 0x10 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3'),/Non-finite/);
+assert.throws(()=>parseObj('v 0b10 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3'),/Non-finite/);
+assert.equal(parseObj('v 0 0 0\nv 1e-3 0 0\nv 0 1 0\nf 1 2 3').triangles.length,1);
+
 assert.throws(()=>parseObj('v 0 0 0\nv 1 0 0\nv 0 1 0'),/no supported polygon/);
 
 const stl=exportAsciiStl(tri.triangles,'triangle',.001);

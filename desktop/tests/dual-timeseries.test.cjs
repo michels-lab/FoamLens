@@ -14,7 +14,7 @@ const end='/* FOAMLENS_DUAL_TIMESERIES_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Dual Time-Series core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisMetadataVerified,tsdAxisPlan};')();
+const api=new Function(core+';return {tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisMetadataVerified,tsdAxisPlan,tsdPlotAxisPreflight};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -320,5 +320,116 @@ test('Granada: real Case change event recomputes dependent probe choices before 
     'Install must attach Case filter after binding the original Time Series refresh');
 });
 
+
+test('GRANADA T1: dimension parser rejects non-decimal physical exponents',()=>{
+  const field={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  for(const dimensions of [
+    '[0 0 0 0x1 0 0 0]','[0 0 0 0b1 0 0 0]',
+    '[0 0 0 0o1 0 0 0]','[0 0 0 1_0 0 0 0]',
+    '[0 0 0 Infinity 0 0 0]','[0 0 0 1e309 0 0 0]'
+  ])assert.equal(api.tsdAxisMetadataVerified({...field,dimensions}),false,
+    'Non-decimal or nonfinite source exponent must not authorize scientific axis: '+dimensions);
+  for(const dimensions of [
+    '[0 0 0 1 0 0 0]','[0 0 0 1e0 0 0 0]',
+    '[0 0 0 +1. 0 0 0]','[0 0 0 .5 0 0 0]'
+  ])assert.equal(api.tsdAxisMetadataVerified({...field,dimensions}),true,
+    'Valid finite decimal/scientific OpenFOAM exponents must remain supported');
+});
+
+test('GRANADA T1: duplicate source names never inherit a random case unit',()=>{
+  const start=source.indexOf('function tsdFields(ts){');
+  const end=source.indexOf('function tsdPopulateSecondary(',start);
+  assert(start>=0&&end>start,'The original variable selector catalog must be executable');
+  const catalog=new Function('localizedFieldName',
+    source.slice(start,end)+';return tsdFields;')(f=>f.canonical);
+  const kelvin={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  const celsius={...kelvin,unit:'°C'};
+  const alpha={canonical:'alphaL',quantity:'liquid_fraction',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
+  const group=[{field:kelvin,caseId:'B14'},{field:celsius,caseId:'C14'},{field:alpha,caseId:'B14'}];
+  for(const input of [group,[...group].reverse()]){
+    const selected=catalog(input),T=selected.find(f=>f.canonical==='T');
+    assert.equal(selected.length,2,'Two source cases with T must not invent a third variable');
+    assert.equal(T.unit,'?','Mixed Kelvin/Celsius can never show one arbitrary original unit');
+    assert.equal(api.tsdAxisMetadataVerified(T),false,
+      'Incompatible source units cannot certify a shared physical Y scale');
+    assert.equal(api.tsdAxisPlan(alpha,T).separate,true,
+      'The second Y axis must not inherit an incompatible source unit');
+  }
+  const same=catalog([{field:kelvin},{field:{...kelvin}}]);
+  assert.equal(same[0].unit,'K','Truly identical source metadata remains available');
+  assert.equal(api.tsdAxisMetadataVerified(same[0]),true);
+  const conflict=catalog([{field:kelvin},{field:{...kelvin,dimensions:'[0 0 0 0 0 0 0]'}}]);
+  assert.equal(conflict[0].dimensions,'?',
+    'Conflicting dimensions must not advertise one arbitrary source dimension');
+  assert.equal(api.tsdAxisMetadataVerified(conflict[0]),false);
+  const quantity=catalog([{field:kelvin},{field:{...kelvin,quantity:'pressure'}}]);
+  assert.equal(quantity[0].quantity,'unknown',
+    'Conflicting scientific quantity must remain explicitly unknown');
+  assert.equal(api.tsdAxisMetadataVerified(quantity[0]),false);
+  assert.deepEqual(catalog([{field:{}},{},null]),[],
+    'Missing source identity cannot create unnamed variable choices');
+});
+
+
+test('GRANADA: original source axes are separated, contradictory units blocked, third axis blocked',()=>{
+  const T={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  const alpha={canonical:'alphaL',quantity:'liquid_fraction',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
+  const U={canonical:'U',quantity:'velocity',unit:'m/s',dimensions:'[0 1 -1 0 0 0 0]'};
+  const first={id:1,caseId:'B14',field:T},second={id:2,caseId:'C14',field:{...T}},phase={id:3,caseId:'B14',field:alpha};
+  const safe=api.tsdPlotAxisPreflight([first,second,phase]);
+  assert.equal(safe.ok,true);
+  assert.equal(safe.groups,2);
+  assert.deepEqual([safe.axisById.get(1),safe.axisById.get(2),safe.axisById.get(3)],['left','left','right']);
+  assert.equal(api.tsdPlotAxisPreflight([first,{...second,field:{...T,unit:'°C'}}]).reason,'conflicting-source-metadata');
+  assert.equal(api.tsdPlotAxisPreflight([first,second,phase,{id:4,field:U}]).reason,'more-than-two-physical-axes');
+  assert.equal(api.tsdPlotAxisPreflight([]).ok,true);
+});
+
+
+test('GRANADA: production Time Series assignment overrides unsafe stale manual axes only in Data',()=>{
+  const start=source.indexOf('function tsdPatchAssignments(){');
+  const end=source.indexOf('function tsdWireCaseFilterRefresh(){',start);
+  assert(start>0&&end>start);
+  const code="let assignments=function(vis){const result=new Map();for(const row of vis)result.set(row.id,row.axis==='Right'?'right':'left');return result};"+
+    source.slice(start,end)+";tsdPatchAssignments();return assignments";
+  const maker=new Function('tsdPlotAxisPreflight','currentDataView',code);
+  const T={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  const alpha={canonical:'alphaL',quantity:'liquid_fraction',unit:'-',dimensions:'[0 0 0 0 0 0 0]'};
+  const rows=[{id:'T',field:T,axis:'Left'},{id:'alpha',field:alpha,axis:'Left'}];
+  const plot=maker(api.tsdPlotAxisPreflight,'timeseries')(rows);
+  assert.equal(plot.get('T'),'left');
+  assert.equal(plot.get('alpha'),'right','The original source cannot share Y across temperature and phase');
+  const profile=maker(api.tsdPlotAxisPreflight,'profile')(rows);
+  assert.equal(profile.get('alpha'),'left','The original Profile renderer is not changed by Time Series');
+  const solo=maker(api.tsdPlotAxisPreflight,'timeseries')([{id:'T',field:T,axis:'Right'}]);
+  assert.equal(solo.get('T'),'right','One source family retains manual Y axis selection');
+});
+
+
+test('GRANADA: original chart preflight and source Celsius conversion prevent bad plots',()=>{
+  const html=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','index.html'),'utf8');
+  assert(html.includes("const preflight=tsdPlotAxisPreflight(visible)"));
+  assert(html.includes('Scientific comparison blocked'));
+  assert(html.includes('No se pueden combinar estas escalas originales en dos ejes Y'));
+  const start=html.indexOf('function visibleCurrentSeries(){');
+  const stop=html.indexOf('function caseDash(',start);
+  assert(start>0&&stop>start);
+  const visibility=new Function('currentViewSeries','seriesIsVisible','currentDataView',
+    'tsdPlotAxisPreflight',html.slice(start,stop)+';return visibleCurrentSeries;');
+  const K={canonical:'T',quantity:'temperature',unit:'K',dimensions:'[0 0 0 1 0 0 0]'};
+  const conflicting=[{id:1,caseId:'B14',field:K},{id:2,caseId:'C14',field:{...K,unit:'°C'}}];
+  assert.equal(visibility(()=>conflicting,()=>true,'timeseries',api.tsdPlotAxisPreflight)().length,0);
+  assert.equal(visibility(()=>conflicting,()=>true,'profile',api.tsdPlotAxisPreflight)().length,2);
+  const begin=html.indexOf('function displayValue(v,field){');
+  const end=html.indexOf('function formatValue(v,field){',begin);
+  assert(begin>0&&end>begin);
+  const toC=new Function('$',html.slice(begin,end)+';return displayValue;')(()=>({value:'C'}));
+  const toK=new Function('$',html.slice(begin,end)+';return displayValue;')(()=>({value:'K'}));
+  assert.equal(Number(toC(298.15,K).toFixed(6)),25);
+  assert.equal(toC(25,{...K,unit:'°C'}),25);
+  assert.equal(toK(25,{...K,unit:'°C'}),298.15);
+  assert.equal(toC(15,{...K,isDelta:true}),15);
+  assert(html.includes('const meanRaw=pts.reduce((total,p)=>total+p.raw,0)/pts.length'));
+});
 console.log('FoamLens dual Time-Series Focus regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);

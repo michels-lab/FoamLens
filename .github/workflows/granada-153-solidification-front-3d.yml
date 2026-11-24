@@ -1,0 +1,37 @@
+name: Granada 153 — original 3D solidification front
+
+on:
+  push:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-solidification-front-3d.js'
+      - 'desktop/tests/solidification-front-3d.spec.cjs'
+      - 'desktop/tests/solidification-front-iso-geometry.spec.cjs'
+      - '.github/workflows/granada-153-solidification-front-3d.yml'
+  pull_request:
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-solidification-front-3d.js'
+      - 'desktop/tests/solidification-front-3d.spec.cjs'
+      - 'desktop/tests/solidification-front-iso-geometry.spec.cjs'
+      - '.github/workflows/granada-153-solidification-front-3d.yml'
+  workflow_dispatch:
+
+jobs:
+  scientific-front:
+    name: Closed polyMesh 3D front / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Original 3D mesh volumes and phase-front scientific evidence
+        run: node desktop/tests/solidification-front-3d.spec.cjs
+      - name: Interpolated 3D surface geometry, real-source provenance and OBJ scientific regression
+        run: node desktop/tests/solidification-front-iso-geometry.spec.cjs
+      - name: Existing Field mesh/viewport regression
+        run: node desktop/tests/field-multiview-ux.test.cjs

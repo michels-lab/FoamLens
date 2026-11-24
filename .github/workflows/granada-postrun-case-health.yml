@@ -1,0 +1,43 @@
+name: Granada — read-only OpenFOAM native postrun CSV
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-scientific-case-health.js'
+      - 'desktop/tests/masterproject-native-postrun.spec.cjs'
+      - 'desktop/tests/scientific-case-health.spec.cjs'
+      - 'desktop/tests/scientific-case-health-loader.spec.cjs'
+      - '.github/workflows/granada-postrun-case-health.yml'
+  push:
+    branches: [main, 'feat/granada-masterproject-postrun-csv-case-health-20261123']
+    paths:
+      - 'desktop/src/FoamLensDesktop/frontend/v24-scientific-case-health.js'
+      - 'desktop/tests/masterproject-native-postrun.spec.cjs'
+      - 'desktop/tests/scientific-case-health.spec.cjs'
+      - 'desktop/tests/scientific-case-health-loader.spec.cjs'
+      - '.github/workflows/granada-postrun-case-health.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-postrun:
+    name: Original source + cross-case CSV on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Native case A/B representative source reductions and strict guards
+        run: node desktop/tests/masterproject-native-postrun.spec.cjs
+      - name: Existing Scientific Case Health original regression
+        run: node desktop/tests/scientific-case-health.spec.cjs
+      - name: Original Windows-embedded frontend loader contract
+        run: node desktop/tests/scientific-case-health-loader.spec.cjs

@@ -20,9 +20,17 @@ function mecPhysicalPairs(s){
   return unique
 }
 function mecUnit(unit){
-  const u=String(unit||'').trim().toLowerCase().replace(/\s+/g,'');
-  const units={j:['J',1],kj:['J',1e3],mj:['J',1e6],w:['W',1],kw:['W',1e3],mw:['W',1e6]};
-  return units[u]?{dimension:units[u][0],factor:units[u][1],sourceUnit:String(unit).trim()}:null
+  // SI unit prefixes are case-sensitive. The old toLowerCase() mapped mW
+  // (10^-3 W) to MW (10^6 W), and likewise mJ to MJ: a 10^9 error in a
+  // scientific conservation result. Reject noncanonical/ambiguous strings.
+  if(typeof unit!=='string')return null;
+  const u=unit.trim();
+  const units={
+    J:['J',1],mJ:['J',1e-3],kJ:['J',1e3],MJ:['J',1e6],
+    W:['W',1],mW:['W',1e-3],kW:['W',1e3],MW:['W',1e6]
+  };
+  const candidate=Object.prototype.hasOwnProperty.call(units,u)?units[u]:null;
+  return candidate?{dimension:candidate[0],factor:candidate[1],sourceUnit:u}:null
 }
 function mecDimensions(raw,kind){
   const s=String(raw||'').trim();if(!s)return'missing';

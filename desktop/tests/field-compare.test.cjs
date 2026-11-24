@@ -31,6 +31,42 @@ function cubeMesh(){
   }
 }
 
+test('Granada: Field B/C/D resolves original volume/surface/point associations unambiguously',()=>{
+  const a=source.indexOf('function fcSelectedAssociation(select){');
+  const b=source.indexOf('function fcCurrentFieldStorage(',a);
+  const c=source.indexOf('function fcFieldFor(c,region,name,association=');
+  const d=source.indexOf('function fcVectorFor(',c);
+  assert(a>=0&&b>a&&c>=0&&d>c,'Original association-aware Field resolution missing');
+  const groups=[
+    {name:'T',kind:'scalar',storage:'volume',times:[0,1]},
+    {name:'T',kind:'scalar',storage:'surface',times:[0,2]},
+    {name:'U',kind:'vector',storage:'point',times:[0,3]}
+  ];
+  const selector={selectedOptions:[{value:'T',dataset:{storage:'surface'}}]};
+  const fields=new Function('fvFieldGroups',source.slice(a,b)+source.slice(c,d)+
+    ';return {fcSelectedAssociation,fcFieldFor}')(()=>groups);
+  assert.strictEqual(fields.fcSelectedAssociation(selector),'surface');
+  assert.strictEqual(fields.fcFieldFor({},'metal','T'),null,
+    'Duplicate original field names cannot silently select the first association');
+  assert.strictEqual(fields.fcFieldFor({},'metal','T','volume'),groups[0]);
+  assert.strictEqual(fields.fcFieldFor({},'metal','T','surface'),groups[1]);
+  assert.strictEqual(fields.fcFieldFor({},'metal','U'),groups[2]);
+  assert.strictEqual(fields.fcFieldFor({},'metal','T','point'),null);
+  assert.strictEqual(fields.fcSelectedAssociation({}),'');
+
+  const bSelector=source.slice(source.indexOf('function fcRefreshSelectors('),
+    source.indexOf('function fcMvp(',source.indexOf('function fcRefreshSelectors(')));
+  const cdSelector=source.slice(source.indexOf('function fcExtraRefreshSelectors('),
+    source.indexOf('function fcExtraInvalidateFrame(',source.indexOf('function fcExtraRefreshSelectors(')));
+  for(const controls of [bSelector,cdSelector]){
+    assert(controls.includes('data-storage='),'Actual source associations must exist in original option nodes');
+    assert(controls.includes('option.dataset?.storage===oldAssociation'),
+      'A selected face/point field must survive original catalogue refresh');
+  }
+  assert(source.includes("field+(association?'|'+association:'')"),
+    'Independent physical-time source key must include association identity');
+});
+
 test('missing physical time is never coerced to measured t=0 in 3D synchronization',()=>{
   assert(Number.isNaN(api.fcNearestTime([null,'',false,9.8],null)));
   assert.equal(api.fcCloseTime(null,0),false);
@@ -88,6 +124,34 @@ test('3D comparison labels are HTML-escaped if the host helper is unavailable or
   assert.equal(make(undefined)(null),'');
   assert.equal(make(v=>'SAFE:'+v)('<region>'),'SAFE:<region>',
     'An existing original host escaper remains authoritative');
+});
+
+test('Granada: Field scientific synchronization fails closed for unsupported policies',()=>{
+  for(const invalid of ['legacy','',null,false,'interpolated','Nearest']){
+    const result=api.fcResolveTime([0,9.8],3.2,invalid);
+    assert.strictEqual(result.ok,false,'Unsupported policy must not silently select nearest: '+String(invalid));
+    assert(Number.isNaN(result.time));
+  }
+  assert.strictEqual(api.fcResolveTime([0,9.8],3.2,'nearest').ok,true);
+  assert.strictEqual(api.fcResolveTime([0,9.8],3.2,'exact').ok,false);
+  assert.strictEqual(api.fcResolveTime([0,9.8],3.2,'interpolate').interpolated,true);
+});
+
+test('Granada: interpolated 3D field cannot silently drop incompatible source cells',()=>{
+  assert.deepStrictEqual(api.fcInterpolateValues([1000,1010],[900],.5),[]);
+  assert.deepStrictEqual(api.fcInterpolateValues([1000],[900,910],.5),[]);
+  assert.deepStrictEqual(api.fcInterpolateValues([1000],null,.5),[]);
+  assert.deepStrictEqual(api.fcInterpolateValues([],[],.5),[]);
+  const equal=api.fcInterpolateValues([1000,1010],[900,910],.5);
+  assert.deepStrictEqual(equal,[950,960]);
+  assert(Number.isNaN(api.fcInterpolateValues([1000],[900],false)[0]));
+});
+
+test('Granada: inverted physical scalar bounds do not enter the shared 3D legend',()=>{
+  assert.deepStrictEqual(api.fcSharedRange({min:900,max:300},{min:310,max:830}),
+    {valid:true,min:310,max:830});
+  assert.equal(api.fcSharedRange({min:900,max:300},{min:500,max:100}).valid,false);
+  assert.equal(api.fcSharedRange({min:0,max:0},null).valid,true);
 });
 
 test('3D compare ignores missing samples, malformed interpolation and invalid geometry',()=>{
@@ -152,16 +216,20 @@ test('3D extra view invalidates stale mesh/probes/export state when primary cloc
   assert(start>=0&&end>start,'Missing production stale-frame invalidation path');
   const make=new Function('fcState','fcExtraRefreshSelectors','fcExtraCase','fcExtraRegion',
     'fcExtraField','fcExtraComponent','fcIndependentTimeTarget','fcExtraDom','fcUi','fcExtraUpdateLabel','fcPhysicalRelease',
+    'fcBlankInvalidFieldViewport','fcUpdateStatsGrid',
     source.slice(start,end)+';return fcExtraRefreshFrame;');
   const status={textContent:''},state={id:3,seq:5,renderer:{surfaceCount:4,edgeCount:8,probeCount:1},
     mesh:{id:12},fieldValues:[1000],range:{valid:true},fieldParsed:{},time:0,sync:{exact:true},
     probe:{point:[0,0,0]}};
-  let physicalReleases=0;
+  let physicalReleases=0,blanked=0,statsRefreshes=0;
   const refresh=make({enabled:true},()=>{},()=>({}),()=>'metal',()=>'T',()=>'value',
-    ()=>NaN,()=>status,x=>x,()=>{},()=>{physicalReleases++});
+    ()=>NaN,()=>status,x=>x,()=>{},()=>{physicalReleases++},
+    ()=>{blanked++},()=>{statsRefreshes++});
   refresh(state); // deterministic synchronous validation happens before the first await
   assert.equal(state.seq,6,'An earlier in-flight frame must be invalidated');
   assert.equal(physicalReleases,1,'Invalidating stale frames must also free B/C/D physical region layers');
+  assert.equal(blanked,1,'Missing physical time must blank the invalid C/D GPU image');
+  assert.equal(statsRefreshes,1,'Missing physical time must remove stale C/D measured statistics');
   assert.equal(state.mesh,null);
   assert.equal(state.fieldValues,null);
   assert.equal(state.probe,null);
@@ -170,6 +238,20 @@ test('3D extra view invalidates stale mesh/probes/export state when primary cloc
   assert.equal(state.renderer.surfaceCount,0);
   assert.equal(state.renderer.probeCount,0);
   assert(status.textContent.includes('measured physical time'));
+});
+
+test('Granada: matching metadata without real mesh topology must not certify 3D interpolation',()=>{
+  const a=cubeMesh(),b=JSON.parse(JSON.stringify(a));
+  delete a.points;delete b.points;
+  assert.deepStrictEqual(api.fcMeshesEquivalent(a,b),{ok:false,reason:'point-geometry-mismatch'});
+  const keys=['faceOffsets','facePoints','owners','neighbours'];
+  for(const key of keys){
+    const m1=cubeMesh(),m2=cubeMesh();
+    delete m1[key];delete m2[key];
+    assert.strictEqual(api.fcMeshesEquivalent(m1,m2).ok,false,'Both missing '+key+' cannot prove same topology');
+  }
+  assert.strictEqual(api.fcArrayEqualNumeric(undefined,undefined),false);
+  assert.strictEqual(api.fcArrayEqualNumeric([],[]),true,'Explicit empty neighbour lists remain valid');
 });
 
 test('strict mesh equivalence accepts identical topology and geometry',()=>{
@@ -266,6 +348,7 @@ test('Granada 3D differences reject incomplete cell arrays instead of presenting
       id==='fcDifferenceViewport'?{classList:{toggle:()=>{}}}:
       id==='fcDifferenceStatus'?status:null},
     fcTimesLinked:()=>true,
+    fcDifferenceTimesMatch:(a,b)=>a===b,
     fvState:{time:1,fieldStorage:'volume'},
     fcSameQuantity:()=>true,
     fcMeshesEquivalent:(a,b)=>({ok:true,reason:'equivalent'}),
@@ -293,6 +376,336 @@ test('Granada 3D differences reject incomplete cell arrays instead of presenting
   assert.equal(state.differenceRange,null,'all-nonfinite A-B must erase stale range');
   assert.equal(calls.issues.at(-1),'no-compatible-values');
   assert.equal(calls.layout,2);
+});
+
+test('Granada: linked nearest B time cannot produce A-B at a different physical time',()=>{
+  const guardStart=source.indexOf('function fcDifferenceTimesMatch('),
+    guardEnd=source.indexOf('function fcUpdateDifference(',guardStart);
+  assert(guardStart>=0&&guardEnd>guardStart,'Original scientific physical-time gate must exist');
+  const matches=new Function('fcPhysicalNumber',
+    source.slice(guardStart,guardEnd)+';return fcDifferenceTimesMatch;')(api.fcPhysicalNumber);
+  assert.equal(matches(9.8,9.9),false,'Nearest B snapshot at 9.9s is not A at 9.8s');
+  assert.equal(matches(9.8,9.8),true,'Actual equal source times may be compared');
+  assert.equal(matches(9.8,9.8000000001),true,'Floating-point roundoff is permitted');
+  assert.equal(matches(1e-7,1.005e-7),false,
+    'A physical 0.5-ns offset is not roundoff in microsecond OpenFOAM frames');
+  assert.equal(matches(1e-7,1e-7+1e-16),true,
+    'Sub-femtosecond representation noise should not reject the same frame');
+  for(const missing of [NaN,null,undefined,'',false])assert.equal(matches(9.8,missing),false,
+    'Absent B measured time cannot be reinterpreted as zero');
+
+  const a=source.indexOf('function fcUpdateDifference('),
+    b=source.indexOf('async function fcLoadVectorAtTime(',a);
+  assert(a>=0&&b>a,'Original linked difference controller must be exercised');
+  const stats={calls:0,issues:[]},state={enabled:true,time:9.9,
+    fieldStorage:'volume',differenceValues:[111],differenceRange:{valid:true}};
+  const dom={getElementById:id=>id==='fcDifference'?{checked:true}:
+    id==='fcDifferenceStatus'?{textContent:''}:
+    id==='fcDifferenceViewport'?{classList:{toggle:()=>{}}}:null};
+  const dependencies={fcState:state,document:dom,fcDifferenceTimesMatch:matches,
+    fcTimesLinked:()=>true,fvState:{time:9.8,fieldStorage:'volume'},
+    fcUi:(en)=>en,flSetIssue:(element,issue)=>stats.issues.push(String(issue)),
+    fcUpdateLayout:()=>{stats.calls++},
+    fcSameQuantity:()=>{throw new Error('Mismatch must block before comparing physical fields')},
+    fcMeshesEquivalent:()=>{throw new Error('Mismatch must never build a misleading A-B mesh')}
+  };
+  const update=new Function('deps',
+    'const {'+Object.keys(dependencies).join(',')+'}=deps;'+
+    source.slice(a,b)+';return fcUpdateDifference;')(dependencies);
+  update({cellCount:1},{cellCount:1},[10],[5]);
+  assert.equal(state.differenceValues,null,'Old cross-time A-B values must be discarded');
+  assert.equal(state.differenceRange,null,'Old cross-time color scale must be discarded');
+  assert.equal(stats.calls,1,'Cross-time difference must immediately resynchronize the layout');
+  assert(stats.issues[0].includes('Physical times differ'),
+    'Linked nearest mode must display the true physical-time incompatibility');
+
+  // The actual comparison layout previously treated a linked UI switch as
+  // proof of equal source times, showing a third stale difference viewport.
+  const layoutStart=source.indexOf('function fcUpdateLayout(){'),
+    layoutEnd=source.indexOf('function fcInstallUi(){',layoutStart);
+  assert(layoutStart>=0&&layoutEnd>layoutStart,'Original A/B/C/D layout required');
+  let diffHidden=null;
+  const notice={hidden:true,textContent:''},differenceStatus={textContent:''};
+  const node=()=>({classList:{toggle:()=>{}},querySelector:()=>null});
+  const panel=node(),compare=node(),statsPane=node(),
+    diff={classList:{toggle:(name,on)=>{if(name==='hidden')diffHidden=on}}};
+  const getElementById=id=>({
+    fcEnabled:{checked:true},fieldViewPanel:panel,fcViewport:compare,
+    fcDifferenceViewport:diff,fcDifference:{checked:true},fvStats:statsPane,
+    fcDifferenceNotice:notice,fcDifferenceStatus:differenceStatus
+  })[id]||null;
+  const layoutDeps={fcState:state,fcExtraViews:[],fvState:dependencies.fvState,
+    document:{getElementById},fcTimesLinked:()=>true,
+    fcDifferenceTimesMatch:matches,fcDifferenceSourceMatches:()=>
+      !!state.differenceRange?.valid&&!!state.differenceValues?.length,
+    fcUi:en=>en,fcUpdateLabels:()=>{},fcUpdateStatsGrid:()=>{},
+    fcScheduleToolbarSync:()=>{},fcScheduleLayoutRender:()=>{},
+    window:{FoamLensFieldWorkspace:null}};
+  const layout=new Function('deps',
+    'const {'+Object.keys(layoutDeps).join(',')+'}=deps;'+
+    source.slice(layoutStart,layoutEnd)+';return fcUpdateLayout;')(layoutDeps);
+  state.time=9.9;layout();assert.equal(diffHidden,true,
+    'A 9.8s / B 9.9s in linked nearest mode must hide false difference viewport');
+  assert.equal(notice.hidden,false);
+  assert(notice.textContent.includes('physical times do not match'),
+    'The physical-time error must remain visible outside the hidden delta canvas');
+  state.time=9.8;layout();assert.equal(diffHidden,true,
+    'Equal times do not certify a difference without compatible measured field values');
+  assert.equal(notice.hidden,false);
+  assert(notice.textContent.includes('not available'),
+    'Incompatible fields must have a visible explanatory status');
+  state.differenceValues=[7];state.differenceRange={valid:true,min:7,max:7};
+  layout();assert.equal(diffHidden,false,
+    'Matching physical time with valid A-B values may show original difference');
+  assert.equal(notice.hidden,true,'Valid delta must not show a stale incompatibility message');
+  state.differenceValues=null;state.differenceRange=null;
+  differenceStatus.textContent='mesh mismatch: original topology differs';
+  layout();assert.equal(diffHidden,true,'A failed source compatibility check must hide stale GPU delta');
+  assert(notice.textContent.includes('mesh mismatch'),
+    'Original scientific compatibility reason must remain readable in the controls');
+  state.time=NaN;layout();assert.equal(diffHidden,true,
+    'No valid B measured timestamp must hide difference even if linked');
+});
+
+test('Granada: new B source clears old A-B before async frame requests and reports recomputation',()=>{
+  const start=source.indexOf('async function fcRefreshFrame(){'),
+    end=source.indexOf('function fcRefreshVisuals(){',start);
+  assert(start>=0&&end>start,'Original B frame read callback must remain testable');
+  const state={enabled:true,differenceValues:[110],differenceRange:{valid:true,min:0,max:110}};
+  let snapshot=null,cleared=0,reported='',message='';
+  const deltaStatus={textContent:'Previous A − B looked valid'};
+  const host={
+    fcState:state,
+    fcRefreshSelectors:()=>{},
+    document:{getElementById:id=>id==='fcEnabled'?{checked:true}:
+      id==='fcDifferenceStatus'?deltaStatus:null},
+    fcUi:en=>en,
+    fcUpdateLayout:()=>{
+      snapshot={values:state.differenceValues,range:state.differenceRange,
+        status:deltaStatus.textContent}
+    },
+    fcClearRenderer:()=>cleared++,
+    fcCase:()=>null,fcRegion:()=>'',fcCurrentFieldName:()=>'',fcCurrentComponent:()=> 'value',
+    fcIndependentTimeTarget:()=>NaN,
+    fcSetStatus:txt=>{reported=txt}
+  };
+  const load=new Function('deps',
+    'const {'+Object.keys(host).join(',')+'}=deps;'+
+    source.slice(start,end)+';return fcRefreshFrame;')(host);
+  load(); // early invalid-source path commits its state before any await
+  assert.equal(snapshot.values,null,'An old delta cannot survive new B case/field selection');
+  assert.equal(snapshot.range,null,'Old A-B scale cannot be presented as new data');
+  assert(snapshot.status.includes('Updating A − B'),
+    'During new source read the user must see recomputation, not an old successful formula');
+  assert.equal(cleared,1,'Missing newly selected B source still clears its original renderer');
+  assert(reported.includes('Choose a loaded case/field'));
+});
+
+test('Granada: signed 3D difference cannot survive a same-time case, field, mesh or source swap',()=>{
+  // Execute the ORIGINAL production success branch, then change the original
+  // source inputs without changing its physical timestamp. A cached delta
+  // must never survive merely because the two clocks still read 9.8 s.
+  const keyStart=source.indexOf('function fcDifferenceSourceKey(){'),
+    renderStart=source.indexOf('function fcRenderDifference(',keyStart),
+    timeStart=source.indexOf('function fcDifferenceTimesMatch(',renderStart),
+    diffStart=source.indexOf('function fcUpdateDifference(',timeStart),
+    diffEnd=source.indexOf('async function fcLoadVectorAtTime(',diffStart);
+  assert(keyStart>0&&renderStart>keyStart&&timeStart>renderStart&&
+    diffStart>timeStart&&diffEnd>diffStart,'Original Field A-B provenance pipeline must be available');
+  const sameTime=new Function('fcPhysicalNumber',source.slice(timeStart,diffStart)+
+    ';return fcDifferenceTimesMatch;')(api.fcPhysicalNumber);
+  const mesh={cellCount:2,id:'B14 polyMesh'},meshB={cellCount:2,id:'C14 polyMesh'},
+    valuesA=[900,870],valuesB=[850,820];
+  const primary={caseId:'B14',region:'metal',fieldName:'T',component:'value',
+    fieldStorage:'volume',fieldParsed:{dimensions:'[0 0 0 1 0 0 0]'},
+    mesh,fieldValues:valuesA,time:9.8,frameSeq:4},
+    secondary={caseId:'C14',region:'metal',fieldName:'T',component:'value',
+      fieldStorage:'volume',fieldParsed:{dimensions:'[0 0 0 1 0 0 0]'},
+      mesh:meshB,fieldValues:valuesB,time:9.8,seq:7,
+      enabled:true,differenceValues:null,differenceRange:null,differenceSource:null};
+  const mode={value:'signed'},epsilon={value:'1e-12'},status={textContent:'',
+    classList:{remove:()=>{}}};
+  const selectedCase={value:'B14'},selectedField={value:'T',
+    selectedOptions:[{dataset:{storage:'volume'}}]};
+  const differenceCanvas={width:400,height:200},differenceViewport={classList:{toggle:()=>{}}};
+  const dom={getElementById:id=>({
+    fcDifference:{checked:true},fcDifferenceMode:mode,fcPercentEpsilon:epsilon,
+    fcDifferenceCanvas:differenceCanvas,fcDifferenceViewport:differenceViewport,
+    fcDifferenceStatus:status,fvCase:selectedCase,fvField:selectedField
+  })[id]||null};
+  const provenance=new Function('fvState','fcState','document','fcDifferenceTimesMatch',
+    source.slice(keyStart,renderStart)+
+    ';return {fcDifferenceSourceKey,fcDifferenceSourceMatches};')(
+    primary,secondary,dom,sameTime);
+  const renderer={gl:{DYNAMIC_DRAW:35048}},uploads=[],events=[];
+  const deps={fcState:secondary,fvState:primary,document:dom,
+    fcDifferenceTimesMatch:sameTime,fcDifferenceSourceKey:provenance.fcDifferenceSourceKey,
+    fcSameQuantity:()=>true,fcMeshesEquivalent:()=>({ok:true}),
+    fcDifferenceValues:api.fcDifferenceValues,fcDifferenceRange:api.fcDifferenceRange,
+    fcUi:en=>en,flSetIssue:()=>{throw new Error('Valid source must not fail')},
+    fcUpdateLayout:()=>events.push('layout'),fcRenderDifference:()=>events.push('draw'),
+    fvCreateRenderer:()=>renderer,
+    fvBuildSurfaceBuffers:()=>({surfacePositions:new Float32Array(9),
+      edgePositions:new Float32Array(6)}),
+    fvUploadBuffer:(r,key,data)=>uploads.push(key),
+    fvConstantColors:n=>new Float32Array(n*3),
+    fvSurfaceColors:()=>new Float32Array(9),
+    fvCase:()=>({name:'B14'}),fcCase:()=>({name:'C14'}),
+    fcFmt:v=>String(v),fcSyncText:()=> 'Exact'
+  };
+  const compute=new Function('deps','const {'+Object.keys(deps).join(',')+
+    '}=deps;'+source.slice(diffStart,diffEnd)+
+    ';return fcUpdateDifference;')(deps);
+  compute(mesh,meshB,valuesA,valuesB);
+  assert.deepStrictEqual(secondary.differenceValues,[50,50]);
+  assert(provenance.fcDifferenceSourceMatches(),
+    'A freshly calculated source-backed delta must remain renderable');
+  assert(secondary.differenceSource?.primaryValues===valuesA);
+  assert(secondary.differenceSource?.compareValues===valuesB);
+  assert(uploads.includes('surfaceColor'),'Real original GPU colors were uploaded');
+
+  const mustReject=(apply,restore,message)=>{
+    apply();
+    assert.equal(provenance.fcDifferenceSourceMatches(),false,message);
+    restore();
+    assert.equal(provenance.fcDifferenceSourceMatches(),true,
+      'Restoring original source must recover the exact provenance contract')
+  };
+  mustReject(()=>primary.caseId='another same-time case',()=>primary.caseId='B14',
+    'Same timestamp with a different source case is NOT the old delta');
+  mustReject(()=>selectedCase.value='B15',()=>selectedCase.value='B14',
+    'Selecting another original case must hide the previous delta before new bytes load');
+  mustReject(()=>selectedField.selectedOptions[0].dataset.storage='surface',
+    ()=>selectedField.selectedOptions[0].dataset.storage='volume',
+    'Switching native volume/surface association invalidates an old delta immediately');
+  mustReject(()=>primary.fieldValues=[900,870],()=>primary.fieldValues=valuesA,
+    'Same numbers in a new source frame are NOT proven to be the old buffer');
+  mustReject(()=>secondary.mesh={cellCount:2},()=>secondary.mesh=meshB,
+    'Changed geometry cannot retain old delta GPU mesh');
+  mustReject(()=>secondary.fieldName='alpha1',()=>secondary.fieldName='T',
+    'Changing comparison quantity invalidates previously calculated temperature delta');
+  mustReject(()=>primary.region='mold',()=>primary.region='metal',
+    'Other physical region at same time cannot inherit old metal delta');
+  mustReject(()=>primary.frameSeq=5,()=>primary.frameSeq=4,
+    'A new in-flight source request cannot export an old delta');
+  mustReject(()=>mode.value='absolute',()=>mode.value='signed',
+    'Changed difference mode requires new scientific calculation');
+  mustReject(()=>epsilon.value='1e-8',()=>epsilon.value='1e-12',
+    'Changed percent denominator policy requires new calculation');
+  mustReject(()=>primary.time=9.9,()=>primary.time=9.8,
+    'Different measured source times remain invalid');
+
+  let cleared=0;
+  const draw=new Function('fcState','fvState','document','fcDifferenceSourceMatches',
+    'fcBlankInvalidFieldViewport',source.slice(renderStart,timeStart)+
+    ';return fcRenderDifference;')(
+    secondary,primary,dom,provenance.fcDifferenceSourceMatches,()=>cleared++);
+  primary.caseId='new same-time case';draw({width:800,height:400});
+  assert.equal(cleared,1,
+    'A stale delta export must clear the old canvas instead of rendering previous GPU pixels');
+  primary.caseId='B14';
+
+  // Native video-frame discovery is a separate export path. It must never
+  // expose a delta descriptor after its source case/mesh/field was replaced.
+  const videoBegin=source.indexOf('function fcVideoDescriptors(){'),
+    videoEnd=source.indexOf('function fcSetVideoRanges(',videoBegin);
+  assert(videoBegin>0&&videoEnd>videoBegin,'Original video catalog must be extractable');
+  const videoGuardStart=source.indexOf('function fcVideoSourceCurrent(');
+  assert(videoGuardStart>0&&videoGuardStart<videoBegin,
+    'Original per-viewport export validation must precede video catalog');
+  const nativeVideoGuard=new Function('document','fcPhysicalNumber',
+    source.slice(videoGuardStart,videoBegin)+';return fcVideoSourceCurrent;')(
+    dom,api.fcPhysicalNumber);
+  const videoDeps={fcState:secondary,fcExtraViews:[],document:dom,
+    fcVideoSourceCurrent:nativeVideoGuard,
+    fcDifferenceSourceMatches:provenance.fcDifferenceSourceMatches,
+    fvState:primary,fcCase:()=>({name:'C14'}),fcCurrentFieldName:()=> 'T',
+    fcCurrentComponent:()=> 'value',fvFiniteRange:()=>({valid:true,min:0,max:100})};
+  const videos=new Function('deps',
+    'const {'+Object.keys(videoDeps).join(',')+'}=deps;'+
+    source.slice(videoBegin,videoEnd)+';return fcVideoDescriptors;')(videoDeps);
+  assert(videos().some(x=>x.key==='difference'),
+    'Current source-backed delta must be available for video export');
+  selectedCase.value='new case before load';
+  assert(!videos().some(x=>x.key==='difference'),
+    'Stale delta must be excluded from video exports even before an async case load');
+  selectedCase.value='B14';
+  assert(videos().some(x=>x.key==='difference'),
+    'Original validated source permits video capture after selection is restored');
+});
+
+test('Granada: B/C/D video export rejects pending case, field, region, association and frame',()=>{
+  const begin=source.indexOf('function fcVideoSourceCurrent('),
+    end=source.indexOf('function fcSetVideoRanges(',begin);
+  assert(begin>0&&end>begin,'Original Field video catalog and guards are required');
+  const controls=new Map();
+  const add=(prefix,spec)=>{
+    for(const [suffix,value] of Object.entries(spec)){
+      controls.set(prefix+suffix,{value,
+        ...(suffix==='Field'?{selectedOptions:[{dataset:{storage:'volume'}}]}:{})})
+    }
+  };
+  add('fc',{Case:'B14',Region:'metal',Field:'T',Component:'value'});
+  add('fcExtra3',{Case:'C14',Region:'mold',Field:'T',Component:'value'});
+  add('fcExtra4',{Case:'D14',Region:'metal',Field:'U',Component:'magnitude'});
+  const document={getElementById:id=>id==='fcDifference'?{checked:true}:
+    controls.get(id)||null};
+  const measured=(id,caseId,region,fieldName,component)=>({
+    id,caseId,region,fieldName,component,fieldStorage:'volume',storage:'volume',
+    mesh:{cellCount:2},fieldValues:[273,274],range:{valid:true,min:273,max:274},
+    fieldParsed:{dimensions:'[0 0 0 1 0 0 0]'},time:9.8
+  });
+  const B=measured(2,'B14','metal','T','value'),
+    C=measured(3,'C14','mold','T','value'),
+    D=measured(4,'D14','metal','U','magnitude');
+  B.enabled=true;
+  const deps={document,fcState:B,fcExtraViews:[C,D],
+    fcPhysicalNumber:api.fcPhysicalNumber,fcDifferenceSourceMatches:()=>false,
+    fcCase:()=>({name:'B14'}),fcExtraCase:s=>({name:s.caseId}),
+    fcExtraField:s=>s.fieldName,fcExtraComponent:s=>s.component,
+    fcCurrentFieldName:()=>B.fieldName,fcCurrentComponent:()=>B.component,
+    fvState:{fieldName:'T',fieldParsed:{}},
+    fvFiniteRange:()=>({valid:true,min:273,max:274})};
+  const descriptors=new Function('deps','const {'+Object.keys(deps).join(',')+
+    '}=deps;'+source.slice(begin,end)+';return fcVideoDescriptors;')(deps);
+  const keys=()=>descriptors().map(x=>x.key);
+  assert.deepStrictEqual(keys(),['view2','view3','view4'],
+    'All three valid independent original OpenFOAM sources can export video');
+  const reject=(prefix,suffix,value,excluded)=>{
+    const node=controls.get(prefix+suffix),original=node.value;
+    node.value=value;
+    assert(!keys().includes(excluded),
+      'Uncommitted '+prefix+suffix+' selection may not export old GPU frame');
+    node.value=original;
+    assert(keys().includes(excluded),'Restoring current selection keeps its legitimate export')
+  };
+  reject('fc','Case','other same-time case','view2');
+  reject('fc','Region','mold','view2');
+  reject('fc','Field','alpha1','view2');
+  reject('fcExtra3','Case','new C14','view3');
+  reject('fcExtra3','Component','magnitude','view3');
+  reject('fcExtra4','Region','mold','view4');
+  const field=controls.get('fcExtra4Field');
+  field.selectedOptions[0].dataset.storage='surface';
+  assert(!keys().includes('view4'),'Another OpenFOAM storage association invalidates D video');
+  field.selectedOptions[0].dataset.storage='volume';
+  C._fcFrameHold=17;
+  assert(!keys().includes('view3'),'C pending asynchronous load must not export old C frame');
+  C._fcFrameHold=0;
+  D._fcGroupHold=12;
+  assert(!keys().includes('view4'),'D pending linked transaction must not export old D frame');
+  D._fcGroupHold=0;
+  B.time=NaN;
+  assert(!keys().includes('view2'),'No measured B time may be exported');
+  B.time=9.8;
+  B.fieldValues=[];
+  assert(!keys().includes('view2'),'Empty B source cannot masquerade as a measured 3D field');
+  B.fieldValues=[273,274];
+  B.range={valid:false};
+  assert(!keys().includes('view2'),'Invalid physical range cannot be exported');
+  B.range={valid:true};
+  assert.deepStrictEqual(keys(),['view2','view3','view4'],
+    'Recovered original sources must reappear independently after validation');
 });
 
 test('difference color range is symmetric around zero',()=>{

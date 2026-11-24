@@ -5,7 +5,7 @@ const source=fs.readFileSync(p,'utf8');new Function(source);
 const first=source.indexOf('/* FOAMLENS_PHYSICS_EXPLORER_CORE_START */'),last=source.indexOf('/* FOAMLENS_PHYSICS_EXPLORER_CORE_END */');
 assert(first>=0&&last>first,'Science core must be testable separately from UI');
 const api=new Function(source.slice(first,last)+
- ';return {descriptors:peDescriptors,validate:peValidate,assemble:peAssemble,finite:peFinite,unique:peUniqueSorted}')();
+ ';return {descriptors:peDescriptors,validate:peValidate,assemble:peAssemble,finite:peFinite,unique:peUniqueSorted,digest:peEvidenceDigest,reaudit:peReauditEvidence}')();
 const records=[
  {name:'alphaL',time:0,region:'metal',sourcePath:'case/0/metal/alphaL',partition:'',size:300},
  {name:'alphaL',time:1,region:'metal',sourcePath:'case/1/metal/alphaL',partition:'',size:300},
@@ -121,3 +121,62 @@ for(const token of ["id='pePanel'","id=\"peCase\"","id=\"peType\"","id=\"peRegio
 for(const forbidden of ['QuickCup','B14','C14','thermalAlphaMetal'])
  assert(!source.includes(forbidden),'Thesis-specific field name leaked into general product '+forbidden);
 console.log('Granada #156 PASS: real metadata, phase/momentum selection, region separation, physical-time provenance, strict cell count, unavailable samples and no fake conclusions.');
+
+
+
+// GRANADA: original data provenance and on-export original cell replay.
+// A source-backed report must not be awarded to unnamed arrays, and a case
+// whose numeric cells mutate in-place must not export the OLD statistical
+// outcome even if the mean happens to be unchanged.
+{
+ const noProvenance=api.assemble({...cfg,subset:'whole'},T,[
+  {...obs[0],sources:[]},obs[1]],stats);
+ assert(noProvenance.ok,'Another genuinely sourced frame remains useful as partial evidence');
+ assert.equal(noProvenance.completion,'partial-evidence');
+ assert.deepStrictEqual(noProvenance.rows.map(r=>r.timeS),[1]);
+ assert(noProvenance.excluded.some(x=>/source path missing/.test(x.reason)));
+ const fakeOnly=api.assemble({...cfg,subset:'whole'},T,[
+  {...obs[0],sources:[null]},{...obs[1],sources:['   ']}],stats);
+ assert(!fakeOnly.ok,'Physical readings without a source file cannot be verified');
+ const invalidTime=api.assemble({...cfg,subset:'whole'},T,[
+  {...obs[0],time:null},obs[1]],stats);
+ assert(invalidTime.ok&&invalidTime.completion==='partial-evidence');
+ assert.deepStrictEqual(invalidTime.rows.map(x=>x.timeS),[1]);
+ assert(invalidTime.excluded.some(x=>/invalid physical time/.test(x.reason)));
+ const completeConfig={...cfg,subset:'whole',statistic:'mean'};
+ const originals=structuredClone(obs);
+ const baseline=api.assemble(completeConfig,T,originals,stats);
+ assert(baseline.ok);
+ const bound={fieldSet:[0,1],config:completeConfig,descriptor:T,
+  sourceDigest:api.digest(originals),reportSignature:JSON.stringify(baseline)};
+ const read=async time=>originals.find(r=>r.time===time);
+ const valid=async()=>api.reaudit(bound,read,stats,()=>true);
+ (async()=>{
+   const verified=await valid();
+   assert(verified.ok,verified.reason);
+   const reportBefore=JSON.stringify(baseline);
+   // Alter two original cells but KEEP the exact same mean and frame count.
+   const originalFirst=originals[0].values.slice();
+   originals[0].values[0]-=10;originals[0].values[1]+=10;
+   assert.equal(JSON.stringify(api.assemble(completeConfig,T,originals,stats)),reportBefore,
+     'An in-place source change can retain the same mean; fingerprint must detect it');
+   const after=await valid();
+   assert(!after.ok,'Mutated original cells must block export even if the mean is identical');
+   assert.match(after.reason,/numerical source evidence changed/);
+   originals[0].values=originalFirst;
+   // Re-reading can uncover missing provenance without changes to case ID or mapping.
+   const missingPath=async time=>{
+     const row=structuredClone(originals.find(r=>r.time===time));
+     if(time===1)row.sources=[];return row
+   };
+   const invalidProvenance=await api.reaudit(bound,missingPath,stats,()=>true);
+   assert(!invalidProvenance.ok,'A removed source path must invalidate the previous report');
+   const cancelled=await api.reaudit(bound,read,stats,()=>false);
+   assert(!cancelled.ok,'Changing case during source reload must cancel stale export');
+   assert(source.includes('async function peExport(){')&&
+     source.includes('await peReauditEvidence(bound,')&&
+     source.includes('sourceDigest:peEvidenceDigest(samples)'),
+     'The real Analysis export button must re-read all original cells before saving');
+   console.log('Granada Phase/Momentum source replay PASS: same-mean mutation, provenance, invalid time, cancellation');
+ })().catch(e=>{console.error(e);process.exitCode=1});
+}

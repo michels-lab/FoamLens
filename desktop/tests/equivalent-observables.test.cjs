@@ -62,8 +62,73 @@ assert.deepStrictEqual(zeros.map(x=>x.t),[0,1,2]);
 assert.strictEqual(zeros[0].y,0);
 const repeated=pairs(series(8,[0,1,1,2],[5,7,9,6]));
 assert.deepStrictEqual(repeated.map(x=>x.y),[5,9,6]);
-const truncated=grid(pairs(series(1,[0,1,2,3],[1,2,3,4])),pairs(series(2,[1,2,3,4],[2,3,4,5])),2);
-assert.deepStrictEqual(truncated.times,[1,3]);
+// Original frames are never discarded to make a 2D/3D result "fit".
+const forbiddenDecimation=grid(pairs(series(1,[0,1,2,3],[1,2,3,4])),
+  pairs(series(2,[1,2,3,4],[2,3,4,5])),2);
+assert.equal(forbiddenDecimation.valid,false,'A 2-point limit cannot silently discard real t=2');
+assert.equal(forbiddenDecimation.sourcePoints,3);
+assert.equal(forbiddenDecimation.times.length,0);
+assert.match(forbiddenDecimation.reason,/no measured frames were silently discarded/);
+const completeUnion=grid(pairs(series(1,[0,1,2,3],[1,2,3,4])),
+  pairs(series(2,[1,2,3,4],[2,3,4,5])),3);
+assert.equal(completeUnion.valid,true);
+assert.deepStrictEqual(completeUnion.times,[1,2,3]);
+assert.equal(completeUnion.notDecimated,true);
+for(const invalidLimit of [0,1,1.5,100001,'',null,'0xFF']){
+ const invalidGrid=grid(pairs(series(1,[0,1,2],[0,1,2])),
+   pairs(series(2,[0,1,2],[0,1,2])),invalidLimit);
+ assert.equal(invalidGrid.valid,false,'Never silently replace explicit bad source limit: '+String(invalidLimit));
+ assert.match(invalidGrid.reason,/integer from 2 to 100000/);
+}
+const spikeTimes=Array.from({length:1601},(_,i)=>i/100);
+const spikeSeries=spikeTimes.map((_,i)=>i===734?10000:0);
+const spikeA=series(101,spikeTimes,spikeSeries,'W',
+  {field:{canonical:'P',unit:'W',dimensions:'[1 2 -3 0 0 0 0]'}});
+const spikeB=series(102,spikeTimes,spikeTimes.map(()=>0),'W',
+  {field:{canonical:'P',unit:'W',dimensions:'[1 2 -3 0 0 0 0]'}});
+const gridDenied=compare(spikeA,spikeB,{...meta,maxPoints:1500});
+assert.equal(gridDenied.valid,false,'Never drop a genuine power peak for plausible RMSE');
+assert.match(gridDenied.reason,/1601 genuine knots/);
+const gridVerified=compare(spikeA,spikeB,{...meta,maxPoints:20000});
+assert(gridVerified.valid,gridVerified.reason);
+assert.equal(gridVerified.metrics.n,1601);
+assert.equal(gridVerified.metrics.maxAbs,10000);
+assert(gridVerified.rows.some(r=>r.t===7.34&&r.delta===-10000),
+  'Actual short lived power excursion must remain in exact source-time grid');
+
+// SI prefixes in source units are physical measurements, not case-insensitive labels.
+for(const [symbol,canonical,expected] of [
+  ['mW','W',.001],['MW','W',1000000],['mJ','J',.001],['MJ','J',1000000],
+  ['mPa','Pa',.001],['MPa','Pa',1000000],['kPa','Pa',1000],
+  ['W','W',1],['J','J',1],['Pa','Pa',1]
+]){
+ const x=unit(symbol);assert(x,'Valid SI source label '+symbol);
+ assert.equal(x.canonical,canonical);
+ assert(Math.abs(x.transform(1)-expected)<=Math.max(1e-12,expected*1e-12));
+}
+assert.equal(unit('MW').transform(1)/unit('mW').transform(1),1e9);
+assert.equal(unit('MPa').transform(1)/unit('mPa').transform(1),1e9);
+for(const badUnit of ['mw','mj','mpa','kw','kpa','pa','Kw']){
+ assert.equal(unit(badUnit),null,'Ambiguous SI spelling must not create wrong physics: '+badUnit);
+}
+const watt2=series(201,[0,1],[1,2],'MW',
+ {field:{canonical:'P',unit:'MW',dimensions:'[1 2 -3 0 0 0 0]'}});
+const watt3=series(202,[0,1],[1e9,2e9],'mW',
+ {field:{canonical:'P',unit:'mW',dimensions:'[1 2 -3 0 0 0 0]'}});
+const equalPower=compare(watt2,watt3,meta);
+assert(equalPower.valid,equalPower.reason);
+near(equalPower.metrics.rmse,0);
+assert(!eligible(series(null,[0,1],[300,310])),
+  'Missing source case ID cannot become case zero');
+assert(!eligible(series(false,[0,1],[300,310])));
+assert(!eligible(series('0x10',[0,1],[300,310])));
+assert(eligible(series(0,[0,1],[300,310])), 'Genuine OpenFOAM case 0 supported');
+assert(!compare(series(0,[0,1],[300,310]),series(null,[0,1],[300,310]),meta).valid);
+assert(!compare(series(103,[0,1],[300,-1]),series(104,[0,1],[300,320]),meta).valid,
+  'Impossible Kelvin samples must not be reported in scientific 2D/3D metrics');
+assert(!compare(series(103,[0,1,2],[300,310,320]),
+  series(104,[-1,0,1,2],[ -1,300,310,320]),meta).valid,
+  'Even an invalid Kelvin value before shared time coverage is corrupt original evidence');
 assert.strictEqual(unit('watts').canonical,'watts');
 assert.strictEqual(unit(''),null);
 const original=series(41,[0,1],[300,310]);

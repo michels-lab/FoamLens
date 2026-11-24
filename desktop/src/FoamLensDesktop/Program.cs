@@ -3392,15 +3392,18 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     if(expected.some(name=>!discovered.includes(name)))
       throw new Error('OpenFOAM physical-region inventory mismatch: '+JSON.stringify({expected,discovered}));
     if(!expected.includes(primary))throw new Error('The loaded primary region is not in the real physical-region fixture: '+primary);
-    // The product defaults to the selected physical region only. In this
-    // native multiregion smoke we explicitly ask for EVERY real region,
-    // matching the owner-facing "Show all regions" action in the viewport.
-    // Visibility must be flagged explicit: fvRegionChoice otherwise restores
-    // the selected-only implicit default during the asynchronous field parse.
-    for(const region of expected){
+    // ACCEPTANCE OF THE PRODUCT DEFAULT, not a smoke-test manual override:
+    // the actual imported QuickCup case must already have metal + mold
+    // visible with their own real OpenFOAM geometry. This used to require
+    // clicking "Show all regions" and caused B/C/D to show metal alone.
+    const firstLoadRegions=expected.map(region=>{
       const choice=fvRegionChoice(c,region);
-      choice.visible=true;choice.visibilityExplicit=true;
-    }
+      return{region,visible:choice.visible===true,
+        explicit:choice.visibilityExplicit===true,opacity:Number(choice.opacity)}
+    });
+    if(firstLoadRegions.some(x=>!x.visible))
+      throw new Error('Real QuickCup first-load metal/mold default is hidden: '+
+        JSON.stringify(firstLoadRegions));
     await api.load(c,fvState.time);
     fvCameraFitCurrent();fvRender();
     const scene=api.state(),gl=fvState.renderer?.gl,canvas=document.getElementById('fvCanvas');
@@ -3418,7 +3421,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
     const initialGpu=api.gpuPayloadStats?.();
     const loaded=secondary.every(s=>s.colored&&s.field==='T'&&s.exactTime&&s.cells>0&&
       s.surfaceVertices>0&&s.sameWebGL&&s.distinctMesh&&s.validRange);
-    physicalScene={expected,discovered,primary,primaryCells,frameTime,secondary,
+    physicalScene={expected,discovered,primary,primaryCells,frameTime,secondary,firstLoadRegions,
       oneCanvas:!!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl),
       secondaryCount:scene.layers.size,glError:gl?gl.getError():-1,
       secondaryGpuPayloadBytes:Number(initialGpu?.payloadBytes||0),
@@ -3428,6 +3431,102 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         primaryCells>0&&!!fvState.fieldValues?.length&&
         !!canvas&&(canvas.getContext('webgl2')===gl||canvas.getContext('webgl')===gl)};
     if(!physicalScene.ok)throw new Error('Real multiregion scene failed: '+JSON.stringify(physicalScene));
+    // Native A/B/C/D acceptance with the ACTUAL imported QuickCup source:
+    // all viewports must load their own metal/mold GPU scene, timestamp and
+    // metric XYZ. Do not supply synthetic fields or manually force region
+    // visibility. Restore the user's original comparison setup afterwards.
+    {
+      const compare=window.FoamLensFieldCompare,workspace=window.FoamLensFieldWorkspace,
+        link=document.getElementById('fcLinkTimes'),
+        wasLinked=link?.checked,wasEnabled=!!document.getElementById('fcEnabled')?.checked,
+        created=[];
+      if(!compare?.getPhysicalRegionDescriptors||!workspace?.add3DView)
+        throw new Error('Native multiview Field runtime unavailable');
+      try{
+        if(link)link.checked=true;
+        if(!document.getElementById('fcEnabled')?.checked)workspace.add3DView();
+        for(const id of [3,4]){
+          if(!document.getElementById('fcExtra'+id+'Viewport')){
+            workspace.add3DView();
+            if(!document.getElementById('fcExtra'+id+'Viewport'))
+              throw new Error('Original Field view '+id+' did not mount');
+            created.push(id)
+          }
+          // A viewport can be created while the original case catalog is
+          // being reconstructed. Refresh its OWN native selectors before
+          // assigning an existing imported OpenFOAM source. Do not inject
+          // option HTML or manufacture cases on behalf of this acceptance.
+          const state=typeof fcExtraViews==='undefined'?null:
+            fcExtraViews.find(view=>view.id===id);
+          if(!state||typeof fcExtraRefreshSelectors!=='function')
+            throw new Error('Native Field '+id+' source-selector controller missing');
+          fcExtraRefreshSelectors(state,false)
+        }
+        if(typeof fcRefreshSelectors==='function')fcRefreshSelectors(true);
+        for(const prefix of ['fc','fcExtra3','fcExtra4']){
+          const caseSelect=document.getElementById(prefix+'Case'),
+            actual=[...(caseSelect?.options||[])].map(option=>option.value);
+          if(!actual.includes(String(c.id)))
+            throw new Error('QuickCup case '+String(c.id)+' unavailable in '+prefix+
+              ': '+JSON.stringify({hasSelect:!!caseSelect,optionIds:actual,
+                loadedIds:(cases||[]).map(item=>String(item?.id??'')),
+                viewportPresent:!!document.getElementById(prefix+'Viewport')}));
+          caseSelect.value=String(c.id);
+          caseSelect.dispatchEvent(new Event('change',{bubbles:true}));
+        }
+        await new Promise(resolve=>setTimeout(resolve,0));
+        for(const prefix of ['fc','fcExtra3','fcExtra4']){
+          const regionSelect=document.getElementById(prefix+'Region'),
+            fieldSelect=document.getElementById(prefix+'Field');
+          if(!regionSelect||![...regionSelect.options].some(option=>option.value===primary))
+            throw new Error('Original primary physical region missing from '+prefix);
+          regionSelect.value=primary;
+          regionSelect.dispatchEvent(new Event('change',{bubbles:true}));
+          if(!fieldSelect||![...fieldSelect.options].some(option=>option.value==='T'))
+            throw new Error('Original T not selectable in '+prefix);
+          fieldSelect.value='T';
+        }
+        await compare.fcRefreshFrame();
+        await compare.refreshExtras();
+        compare.flushLayoutRender?.();
+        const measured=compare.getPhysicalRegionDescriptors(),
+          witnesses=['view2','view3','view4'].map(view=>{
+            const data=measured.find(item=>item.id===view)||null,
+              secondary=expected.filter(region=>region!==primary).map(region=>
+                data?.regions?.find(item=>item.region===region)||null),
+              all=expected.map(region=>data?.regions?.find(item=>item.region===region)||null);
+            const samePhysical=typeof data?.time==='number'&&
+              Number.isFinite(data.time)&&fvTimeEqual(data.time,fvState.time);
+            return{view,caseMatches:String(data?.caseId||'')===String(c.id),
+              regionMatches:data?.primaryRegion===primary,samePhysical,
+              allRegionsVisible:all.every(row=>row?.visible===true),
+              allRegionsLoaded:all.every(row=>row?.loaded===true),
+              secondarySourceMatched:secondary.every(row=>row&&
+                row.sourceTime!==null&&fvTimeEqual(row.sourceTime,fvState.time)&&
+                Number(row.gpuPayloadBytes)>0),
+              boundsValid:!!data?.bounds&&[0,1,2].every(axis=>
+                Number.isFinite(data.bounds.min[axis])&&Number.isFinite(data.bounds.max[axis])&&
+                data.bounds.max[axis]>data.bounds.min[axis]),
+              xyzLabeled:['X:','Y:','Z:'].every(axis=>
+                String(data?.metricsText||'').includes(axis))}
+          });
+        physicalScene.multiView={caseId:String(c.id),time:Number(fvState.time),witnesses,
+          ok:witnesses.length===3&&witnesses.every(v=>v.caseMatches&&
+            v.regionMatches&&v.samePhysical&&v.allRegionsVisible&&
+            v.allRegionsLoaded&&v.secondarySourceMatched&&v.boundsValid&&v.xyzLabeled)};
+        if(!physicalScene.multiView.ok)
+          throw new Error('Native original QuickCup B/C/D metal+mold/XYZ failed: '+
+            JSON.stringify(physicalScene.multiView));
+      }finally{
+        for(const id of created.reverse()){
+          if(typeof fcExtraRemove==='function')fcExtraRemove(id);
+          else document.getElementById('fcExtra'+id+'Remove')?.click()
+        }
+        if(!wasEnabled)workspace.disableCompare?.();
+        if(link)link.checked=wasLinked
+      }
+    }
+
     // Pixel-backed native WebView2 check: a real offscreen GPU canvas draws
     // two overlapping physical-region triangles in deliberately WRONG input
     // order. The production global triangle sorter must reorder them before
@@ -3675,13 +3774,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         await fvLoadSelection();
         const metalGroup=fvFieldGroups(c2,primary,null,'any').find(g=>g.name==='T');
         const moldName=expected.find(name=>name!==primary);
-        // An asymmetric imported case correctly starts with only the selected
-        // primary region visible. This smoke explicitly requests the MISSING-
-        // frame mold geometry so the native fallback is actually exercised.
-        // Do not change the product default or manufacture any OpenFOAM data.
+        // An independent imported case must show the mold by DEFAULT,
+        // even when that region has geometry but no measured field at this
+        // requested physical time. Do not fabricate color or modify choices.
         const asymmetricMoldChoice=fvRegionChoice(c2,moldName);
-        asymmetricMoldChoice.visible=true;
-        asymmetricMoldChoice.visibilityExplicit=true;
+        if(!asymmetricMoldChoice.visible)
+          throw new Error('Asymmetric original mold hidden on first load');
         const moldGroup=fvFieldGroups(c2,moldName,null,'any').find(g=>g.name==='T');
         const metalTimes=(metalGroup?.times||[]).map(api.physicalTime).filter(Number.isFinite);
         const moldTimes=(moldGroup?.times||[]).map(api.physicalTime).filter(Number.isFinite);

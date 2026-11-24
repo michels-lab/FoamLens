@@ -3,6 +3,15 @@
 /* FOAMLENS_F2_LAYOUT_CORE_START */
 const pvViews={fvViewport:'A',fcViewport:'B',fcExtra3Viewport:'C',fcExtra4Viewport:'D',fcDifferenceViewport:'Δ'};
 const pvKey='foamlens.field.f2.viewheights.v1';
+const pvDeckKey='foamlens.field.comparison.deck.v1';
+const pvDeckModes=['auto','two','row'];
+function pvDeckColumns(mode,count,width){
+  if(!Number.isFinite(count)||count<1)return 1;
+  if(width<700)return 1;
+  if(mode==='two')return Math.min(count,2);
+  if(mode==='row')return Math.min(count,Math.max(2,Math.floor(width/310)));
+  return count>=4&&width>=1320?4:count>=3&&width>=1040?3:Math.min(count,2)
+}
 function pvNumber(n){return typeof n==='number'&&Number.isFinite(n)?n:typeof n==='string'&&n.trim()&&Number.isFinite(Number(n))?Number(n):NaN}
 function pvMaxHeight(vh){return Number.isFinite(pvNumber(vh))&&vh>0?Math.max(340,Math.min(1050,Math.floor(vh*82/100+1e-9))):800}
 function pvHeight(value,vh){const n=pvNumber(value);return Number.isFinite(n)?Math.round(Math.max(340,Math.min(pvMaxHeight(vh),n))):460}
@@ -65,9 +74,38 @@ function pvClassify(sample){
       expected:sample.buffer.expected,actual:sample.buffer.actual});
   return{state:issues.some(x=>x.severity==='error')?'layout-conflict':issues.length?'review':'no-observed-conflict',issues}
 }
+// Audit the measured A/B/C/D GRID, not only independent caption overlays.
+// Four sources across on a wide panel is an explicit usability requirement;
+// a two-row layout at that width is a measurable regression.
+function pvGridRowAudit(grid,items,panelWidth,deckMode='auto'){
+  const rect=pvRect(grid),active=(items||[]).filter(x=>
+    ['fvViewport','fcViewport','fcExtra3Viewport','fcExtra4Viewport'].includes(x.id)&&
+    pvRect(x.rect)).map(x=>({id:x.id,rect:pvRect(x.rect)}));
+  if(!rect||rect.width<120)return{state:'unmeasured',expectedColumns:0,
+    visibleCount:active.length,rows:0,issues:[{type:'grid-not-rendered'}]};
+  // CSS container queries measure the enclosing Field PANEL, not the grid
+  // after its padding/borders. The audit must use the same breakpoint basis.
+  const n=active.length,width=Number.isFinite(pvNumber(panelWidth))&&panelWidth>0?
+    Number(panelWidth):rect.width;
+  const expectedColumns=pvDeckColumns(deckMode,n,width);
+  const tops=[];
+  for(const entry of active){
+    const top=entry.rect.top;
+    if(!tops.some(value=>Math.abs(value-top)<=5))tops.push(top)
+  }
+  const rows=tops.length,issues=[];
+  for(const item of active)if(item.rect.left<rect.left-4||item.rect.right>rect.right+4)
+    issues.push({type:'viewport-overflows-grid',severity:'error',view:item.id});
+  if(n&&rows>Math.ceil(n/Math.max(1,expectedColumns)))
+    issues.push({type:n===4&&expectedColumns===4?'wide-quad-wrapped':'unexpected-extra-grid-row',
+      severity:'error',expectedColumns,rows});
+  return{state:issues.length?'layout-conflict':'no-observed-conflict',
+    expectedColumns,visibleCount:n,rows,issues}
+}
 /* FOAMLENS_F2_LAYOUT_CORE_END */
 function pvEl(id){return document.getElementById(id)}
 let pvHeights={},pvFocus=null,pvFrame=0,pvObserver=null,pvObservedGrid=null,pvEscapeGrid=null,pvLast=null;
+let pvDeckMode='auto',pvDeckHeight='individual',pvDeckRO=null,pvDeckPanel=null;
 function pvSave(){try{localStorage.setItem(pvKey,JSON.stringify({schema:1,heights:pvHeights}))}catch{}}
 function pvLoad(){
   try{const x=JSON.parse(localStorage.getItem(pvKey)||'{}');
@@ -152,14 +190,14 @@ function pvFocusViewport(viewport){
   for(const el of grid.children)if(pvViews[el.id]){
     el.classList.toggle('pvFocusTarget',el.id===pvFocus);
   }
-  pvSyncFocusButtons();
+  pvSyncFocusButtons();pvApplyDeck();
   pvRedraw();return true
 }
 function pvResetFocus(){
   pvFocus=null;const grid=pvEl('fcViewGrid');
   grid?.classList.remove('pvFocus');
   if(grid)for(const child of grid.children)child.classList.remove('pvFocusTarget');
-  pvSyncFocusButtons();
+  pvSyncFocusButtons();pvApplyDeck();
   pvRedraw()
 }
 function pvSampleOverlay(scene,query,name){
@@ -200,12 +238,13 @@ function pvAudit(){
   const grid=pvEl('fcViewGrid'),
     elements=grid?[...grid.children].filter(x=>pvViews[x.id]&&!x.classList.contains('hidden')&&x.getBoundingClientRect().width>0):[],
     views=elements.map(pvMeasure),
+    gridLayout=pvGridRowAudit(grid?.getBoundingClientRect?.(),elements.map(x=>({id:x.id,rect:x.getBoundingClientRect?.()})),pvEl('fieldViewPanel')?.getBoundingClientRect?.()?.width,pvDeckMode),
     counts={};for(const v of views)counts[v.state]=(counts[v.state]||0)+1;
   const report={schema:'foamlens/field-f2-layout/1',capturedUtc:new Date().toISOString(),
     environment:{innerCssPx:{width:window.innerWidth,height:window.innerHeight},
       devicePixelRatio:Number(window.devicePixelRatio)||1,
       visualViewportScale:window.visualViewport?.scale??null},
-    counts,views,confidence:'current-rendered-dom-geometry-only',
+    counts,views,gridLayout,confidence:'current-rendered-dom-geometry-only',
     limitations:[
       'No other screen width, DPI scale, monitor or installed Windows Setup/Portable is measured unless independently run there.',
       'DOM overlays are classified inside the canvas scene and XYZ/legend annotations inside their own caption; neither classification proves OpenFOAM numerical accuracy.',
@@ -215,8 +254,8 @@ function pvAudit(){
     ]};
   pvLast=report;
   if(pvEl('pvStatus'))pvEl('pvStatus').textContent=views.length+' measured viewport(s); '+
-    (counts['layout-conflict']||0)+' with overlay conflicts, '+(counts.review||0)+' need review. Current CSS px/DPR only.';
-  if(pvEl('pvEvidence'))pvEl('pvEvidence').textContent=views.map(v=>v.view+': '+v.state+' · '+
+    (counts['layout-conflict']||0)+' with overlay conflicts, '+(counts.review||0)+' need review; '+gridLayout.issues.length+' grid arrangement issue(s). Current CSS px/DPR only.';
+  if(pvEl('pvEvidence'))pvEl('pvEvidence').textContent='Grid A/B/C/D: '+gridLayout.state+' · '+gridLayout.expectedColumns+' column(s), '+gridLayout.rows+' row(s) · '+gridLayout.issues.map(x=>x.type).join(', ')+'\n'+views.map(v=>v.view+': '+v.state+' · '+
     v.issues.map(i=>i.type+(i.a?' '+i.a+(i.b?' vs '+i.b:''):'')).join(', ')).join('\n')||'No active Field viewport';
   if(pvEl('pvExport'))pvEl('pvExport').disabled=!views.length;
   return report
@@ -314,10 +353,94 @@ function pvMountViewport(viewport){
     ro.observe(scene)
   }
 }
+// Comparison deck: layout and height are view geometry only; never modify original field/case/camera/time choices.
+function pvLoadDeck(){
+  try{const p=JSON.parse(localStorage.getItem(pvDeckKey)||'{}');
+    pvDeckMode=pvDeckModes.includes(p.mode)?p.mode:'auto';
+    pvDeckHeight=['individual','compact','balanced','large'].includes(p.height)?p.height:'individual'
+  }catch{pvDeckMode='auto';pvDeckHeight='individual'}
+}
+function pvSaveDeck(){try{localStorage.setItem(pvDeckKey,JSON.stringify({mode:pvDeckMode,height:pvDeckHeight}))}catch{}}
+function pvDeckSceneHeight(){
+  const h=window.innerHeight;
+  if(pvDeckHeight==='compact')return pvHeight(Math.round(h*.42),h);
+  if(pvDeckHeight==='balanced')return pvHeight(Math.round(h*.58),h);
+  if(pvDeckHeight==='large')return pvHeight(Math.round(h*.76),h);
+  return null
+}
+function pvApplyDeck(){
+  const grid=pvEl('fcViewGrid'),panel=pvEl('fieldViewPanel');if(!grid||!panel)return;
+  const views=Array.from(grid.children).filter(x=>pvViews[x.id]&&!x.classList.contains('hidden'));
+  const n=views.filter(x=>x.id!=='fcDifferenceViewport').length;
+  const width=panel.getBoundingClientRect?.().width||grid.getBoundingClientRect?.().width||0;
+  const cols=pvFocus?1:pvDeckColumns(pvDeckMode,n,width);
+  if(pvDeckMode==='auto'||pvFocus||!panel.classList.contains('fcCompareMode')){
+    grid.removeAttribute('data-pv-deck-mode');grid.style.removeProperty('--pvDeckColumns')
+  }else{
+    if(grid.getAttribute('data-pv-deck-mode')!==pvDeckMode)grid.setAttribute('data-pv-deck-mode',pvDeckMode);
+    const value=String(cols);
+    if(grid.style.getPropertyValue('--pvDeckColumns')!==value)grid.style.setProperty('--pvDeckColumns',value)
+  }
+  const height=pvDeckSceneHeight();
+  if(height!==null){if(grid.getAttribute('data-pv-deck-height')!=='equal')grid.setAttribute('data-pv-deck-height','equal')}
+  else grid.removeAttribute('data-pv-deck-height');
+  for(const v of Array.from(grid.children).filter(x=>pvViews[x.id])){
+    if(height!==null){
+      const px=height+'px';
+      if(v.style.getPropertyValue('--pvDeckHeight')!==px)v.style.setProperty('--pvDeckHeight',px)
+    }else v.style.removeProperty('--pvDeckHeight')
+  }
+  const count=pvEl('pvDeckStatus');
+  if(count){const msg=pvFocus?pvFocusLabel('Focused view','Vista maximizada'):
+    n+' '+pvFocusLabel(n===1?'view':'views',n===1?'vista':'vistas')+' · '+cols+' '+pvFocusLabel(cols===1?'column':'columns',cols===1?'columna':'columnas');
+    if(count.textContent!==msg)count.textContent=msg;
+  }
+  const mode=pvEl('pvDeckMode'),heightSelect=pvEl('pvDeckHeight');
+  if(mode&&mode.value!==pvDeckMode)mode.value=pvDeckMode;
+  if(heightSelect&&heightSelect.value!==pvDeckHeight)heightSelect.value=pvDeckHeight;
+  pvRedraw()
+}
+function pvDeckLabels(){
+  const bar=pvEl('pvDeckBar');if(!bar)return;
+  const pairs={pvDeckLabel:['Comparison layout','Disposición de comparación'],pvDeckModeLabel:['Arrangement','Distribución'],pvDeckHeightLabel:['Scene height','Altura de escena'],pvDeckReset:['Reset layout','Restablecer disposición']};
+  for(const [id,[en,es]] of Object.entries(pairs)){const e=pvEl(id);if(e&&e.textContent!==pvFocusLabel(en,es))e.textContent=pvFocusLabel(en,es)}
+  const modes=pvEl('pvDeckMode'),heights=pvEl('pvDeckHeight');
+  const modeLabels=[['auto','Automatic','Automática'],['two','Two columns','Dos columnas'],['row','Widest safe row','Fila más amplia posible']];
+  const heightLabels=[['individual','Independent','Independiente'],['compact','Compact / equal','Compacta / igual'],['balanced','Balanced / equal','Equilibrada / igual'],['large','Large / equal','Grande / igual']];
+  for(const [select,list] of [[modes,modeLabels],[heights,heightLabels]]){
+    if(!select)continue;for(const [value,en,es] of list){const option=Array.from(select.options).find(x=>x.value===value);
+      if(option)option.textContent=pvFocusLabel(en,es)}
+  }
+}
+function pvMountDeck(grid){
+  if(pvEl('pvDeckBar'))return;
+  const bar=document.createElement('section');bar.id='pvDeckBar';bar.className='pvDeckBar';
+  bar.innerHTML='<strong id="pvDeckLabel"></strong><label class="pvDeckChoice"><span id="pvDeckModeLabel"></span><select id="pvDeckMode"><option value="auto"></option><option value="two"></option><option value="row"></option></select></label>'+
+    '<label class="pvDeckChoice"><span id="pvDeckHeightLabel"></span><select id="pvDeckHeight"><option value="individual"></option><option value="compact"></option><option value="balanced"></option><option value="large"></option></select></label>'+
+    '<button id="pvDeckReset" class="btn soft" type="button"></button><span id="pvDeckStatus" class="smallnote" aria-live="polite"></span>';
+  grid.parentElement.insertBefore(bar,grid);
+  pvEl('pvDeckMode').onchange=e=>{pvDeckMode=pvDeckModes.includes(e.target.value)?e.target.value:'auto';pvSaveDeck();pvApplyDeck()};
+  pvEl('pvDeckHeight').onchange=e=>{pvDeckHeight=e.target.value;pvSaveDeck();pvApplyDeck()};
+  pvEl('pvDeckReset').onclick=()=>{
+    pvDeckMode='auto';pvDeckHeight='individual';pvHeights={};pvSave();pvSaveDeck();pvResetFocus();
+    for(const id of Object.keys(pvViews)){const v=pvEl(id);if(v){v.style.removeProperty('--pvHeight');v.style.removeProperty('--pvDeckHeight')}}
+    pvApplyDeck()
+  };
+  pvDeckLabels();pvApplyDeck()
+}
+
 function pvStyles(){
   if(pvEl('pvStyles'))return;
   const css=[
-    '#fcViewGrid .pvViewport .fcViewportScene{height:var(--pvHeight,clamp(340px,36vw,500px))!important;min-height:0!important}',
+    '#fcViewGrid .pvViewport .fcViewportScene{height:var(--pvDeckHeight,var(--pvHeight,clamp(340px,36vw,500px)))!important;min-height:0!important}',
+    '#fieldViewPanel.fcCompareMode #fcViewGrid[data-pv-deck-mode]:not(.pvFocus){grid-template-columns:repeat(var(--pvDeckColumns,2),minmax(0,1fr))!important;overflow-x:clip}',
+    '#fcViewGrid[data-pv-deck-height=equal] .pvSizeMenu,#fcViewGrid[data-pv-deck-height=equal] .pvGrip{display:none!important}',
+    '.pvDeckBar{display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:10px 12px;margin:0 0 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}',
+    '.pvDeckBar>strong{flex:0 1 auto;align-self:center;font-size:12px;color:var(--text)}',
+    '.pvDeckChoice{display:grid;gap:4px;flex:1 1 160px;min-width:0;max-width:240px;font-size:11px;font-weight:700}',
+    '.pvDeckChoice select{width:100%;min-height:36px;min-width:0;max-width:100%;font-size:12px}',
+    '.pvDeckBar .btn{min-height:36px;white-space:normal;flex:0 1 auto}',
+    '.pvDeckBar .smallnote{margin-left:auto;align-self:center}',
     '#fcViewGrid.pvFocus>.pvViewport:not(.pvFocusTarget){display:none!important}',
     '#fcViewGrid.pvFocus>.pvFocusTarget{grid-column:1/-1!important}',
     '#fcViewGrid .pvActions{display:flex;flex-wrap:wrap;gap:4px;align-items:center}',
@@ -371,37 +494,42 @@ function pvDiscover(){
     });
     pvEscapeGrid=grid
   }
-  pvStyles();pvAuditPanel();
+  pvStyles();pvAuditPanel();pvMountDeck(grid);
   for(const child of grid.children)pvMountViewport(child);
   if(pvObservedGrid!==grid&&typeof MutationObserver!=='undefined'){
     pvObserver?.disconnect?.();
     pvObserver=new MutationObserver(()=>{
       for(const child of grid.children)pvMountViewport(child);
       pvReconcileFocus();
-      pvSyncFocusButtons()
+      pvSyncFocusButtons();pvApplyDeck()
     });
     // Compare views are commonly hidden by class changes, NOT removed from
     // the grid. Observing childList alone leaves an invisible maximized view.
     pvObserver.observe(grid,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
     pvObservedGrid=grid
   }
+  const panel=pvEl('fieldViewPanel');
+  if(panel&&pvDeckPanel!==panel&&typeof ResizeObserver!=='undefined'){
+    pvDeckRO?.disconnect?.();pvDeckRO=new ResizeObserver(()=>pvApplyDeck());pvDeckRO.observe(panel);pvDeckPanel=panel
+  }
   pvReconcileFocus();
-  pvSyncFocusButtons();
+  pvSyncFocusButtons();pvApplyDeck();
   return true
 }
 function pvInstall(){
-  pvHeights=pvLoad();let attempts=0;
+  pvHeights=pvLoad();pvLoadDeck();let attempts=0;
   (function seek(){if(pvDiscover())return;if(attempts++<900)requestAnimationFrame(seek)})();
   window.addEventListener('resize',()=>{
     for(const [id,value] of Object.entries(pvHeights)){const el=pvEl(id);
       if(el)pvSetHeight(el,value,false)}
+    pvApplyDeck()
   });
   // The existing Field controller owns which views are visible. Restore focus
   // when compare/difference is disabled, rather than hiding the only live view.
   document.addEventListener('change',e=>{
     if(['fcEnabled','fcDifference'].includes(e.target?.id))pvResetFocus()
   },true);
-  document.addEventListener('foamlens-language-change',pvSyncFocusButtons);
+  document.addEventListener('foamlens-language-change',()=>{pvSyncFocusButtons();pvDeckLabels();pvApplyDeck()});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',pvInstall,{once:true});
 else pvInstall();

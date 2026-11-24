@@ -1,0 +1,772 @@
+/* FoamLens Granada #153 — source-native OpenFOAM 3D solidification front.
+ * Volume classification uses ORIGINAL closed owner/neighbour polyMesh and
+ * original dimensionless volScalarField. Cell-center edge interpolation
+ * estimates crossing locations: it is NOT a reconstructed iso-surface,
+ * not a sub-cell liquid-volume integration and not a metallurgical event.
+ */
+/* FOAMLENS_FRONT3D_CORE_START */
+function sfNum(v){
+  if(typeof v==='number')return Number.isFinite(v)?v:NaN;
+  if(typeof v!=='string'||!v.trim()||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(v.trim()))return NaN;
+  const n=Number(v);return Number.isFinite(n)?n:NaN
+}
+function sfVolumes(mesh){
+  const fail=reason=>({ok:false,reason,volumes:null});
+  if(!mesh?.supported||!Number.isSafeInteger(mesh.cellCount)||mesh.cellCount<1)
+    return fail('A complete source-backed OpenFOAM polyMesh is required');
+  const n=mesh.cellCount,p=mesh.points,o=mesh.owners,b=mesh.neighbours||[],
+    offsets=mesh.faceOffsets,vertices=mesh.facePoints,centers=mesh.cellCenters;
+  if(!Array.isArray(p)||p.length<12||p.length%3||
+     !Array.isArray(o)||o.length<4||!Array.isArray(b)||!Array.isArray(offsets)||
+     !Array.isArray(vertices)||offsets.length!==o.length+1||
+     !Array.isArray(centers)||centers.length!==n*3)
+    return fail('Original polyMesh vertices, faces, owner/neighbour or cell centers are missing');
+  if(!p.every(Number.isFinite)||!centers.every(Number.isFinite)||offsets[0]!==0||
+     offsets.at(-1)!==vertices.length)return fail('Original mesh coordinates or face offsets are invalid');
+  const internal=mesh.internalFaceCount;
+  if(!Number.isSafeInteger(internal)||internal!==b.length||internal<0||
+     internal>o.length)return fail('Original internal-face/neighbour count is inconsistent');
+  const volumes=new Float64Array(n),faceCounts=new Uint32Array(n),
+    // Every oriented cell edge must occur in two opposing oriented faces:
+    // this verifies a closed, directed polyhedral boundary, rather than
+    // quietly treating an open surface as an actual 3D cell volume.
+    edges=Array.from({length:n},()=>new Map());
+  const ox=p[0],oy=p[1],oz=p[2];
+  const pushEdge=(cell,a,c,sign)=>{
+    const key=(a<c?a+'|'+c:c+'|'+a),direction=(a<c?1:-1)*sign,
+      previous=edges[cell].get(key)||{count:0,sum:0};
+    previous.count++;previous.sum+=direction;edges[cell].set(key,previous)
+  };
+  for(let face=0;face<o.length;face++){
+    const owner=o[face],other=face<internal?b[face]:null,
+      start=offsets[face],end=offsets[face+1];
+    if(!Number.isSafeInteger(owner)||owner<0||owner>=n||
+       (other!==null&&(!Number.isSafeInteger(other)||other<0||other>=n||other===owner))||
+       !Number.isSafeInteger(start)||!Number.isSafeInteger(end)||
+       start<0||end>vertices.length||end-start<3)return fail('Invalid owner/neighbour or nonpolygonal mesh face');
+    const facePoints=[];
+    for(let k=start;k<end;k++){
+      const point=vertices[k];
+      if(!Number.isSafeInteger(point)||point<0||point>=p.length/3||
+         facePoints.includes(point))return fail('Invalid or repeated original mesh point index');
+      facePoints.push(point)
+    }
+    faceCounts[owner]++;if(other!==null)faceCounts[other]++;
+    for(let k=0;k<facePoints.length;k++){
+      const a=facePoints[k],c=facePoints[(k+1)%facePoints.length];
+      pushEdge(owner,a,c,1);if(other!==null)pushEdge(other,a,c,-1)
+    }
+    const first=3*facePoints[0];
+    const ax=p[first]-ox,ay=p[first+1]-oy,az=p[first+2]-oz;
+    for(let k=1;k<facePoints.length-1;k++){
+      const j=3*facePoints[k],h=3*facePoints[k+1],
+        bx=p[j]-ox,by=p[j+1]-oy,bz=p[j+2]-oz,
+        cx=p[h]-ox,cy=p[h+1]-oy,cz=p[h+2]-oz;
+      const signed=(ax*(by*cz-bz*cy)+ay*(bz*cx-bx*cz)+az*(bx*cy-by*cx))/6;
+      if(!Number.isFinite(signed))return fail('Nonfinite signed source-polyhedron volume');
+      volumes[owner]+=signed;
+      if(other!==null)volumes[other]-=signed
+    }
+  }
+  let total=0,min=Infinity,max=-Infinity;
+  for(let cell=0;cell<n;cell++){
+    if(faceCounts[cell]<4)return fail('Cell '+cell+' has fewer than four physical polyhedron faces');
+    for(const e of edges[cell].values()){
+      if(e.count!==2||e.sum!==0)return fail('Cell '+cell+' has an open/nonmanifold or wrongly oriented source boundary');
+    }
+    const v=volumes[cell];
+    if(!(v>0)||!Number.isFinite(v))return fail('Cell '+cell+' has zero, negative or nonfinite signed physical volume');
+    total+=v;min=Math.min(min,v);max=Math.max(max,v)
+  }
+  if(!Number.isFinite(total)||!(total>0))return fail('Total source physical mesh volume invalid');
+  return{ok:true,volumes:Array.from(volumes),total,min,max,cells:n,
+    method:'oriented, closed original owner/neighbour polyMesh face triangulations',
+    units:'m3',isMeasuredGeometry:true,
+    limitations:['Face polygons are fan-triangulated as in the original Field mesh reader; strongly nonplanar faces need independent checkMesh/surface validation.',
+      'Valid directed topology and positive signed cell volumes do not certify other checkMesh quality metrics.']}
+}
+function sfFront(mesh,geometry,alpha,config){
+  const fail=reason=>({ok:false,reason});
+  if(!geometry?.ok||!Array.isArray(geometry.volumes)||!mesh)
+    return fail('Independent source mesh volume and closure verification required');
+  const n=mesh.cellCount,values=alpha,lo=sfNum(config?.low),hi=sfNum(config?.high),
+    threshold=sfNum(config?.threshold),axis=['x','y','z'].indexOf(config?.axis);
+  if(!Array.isArray(values)||values.length!==n||geometry.volumes.length!==n||
+     !(lo>=0&&hi<=1&&lo<hi)||!(threshold>=0&&threshold<=1)||axis<0)
+    return fail('Cell-aligned original fractions, thresholds or physical axis invalid');
+  const phase={solid:0,mushy:0,liquid:0},count={solid:0,mushy:0,liquid:0};
+  // Validate and normalize once: numeric strings may occur in original parsed
+  // source records. Crossing and plateau comparisons must use the same physical
+  // numeric values used for phase classification, never raw string identity.
+  const normalized=new Float64Array(n);
+  for(let cell=0;cell<n;cell++){
+    const a=sfNum(values[cell]),volume=geometry.volumes[cell];
+    if(!(a>=0&&a<=1)||!(volume>0)||!Number.isFinite(volume))
+      return fail('Original alpha field outside [0,1], incomplete, or cell volume missing at index '+cell);
+    normalized[cell]=a;
+    const state=a<=lo?'solid':a>=hi?'liquid':'mushy';
+    phase[state]+=volume;count[state]++
+  }
+  const total=phase.solid+phase.mushy+phase.liquid;
+  const positions=[],crossings=[],neighbors=mesh.neighbours||[],owner=mesh.owners||[],
+    xyz=mesh.cellCenters;
+  let ambiguousFaces=0;
+  for(let f=0;f<neighbors.length;f++){
+    const a=owner[f],b=neighbors[f],va=normalized[a],vb=normalized[b];
+    if(va===vb&&va===threshold){ambiguousFaces++;continue}
+    if(va===vb||(threshold-va)*(threshold-vb)>0)continue;
+    const weight=(threshold-va)/(vb-va);
+    if(weight<0||weight>1||!Number.isFinite(weight))continue;
+    const point=[0,1,2].map(k=>xyz[3*a+k]+weight*(xyz[3*b+k]-xyz[3*a+k]));
+    if(!point.every(Number.isFinite))return fail('Invalid original cell centers for front interpolation');
+    positions.push(point[axis]);crossings.push({face:f,xyzM:point})
+  }
+  let positionMin=Infinity,positionMax=-Infinity,positionSum=0;
+  for(const v of positions){if(v<positionMin)positionMin=v;if(v>positionMax)positionMax=v;positionSum+=v}
+  const extrema=positions.length?{min:positionMin,max:positionMax,
+    mean:positionSum/positions.length}:null;
+  return{ok:true,caseId:config.caseId,region:config.region,timeS:sfNum(config.timeS),
+    phaseThresholds:{solidMax:lo,liquidMin:hi},
+    volumeM3:phase,cellCounts:count,totalVolumeM3:total,
+    fractions:Object.fromEntries(Object.entries(phase).map(([k,v])=>[k,v/total])),
+    front:{threshold,axis:config.axis,crossingFaceCount:crossings.length,
+      ambiguousPlateauFaces:ambiguousFaces,axisBoundsM:extrema,
+      centroidXYZm:crossings.length?[0,1,2].map(k=>crossings.reduce((s,c)=>s+c.xyzM[k],0)/crossings.length):null},
+    interpretation:'Cell-center interpolation across real internal polyMesh owner/neighbour faces, NOT an exact geometric iso-surface or solidification isotherm.',
+    noSyntheticCells:true,noExperimentalClaims:true,noAutomaticRecalescence:true,
+    limitations:['Phase volumes are whole-cell threshold classifications, not exact fractional subcell interface volumes.',
+      'Front crossings and centroid are cell-center interpolations on ORIGINAL adjacent cells, not an extracted CFD surface.',
+      'A single centroid cannot characterize multi-front topology; plateau faces are reported as ambiguous.']}
+}
+function sfTrajectory(rows){
+  if(!Array.isArray(rows)||!rows.length)return{ok:false,reason:'No actual evaluated time frames'};
+  const sorted=rows.slice().sort((a,b)=>a.timeS-b.timeS);
+  for(let i=0;i<sorted.length;i++){
+    const r=sorted[i];
+    if(!r?.ok||!Number.isFinite(r.timeS)||i&&!(r.timeS>sorted[i-1].timeS)||
+       r.region!==sorted[0].region||r.caseId!==sorted[0].caseId||
+       r.front.axis!==sorted[0].front.axis||r.front.threshold!==sorted[0].front.threshold||
+       !r.phaseThresholds||!sorted[0].phaseThresholds||
+       r.phaseThresholds.solidMax!==sorted[0].phaseThresholds.solidMax||
+       r.phaseThresholds.liquidMin!==sorted[0].phaseThresholds.liquidMin)
+      return{ok:false,reason:'Frames have nonphysical, duplicate, different-case or incompatible source time, axis or phase thresholds'};
+  }
+  const out=sorted.map((r,i)=>{
+    const v=r.front.axisBoundsM?.mean??null,prev=i?sorted[i-1]:null,
+      last=prev?.front.axisBoundsM?.mean??null,
+      dt=prev?r.timeS-prev.timeS:null;
+    return{timeS:r.timeS,solidVolumeM3:r.volumeM3.solid,mushyVolumeM3:r.volumeM3.mushy,
+      liquidVolumeM3:r.volumeM3.liquid,totalVolumeM3:r.totalVolumeM3,
+      solidVolumeFraction:r.fractions.solid,frontMeanAxisM:v,
+      faceCrossings:r.front.crossingFaceCount,
+      meanFrontDisplacementVelocityMps:v!==null&&last!==null&&dt>0?(v-last)/dt:null,
+      velocityStatus:v===null||last===null?'unavailable':'centroid-displacement-proxy'}
+  });
+  return{ok:true,rows:out,sourceFrames:sorted.length,
+    limitations:['Displacement of the crossing-centroid between two written times is only a signed spatial proxy, not local normal front speed.',
+      'Moving/deforming meshes and multiple spatial fronts require separate interpretation; no regression/extrapolation is applied.']}
+}
+function sfSourceTimes(source){
+  // The source catalog itself is evidence. A malformed/missing/duplicate
+  // time cannot be hidden by filter(Number.isFinite) or Set deduplication.
+  if(!Array.isArray(source)||source.length<2)return{ok:false,reason:'At least two original field times required',times:[]};
+  const times=source.map(sfNum);
+  if(times.some(t=>!Number.isFinite(t)))return{ok:false,reason:'Original field times contain missing or invalid physical values',times:[]};
+  times.sort((a,b)=>a-b);
+  for(let i=1;i<times.length;i++){
+    if(times[i]===times[i-1])return{ok:false,reason:'Duplicate original physical time is ambiguous',times:[]}
+  }
+  return{ok:true,times}
+}
+function sfOriginalMeshDigest(mesh){
+  // Structural+numeric provenance witness; change detector, not a hash
+  // signature or proof that a source file was externally authenticated.
+  const parts=['points','cellCenters','faceOffsets','facePoints','owners','neighbours'];
+  const values=[];
+  for(const key of parts){
+    const data=mesh?.[key];
+    if(!Array.isArray(data))return null;
+    // A source polyMesh with one cell legitimately has ZERO internal faces
+    // and therefore an empty neighbour array. That is valid topology, not
+    // missing evidence: the original owner/faces/points still get fingerprinted.
+    if(!data.length){
+      if(key!=='neighbours')return null;
+      values.push('neighbours:empty:0');continue
+    }
+    const sig=sfOriginalDigest(data);if(!sig)return null;
+    values.push(key+':'+sig)
+  }
+  return values.join('|')
+}
+function sfOriginalDigest(values){
+  if(!Array.isArray(values)||!values.length||values.some(v=>!Number.isFinite(sfNum(v))))return null;
+  const bytes=new DataView(new ArrayBuffer(8));
+  let a=0x811c9dc5,b=0x9e3779b9;
+  for(const source of values){
+    bytes.setFloat64(0,sfNum(source),true);
+    for(let i=0;i<8;i++){
+      const q=bytes.getUint8(i);
+      a=Math.imul(a^q,16777619)>>>0;
+      b=(Math.imul(b^q,2246822519)+3266489917)>>>0
+    }
+  }
+  return a.toString(16).padStart(8,'0')+':'+b.toString(16).padStart(8,'0')+':'+values.length
+}
+
+/* FOAMLENS_FRONT3D_ISO_CORE_START */
+// A geometric triangle surface of a *reconstructed continuous scalar*.
+// OpenFOAM volScalarField is CELL-CENTERED: point values below are estimated
+// from adjacent ORIGINAL cells; the resulting iso-surface is not a solver
+// supplied face/point field and must not be advertised as the exact phase front.
+function sfIsoSurface(mesh,geometry,original,isoValue,options={}){
+  const reject=reason=>({ok:false,reason,vertices:[],triangles:[],areaM2:null});
+  if(!geometry?.ok||!Array.isArray(geometry.volumes)||!mesh?.supported)
+    return reject('Closed and oriented original polyMesh cell volumes are required');
+  const n=mesh.cellCount,points=mesh.points||[],centers=mesh.cellCenters||[],
+    owners=mesh.owners||[],neighbours=mesh.neighbours||[],
+    offsets=mesh.faceOffsets||[],facePoints=mesh.facePoints||[],
+    iso=sfNum(isoValue),maxTriangles=options.maxTriangles??200000;
+  if(!Number.isSafeInteger(n)||n<1||geometry.volumes.length!==n||
+     !Array.isArray(original)||original.length!==n||
+     !Number.isSafeInteger(maxTriangles)||maxTriangles<1||maxTriangles>1000000||
+     !(iso>0&&iso<1)||!points.length||points.length%3||
+     !Array.isArray(centers)||centers.length!==n*3||
+     offsets.length!==owners.length+1||neighbours.length!==mesh.internalFaceCount||
+     offsets.at(-1)!==facePoints.length)
+    return reject('Source geometry, cells, interior threshold (0<alpha<1) or triangle budget invalid');
+  const alpha=original.map(sfNum);
+  if(alpha.some(v=>!(v>=0&&v<=1)))return reject('Original liquid fraction contains invalid or nonfinite cell values');
+  if(points.some(v=>!Number.isFinite(v))||centers.some(v=>!Number.isFinite(v)))
+    return reject('Original source mesh XYZ coordinates are invalid');
+  const nPoints=points.length/3,incident=Array.from({length:nPoints},()=>new Set());
+  for(let face=0;face<owners.length;face++){
+    const a=offsets[face],b=offsets[face+1],cell=owners[face],
+      neighbor=face<neighbours.length?neighbours[face]:null;
+    if(!Number.isSafeInteger(a)||!Number.isSafeInteger(b)||b-a<3||
+       !Number.isSafeInteger(cell)||cell<0||cell>=n||
+       (neighbor!==null&&(!Number.isSafeInteger(neighbor)||neighbor<0||neighbor>=n)))
+      return reject('Original face topology is not cell-aligned');
+    for(let j=a;j<b;j++){
+      const point=facePoints[j];
+      if(!Number.isSafeInteger(point)||point<0||point>=nPoints)
+        return reject('Invalid source mesh vertex index');
+      incident[point].add(cell);if(neighbor!==null)incident[point].add(neighbor)
+    }
+  }
+  // Use original coordinates even if native mesh does not provide bounds.
+  let min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<points.length;i+=3)for(let k=0;k<3;k++){
+    min[k]=Math.min(min[k],points[i+k]);max[k]=Math.max(max[k],points[i+k])
+  }
+  const lengthScale=Math.max(1e-12,Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2]));
+  const closeD2=lengthScale*lengthScale*1e-24;
+  const nodal=new Float64Array(nPoints);
+  for(let point=0;point<nPoints;point++){
+    if(!incident[point].size)return reject('Unattached original mesh vertex; cannot reconstruct scalar field');
+    const x=points[3*point],y=points[3*point+1],z=points[3*point+2];
+    let sum=0,weights=0,exact=null;
+    for(const cell of incident[point]){
+      const dx=x-centers[3*cell],dy=y-centers[3*cell+1],dz=z-centers[3*cell+2],d2=dx*dx+dy*dy+dz*dz;
+      if(d2<=closeD2){exact=alpha[cell];break}
+      const w=1/d2;sum+=w*alpha[cell];weights+=w
+    }
+    const v=exact===null?sum/weights:exact;
+    if(!Number.isFinite(v))return reject('Nonfinite inverse-distance point reconstruction of original scalar');
+    nodal[point]=Math.max(0,Math.min(1,v))
+  }
+  const getPoint=id=>id<nPoints?
+    [points[3*id],points[3*id+1],points[3*id+2]]:
+    [centers[3*(id-nPoints)],centers[3*(id-nPoints)+1],centers[3*(id-nPoints)+2]];
+  const getAlpha=id=>id<nPoints?nodal[id]:alpha[id-nPoints];
+  const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const norm=v=>Math.hypot(v[0],v[1],v[2]);
+  const edgePairs=[[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]];
+  const pointCache=new Map(),vertices=[],triangles=[],triKeys=new Set(),
+    accumulatedVolume=new Float64Array(n),areaCentroid=[0,0,0];
+  let area=0,tetraCount=0,degenerateTetra=0,thresholdPlateau=0,duplicateTriangles=0;
+  const edgeIntersection=(idA,idB)=>{
+    const a=Math.min(idA,idB),b=Math.max(idA,idB),fa=getAlpha(a),fb=getAlpha(b);
+    let key,position;
+    if(fa===iso){key='v:'+a;position=getPoint(a)}
+    else if(fb===iso){key='v:'+b;position=getPoint(b)}
+    else{
+      key='e:'+a+':'+b;
+      const u=(iso-fa)/(fb-fa),p=getPoint(a),q=getPoint(b);
+      position=[0,1,2].map(k=>p[k]+u*(q[k]-p[k]))
+    }
+    let idx=pointCache.get(key);
+    if(idx===undefined){idx=vertices.length;vertices.push(position);pointCache.set(key,idx)}
+    return idx
+  };
+  for(let face=0;face<owners.length;face++){
+    const start=offsets[face],end=offsets[face+1],faceCell=[owners[face]];
+    if(face<neighbours.length)faceCell.push(neighbours[face]);
+    const originalFace=[];
+    for(let j=start;j<end;j++)originalFace.push(facePoints[j]);
+    for(const cell of faceCell){
+      // The OpenFOAM original polygon is outward for owner, inward for neighbour.
+      // Reverse the neighbours' triangle fan so each tetra is positively oriented.
+      const ownerSide=cell===owners[face];
+      for(let j=1;j<originalFace.length-1;j++){
+        const ids=[nPoints+cell,originalFace[0],
+          ownerSide?originalFace[j]:originalFace[j+1],
+          ownerSide?originalFace[j+1]:originalFace[j]];
+        const p=ids.map(getPoint),v=ids.map(getAlpha),
+          e1=sub(p[1],p[0]),e2=sub(p[2],p[0]),e3=sub(p[3],p[0]),
+          cross23=cross(e2,e3),det=dot(e1,cross23),vTetra=det/6;
+        const minTetra=geometry.volumes[cell]*1e-14;
+        if(!Number.isFinite(vTetra)||vTetra<=minTetra)
+          return reject('Non-star-shaped, collapsed or wrongly oriented face-fan tetrahedron; original geometry cannot be reconstructed safely');
+        accumulatedVolume[cell]+=vTetra;tetraCount++;
+        if(v.every(q=>q===iso)){thresholdPlateau++;continue}
+        const positive=v.map(q=>q>=iso),nPositive=positive.filter(Boolean).length;
+        if(nPositive===0||nPositive===4)continue;
+        const candidates=[];
+        for(const [i,k] of edgePairs)if(positive[i]!==positive[k]){
+          const index=edgeIntersection(ids[i],ids[k]);
+          if(!candidates.includes(index))candidates.push(index)
+        }
+        if(candidates.length<3){degenerateTetra++;continue}
+        const dv=[v[1]-v[0],v[2]-v[0],v[3]-v[0]],
+          grad=[0,1,2].map(k=>(dv[0]*cross23[k]+dv[1]*cross(e3,e1)[k]+dv[2]*cross(e1,e2)[k])/det);
+        const magnitude=norm(grad);
+        if(!(magnitude>0)||!Number.isFinite(magnitude)){degenerateTetra++;continue}
+        const normal=grad.map(x=>x/magnitude),
+          center=[0,1,2].map(k=>candidates.reduce((sum,i)=>sum+vertices[i][k],0)/candidates.length),
+          first=sub(vertices[candidates[0]],center),firstLength=norm(first);
+        if(!(firstLength>0)){degenerateTetra++;continue}
+        const u=first.map(x=>x/firstLength),orth=cross(normal,u);
+        candidates.sort((i,j)=>{
+          const a=sub(vertices[i],center),b=sub(vertices[j],center);
+          return Math.atan2(dot(a,orth),dot(a,u))-Math.atan2(dot(b,orth),dot(b,u))
+        });
+        for(let j=1;j<candidates.length-1;j++){
+          let tri=[candidates[0],candidates[j],candidates[j+1]],
+            a=vertices[tri[0]],bb=vertices[tri[1]],cc=vertices[tri[2]],
+            normalArea=cross(sub(bb,a),sub(cc,a));
+          if(dot(normalArea,normal)<0){tri=[tri[0],tri[2],tri[1]];normalArea=normalArea.map(x=>-x)}
+          const ar=norm(normalArea)/2;
+          if(!(ar>lengthScale*lengthScale*1e-18)){degenerateTetra++;continue}
+          const key=tri.slice().sort((x,y)=>x-y).join('|');
+          if(triKeys.has(key)){duplicateTriangles++;continue}
+          if(triangles.length>=maxTriangles)
+            return reject('Reconstructed iso-surface exceeds explicit '+maxTriangles+' triangle budget; no partial surface will be exported');
+          triKeys.add(key);triangles.push(tri);area+=ar;
+          for(let k=0;k<3;k++)areaCentroid[k]+=ar*(a[k]+bb[k]+cc[k])/3
+        }
+      }
+    }
+  }
+  for(let cell=0;cell<n;cell++){
+    if(!(accumulatedVolume[cell]>0)||
+       Math.abs(accumulatedVolume[cell]-geometry.volumes[cell])>1e-7*geometry.volumes[cell])
+      return reject('Star-shaped tetrahedra do not reproduce original physical cell volume; surface unsupported');
+  }
+  const edgeCounts=new Map();
+  for(const [a,b,c] of triangles)for(const [u,v] of [[a,b],[b,c],[c,a]]){
+    const key=(u<v?u+':'+v:v+':'+u);edgeCounts.set(key,(edgeCounts.get(key)||0)+1)
+  }
+  let boundaryEdges=0,nonManifoldEdges=0;
+  for(const count of edgeCounts.values()){
+    if(count===1)boundaryEdges++;else if(count>2)nonManifoldEdges++
+  }
+  return{ok:true,threshold:iso,vertices,triangles,areaM2:area,
+    centroidXYZm:area>0?areaCentroid.map(v=>v/area):null,
+    triangleCount:triangles.length,vertexCount:vertices.length,tetrahedraEvaluated:tetraCount,
+    ambiguousPlateauTetrahedra:thresholdPlateau,degenerateTetrahedra:degenerateTetra,
+    duplicateTrianglesRemoved:duplicateTriangles,boundaryEdgeCount:boundaryEdges,
+    nonManifoldEdgeCount:nonManifoldEdges,
+    surfaceClosed:triangles.length>0&&boundaryEdges===0&&nonManifoldEdges===0,
+    exactSolverIsoSurface:false,reconstructedFromCellValues:true,
+    orientation:'towards increasing reconstructed liquid fraction',
+    method:'marching tetrahedra on inverse-distance reconstructed nodal scalar, derived from original OpenFOAM cell-centered alpha',
+    limitations:[
+      'An original OpenFOAM volScalarField does NOT contain an exact subcell interface; node values are interpolated from neighboring cell centers.',
+      'Triangle area/position are properties of a RECONSTRUCTED approximate continuous field, not independently measured or a solver-native iso-surface.',
+      'Requires star-shaped original cells for face-fan tetrahedra. Open/non-manifold surfaces and plateau degeneracies are reported.',
+      'No normal front velocity or experimentally proven metallurgical mechanism is computed.'
+    ]}
+}
+/* FOAMLENS_FRONT3D_ISO_CORE_END */
+
+/* FOAMLENS_FRONT3D_CORE_END */
+
+function sfUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
+function sfEl(id){return document.getElementById(id)}
+function sfEscape(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+let sfLatest=null,sfSequence=0,sfCases=[],sfIsoCurrent=null,sfIsoSequence=0;
+let sfIsoYaw=.55,sfIsoPitch=-.35;
+function sfInvalidate(message){
+  sfSequence++;sfLatest=null;sfIsoInvalidate('Run source analysis to enable reconstructed surface.');
+  if(sfEl('sfExport'))sfEl('sfExport').disabled=true;
+  if(sfEl('sfReport'))sfEl('sfReport').textContent='';
+  if(message&&sfEl('sfStatus'))sfEl('sfStatus').textContent=message
+}
+function sfSelector(id,rows,value){
+  const el=sfEl(id);if(!el)return;
+  el.innerHTML=rows.map(([v,label])=>'<option value="'+sfEscape(v)+'">'+sfEscape(label)+'</option>').join('');
+  if(rows.some(([v])=>String(v)===String(value)))el.value=String(value)
+}
+function sfRefresh(){
+  sfInvalidate();
+  const oldCase=sfEl('sfCase')?.value,all=Array.isArray(cases)?cases:[],
+    active=all.find(c=>String(c.id)===oldCase)||all.find(c=>Number(c.id)===Number(activeContextCaseId))||all[0];
+  sfCases=all;
+  sfSelector('sfCase',all.map(c=>[c.id,c.name||String(c.id)]),active?.id);
+  sfRefreshFields()
+}
+function sfRefreshFields(){
+  sfInvalidate();
+  const c=sfCases.find(c=>String(c.id)===String(sfEl('sfCase')?.value)),
+    oldRegion=sfEl('sfRegion')?.value,oldField=sfEl('sfAlpha')?.value,
+    all=c?.discoveryModel?.fields||[],
+    usable=all.filter(f=>f.storage==='volume'&&f.kind==='scalar'&&
+      f.dimensions==='[0 0 0 0 0 0 0]'&&Array.isArray(f.times)&&f.times.length);
+  sfSelector('sfRegion',[...new Set(usable.map(f=>String(f.region||'')))].map(r=>[r,r||'Default region']),oldRegion);
+  const region=sfEl('sfRegion')?.value||'',choices=usable.filter(f=>String(f.region||'')===region);
+  const mapping=c?(typeof fmMappingForRegion==='function'?fmMappingForRegion(c,region):{}):{};
+  const selected=choices.some(f=>f.name===oldField)?oldField:
+    choices.some(f=>f.name===mapping.liquidFraction)?mapping.liquidFraction:choices[0]?.name;
+  sfSelector('sfAlpha',choices.map(f=>[f.name,f.name+' · source dimensionless scalar']),selected);
+  sfEl('sfStatus').textContent=sfUi('Choose an original volume scalar representing liquid fraction; verify its physical definition.',
+    'Elige un escalar volumétrico original que represente fracción líquida; comprueba su definición física.')
+}
+async function sfAnalyze(){
+  sfInvalidate(sfUi('Checking source mesh and liquid fractions…','Comprobando malla y fracciones líquidas originales…'));
+  const token=sfSequence,c=sfCases.find(c=>String(c.id)===String(sfEl('sfCase')?.value)),
+    region=sfEl('sfRegion')?.value||'',name=sfEl('sfAlpha')?.value||'',
+    low=sfNum(sfEl('sfLow')?.value),high=sfNum(sfEl('sfHigh')?.value),
+    threshold=sfNum(sfEl('sfThreshold')?.value),axis=sfEl('sfAxis')?.value,
+    limit=sfNum(sfEl('sfLimit')?.value);
+  if(!c||!name||!(low>=0&&high<=1&&low<high)||!(threshold>=0&&threshold<=1)||
+     !['x','y','z'].includes(axis)||!Number.isSafeInteger(limit)||limit<2||limit>500){
+    sfEl('sfStatus').textContent='Select a source scalar and valid thresholds, axis and maximum 2–500 frames.';return
+  }
+  const group=(c.discoveryModel?.fields||[]).filter(f=>f.name===name&&String(f.region||'')===region&&
+    f.storage==='volume'&&f.kind==='scalar'&&f.dimensions==='[0 0 0 0 0 0 0]');
+  if(group.length!==1){sfEl('sfStatus').textContent='Missing or ambiguous source volume field; physical analysis blocked.';return}
+  const timeSource=sfSourceTimes(group[0].times);
+  if(!timeSource.ok){sfEl('sfStatus').textContent=timeSource.reason;return}
+  const times=timeSource.times;
+  if(times.length>limit){sfEl('sfStatus').textContent=times.length+' original times; maximum '+limit+' frames, no hidden sampling.';return}
+  const snapshots=[],provenance=[],geomCache=new Map();
+  for(let i=0;i<times.length;i++){
+    if(token!==sfSequence)return;
+    const time=times[i];
+    try{
+      const layout=fvResolveFieldMeshLayout(c,region,group[0],time);
+      if(!layout.valid)throw Error('Field/mesh mismatch: '+layout.reason);
+      const info=await fvLoadMeshForLayout(c,layout,region,time),mesh=info.mesh;
+      if(token!==sfSequence)return;
+      let geo=geomCache.get(info.key);
+      if(!geo){geo=sfVolumes(mesh);if(!geo.ok)throw Error(geo.reason);geomCache.set(info.key,geo)}
+      const parts=await pmLoadStoredFieldSet(c.id,name,time,region);
+      if(token!==sfSequence)return;
+      if(!parts.length||parts.some(p=>!String(p?.sourcePath||'').trim()))throw Error('Missing original volScalarField file provenance');
+      let values;
+      if(layout.mode==='decomposed'){
+        const joined=fvCombinePartitionFieldValues(mesh,parts,'value','volume');
+        if(!joined.ok)throw Error(joined.reason);values=joined.values
+      }else{
+        if(parts.length!==1||String(parts[0].partition||''))throw Error('Nonunique reconstructed field source');
+        const data=pmComponentValues(parts[0],'value',mesh.cellCount);
+        if(!data.ok||data.values.length!==mesh.cellCount)throw Error('Scalar cell/mesh count mismatch');
+        values=data.values
+      }
+      const frame=sfFront(mesh,geo,values,{caseId:c.id,region,timeS:time,low,high,threshold,axis});
+      if(!frame.ok)throw Error(frame.reason);
+      snapshots.push(frame);
+      const sourceSnapshots=layout.mode==='decomposed'
+        ?layout.parts.map(p=>({partition:p.partition,files:p.snapshot?.sourcePaths||null}))
+        :[{partition:'',files:info.snapshot?.sourcePaths||null}];
+      if(sourceSnapshots.some(x=>!x.files||!['points','faces','owner','neighbour'].every(key=>typeof x.files[key]==='string'&&x.files[key].trim())))
+        throw Error('Original mesh file paths are missing: cannot certify geometry provenance');
+      if(!sfOriginalMeshDigest(mesh))throw Error('Original mesh topology fingerprint is incomplete');
+      const fieldFingerprint=sfOriginalDigest(values);
+      if(!fieldFingerprint)throw Error('Original cell field cannot be fingerprinted as complete finite measurements');
+      provenance.push({timeS:time,meshSourcePaths:sourceSnapshots,
+        fieldSourcePaths:parts.map(p=>p.sourcePath),originalCellValueFingerprint:fieldFingerprint,
+        meshGeometryMethod:geo.method,originalMeshFingerprint:sfOriginalMeshDigest(mesh),cellCount:geo.cells});
+      sfEl('sfStatus').textContent=(i+1)+'/'+times.length+' · '+time+' s · '+name;
+      if(i%4===0&&typeof scannerYield==='function')await scannerYield()
+    }catch(e){
+      sfEl('sfStatus').textContent='t='+time+' s: '+String(e?.message||e)+'. No partial scientific report was exported.';return
+    }
+  }
+  if(token!==sfSequence)return;
+  const track=sfTrajectory(snapshots);
+  if(!track.ok){sfEl('sfStatus').textContent=track.reason;return}
+  sfLatest={schema:'foamlens/source-3d-solidification-front/1',caseId:c.id,caseName:c.name,region,
+    originalScalar:name,fieldDimensions:'[0 0 0 0 0 0 0]',
+    thresholds:{solidMax:low,liquidMin:high,front:threshold},
+    projectionAxis:axis,provenance,track,frames:snapshots,
+    limitations:['Original source cell volumes are computed only when mesh topology is closed and oriented.',
+      'Volume by phase is whole-cell threshold membership; front is a cell-center crossing estimate, not a resolved iso-surface.',
+      'The module neither simulates solidification nor infers recalescence or true normal front speed.']};
+  const fmt=v=>v==null?'—':Number(v).toPrecision(6);
+  sfEl('sfReport').innerHTML='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
+    ['t [s]','Solid [m³]','Mushy [m³]','Liquid [m³]','Solid [%]','Front '+axis+' [m]','Δfront/Δt [m/s]','Face crossings'].map(x=>'<th>'+sfEscape(x)+'</th>').join('')+
+    '</tr></thead><tbody>'+track.rows.map(x=>'<tr>'+
+      [fmt(x.timeS),fmt(x.solidVolumeM3),fmt(x.mushyVolumeM3),fmt(x.liquidVolumeM3),
+       fmt(100*x.solidVolumeFraction),fmt(x.frontMeanAxisM),fmt(x.meanFrontDisplacementVelocityMps),x.faceCrossings]
+      .map(v=>'<td>'+sfEscape(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+
+    '<p class="smallnote">'+sfEscape(sfLatest.limitations.join(' '))+'</p>';
+  sfEl('sfStatus').textContent=times.length+' original frames · '+name+' · all source mesh cells verified for closed oriented volume.';
+  sfEl('sfExport').disabled=false;
+  sfSelector('sfIsoTime',times.map(t=>[t,String(t)+' s · original written frame']),times.at(-1));
+  sfEl('sfIsoRun').disabled=false;
+  sfEl('sfIsoStatus').textContent='Choose a physical source time and reconstruct interpolated 3D surface. Not solver-native subcell data.'
+}
+async function sfDownload(){
+  if(!sfLatest)return;
+  const before=JSON.stringify(sfLatest);
+  // Re-read all original fractions and original meshes before a scientific
+  // export, rather than silently writing a stale snapshot. If any genuine
+  // source value changes, even with unchanged rounded volumes, block export.
+  await sfAnalyze();
+  if(!sfLatest)return;
+  if(JSON.stringify(sfLatest)!==before){
+    sfInvalidate('Original source mesh/field evidence changed. Review and rerun analysis before exporting.');
+    return
+  }
+  const payload=JSON.stringify({...sfLatest,exportedAt:new Date().toISOString()},null,2);
+  if(typeof downloadText==='function')downloadText('FoamLens_3D_front_source_evidence.json',payload,'application/json')
+}
+
+function sfIsoInvalidate(message){
+  sfIsoSequence++;sfIsoCurrent=null;
+  for(const id of ['sfIsoObj']){const el=sfEl(id);if(el)el.disabled=true}
+  const report=sfEl('sfIsoReport');if(report)report.textContent='';
+  const canvas=sfEl('sfIsoCanvas'),ctx=canvas?.getContext?.('2d');
+  if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(message&&sfEl('sfIsoStatus'))sfEl('sfIsoStatus').textContent=message
+}
+function sfIsoObj(surface,{caseName='',region='',timeS=null}={}){
+  if(!surface?.ok||!Array.isArray(surface.vertices)||!Array.isArray(surface.triangles))
+    throw Error('No verified reconstructed triangulated surface to export');
+  const clean=v=>String(v??'').replace(/[\r\n#]/g,' ').trim();
+  const out=[
+    '# FoamLens reconstructed OpenFOAM alpha isosurface - geometry in meters',
+    '# Derived by nodal interpolation and marching tetrahedra; not an exact solver-native interface',
+    '# Source case: '+clean(caseName)+' | region: '+clean(region)+' | physical time [s]: '+clean(timeS),
+    '# Threshold: '+surface.threshold+' | surface area [m2]: '+surface.areaM2,
+    '# Surface boundary edges: '+surface.boundaryEdgeCount+' | nonmanifold edges: '+surface.nonManifoldEdgeCount,
+    'o FoamLens_reconstructed_alpha_isosurface'
+  ];
+  for(const point of surface.vertices){
+    if(!Array.isArray(point)||point.length!==3||!point.every(Number.isFinite))
+      throw Error('Invalid reconstructed surface vertex');
+    out.push('v '+point.map(v=>Number(v).toPrecision(17)).join(' '))
+  }
+  for(const face of surface.triangles){
+    if(!Array.isArray(face)||face.length!==3||
+       face.some(v=>!Number.isSafeInteger(v)||v<0||v>=surface.vertices.length))
+      throw Error('Invalid reconstructed source triangle');
+    out.push('f '+face.map(i=>i+1).join(' '))
+  }
+  return out.join('\n')+'\n'
+}
+function sfIsoDraw(){
+  const surface=sfIsoCurrent?.surface,canvas=sfEl('sfIsoCanvas');
+  if(!canvas||!surface?.ok)return;
+  const ctx=canvas.getContext('2d');if(!ctx)return;
+  const width=Math.max(280,canvas.clientWidth||700),height=300,
+    dpr=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle='#111927';ctx.fillRect(0,0,width,height);
+  if(!surface.triangleCount){
+    ctx.fillStyle='#dbe4f0';ctx.font='13px sans-serif';
+    ctx.fillText('No unambiguous surface triangles at this original time/threshold.',15,38);
+    return
+  }
+  const vertices=surface.vertices;
+  // Never spread thousands of mesh vertices into Math.min/Math.max arguments.
+  const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+  for(const vertex of vertices)for(let k=0;k<3;k++){
+    lo[k]=Math.min(lo[k],vertex[k]);hi[k]=Math.max(hi[k],vertex[k])
+  }
+  const center=[0,1,2].map(k=>(lo[k]+hi[k])/2);
+  const cy=Math.cos(sfIsoYaw),sy=Math.sin(sfIsoYaw),cp=Math.cos(sfIsoPitch),sp=Math.sin(sfIsoPitch);
+  const rotated=vertices.map(p=>{
+    const x=p[0]-center[0],y=p[1]-center[1],z=p[2]-center[2],
+      x1=cy*x-sy*y,y1=sy*x+cy*y;
+    return[x1,cp*z-sp*y1,sp*z+cp*y1]
+  });
+  let radius=0;for(const p of rotated)radius=Math.max(radius,Math.abs(p[0]),Math.abs(p[1]));
+  const scale=.39*Math.min(width,height)/Math.max(radius,1e-12),
+    xy=rotated.map(p=>[width/2+p[0]*scale,height/2-p[1]*scale]);
+  const previewCap=8500,step=Math.max(1,Math.ceil(surface.triangles.length/previewCap));
+  const subset=[];
+  for(let i=0;i<surface.triangles.length;i+=step){
+    const tri=surface.triangles[i];
+    subset.push({ids:tri,z:(rotated[tri[0]][2]+rotated[tri[1]][2]+rotated[tri[2]][2])/3})
+  }
+  subset.sort((a,b)=>a.z-b.z);
+  ctx.lineWidth=.7;ctx.strokeStyle='rgba(186,221,251,.56)';
+  ctx.fillStyle='rgba(65,156,206,.22)';
+  for(const tri of subset){
+    const a=xy[tri.ids[0]],b=xy[tri.ids[1]],c=xy[tri.ids[2]];
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
+    ctx.lineTo(c[0],c[1]);ctx.closePath();ctx.fill();ctx.stroke()
+  }
+  ctx.fillStyle='#cbdaf1';ctx.font='12px sans-serif';
+  ctx.fillText('Drag to orbit · reconstructed α='+surface.threshold+' · '+surface.triangleCount+' triangles',12,21);
+  if(step>1)ctx.fillText('Preview only: 1/'+step+' triangles drawn. Full OBJ and area are not decimated.',12,height-12)
+}
+async function sfIsoBuild({quiet=false}={}){
+  sfIsoInvalidate(quiet?'':sfUi('Reading original source and reconstructing geometric surface…',
+    'Leyendo los archivos originales y reconstruyendo la superficie…'));
+  const token=sfIsoSequence,report=sfLatest,
+    t=sfNum(sfEl('sfIsoTime')?.value);
+  if(!report||!Number.isFinite(t)||!report.provenance.some(p=>p.timeS===t)){
+    if(sfEl('sfIsoStatus'))sfEl('sfIsoStatus').textContent='Choose an evaluated original source time first.';
+    return null
+  }
+  const c=sfCases.find(x=>x.id===report.caseId),region=report.region,name=report.originalScalar,
+    model=c?.discoveryModel?.fields||[],groups=model.filter(x=>x.name===name&&
+      String(x.region||'')===String(region||'')&&x.storage==='volume'&&
+      x.kind==='scalar'&&x.dimensions==='[0 0 0 0 0 0 0]');
+  if(!c||groups.length!==1){sfIsoInvalidate('Original case or scalar source metadata changed. Rerun analysis.');return null}
+  const sourceProof=report.provenance.find(p=>p.timeS===t);
+  try{
+    const layout=fvResolveFieldMeshLayout(c,region,groups[0],t);
+    if(!layout.valid)throw Error('Original field/mesh layout missing: '+layout.reason);
+    const info=await fvLoadMeshForLayout(c,layout,region,t);if(token!==sfIsoSequence||sfLatest!==report)return null;
+    const mesh=info.mesh,geometry=sfVolumes(mesh);
+    if(!geometry.ok)throw Error('Invalid original polyMesh volume: '+geometry.reason);
+    const meshFingerprint=sfOriginalMeshDigest(mesh);
+    if(!meshFingerprint||meshFingerprint!==sourceProof.originalMeshFingerprint)
+      throw Error('Original mesh vertices/topology changed since the volume report');
+    const meshPaths=layout.mode==='decomposed'
+      ?layout.parts.map(x=>({partition:x.partition,files:x.snapshot?.sourcePaths||null}))
+      :[{partition:'',files:info.snapshot?.sourcePaths||null}];
+    if(JSON.stringify(meshPaths)!==JSON.stringify(sourceProof.meshSourcePaths))
+      throw Error('Original mesh source file paths changed after analysis');
+    const parts=await pmLoadStoredFieldSet(c.id,name,t,region);
+    if(token!==sfIsoSequence||sfLatest!==report)return null;
+    if(!parts.length||parts.some(x=>!String(x?.sourcePath||'').trim()))
+      throw Error('Original scalar file sources missing');
+    let values;
+    if(layout.mode==='decomposed'){
+      const combined=fvCombinePartitionFieldValues(mesh,parts,'value','volume');
+      if(!combined.ok)throw Error('Decomposed original alpha alignment: '+combined.reason);
+      values=combined.values
+    }else{
+      if(parts.length!==1||String(parts[0].partition||''))
+        throw Error('Ambiguous reconstructed source scalar');
+      const parsed=pmComponentValues(parts[0],'value',mesh.cellCount);
+      if(!parsed.ok||parsed.values.length!==mesh.cellCount)
+        throw Error('Original alpha/mesh cell counts differ');
+      values=parsed.values
+    }
+    if(sfOriginalDigest(values)!==sourceProof.originalCellValueFingerprint||
+       JSON.stringify(parts.map(x=>x.sourcePath))!==JSON.stringify(sourceProof.fieldSourcePaths))
+      throw Error('Original source alpha values or file paths changed since report');
+    const surface=sfIsoSurface(mesh,geometry,values,report.thresholds.front);
+    // Actual source values/geometry have already been checked against the
+    // whole-time analysis provenance before reconstructed geometry is shown.
+    if(!surface.ok)throw Error(surface.reason);
+    if(token!==sfIsoSequence||sfLatest!==report)return null;
+    sfIsoCurrent={surface,caseId:c.id,caseName:c.name,region,timeS:t,
+      fingerprint:sourceProof.originalCellValueFingerprint,meshFingerprint,report};
+    const fmt=n=>n==null?'—':Number(n).toLocaleString(undefined,{maximumSignificantDigits:7});
+    sfEl('sfIsoReport').innerHTML='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
+      ['Triangles','Reconstructed area [m²]','Centroid X/Y/Z [m]','Boundary edges','Non-manifold edges','Degenerate tetrahedra'].map(sfEscape).map(x=>'<th>'+x+'</th>').join('')+
+      '</tr></thead><tbody><tr>'+
+      [fmt(surface.triangleCount),fmt(surface.areaM2),
+        surface.centroidXYZm?.map(fmt).join(' · ')||'—',
+        surface.boundaryEdgeCount,surface.nonManifoldEdgeCount,surface.degenerateTetrahedra]
+        .map(x=>'<td>'+sfEscape(x)+'</td>').join('')+'</tr></tbody></table></div>'+
+      '<p class="smallnote">'+sfEscape(surface.limitations.join(' '))+'</p>';
+    sfIsoDraw();
+    sfEl('sfIsoObj').disabled=surface.triangleCount<1;
+    sfEl('sfIsoStatus').textContent='3D reconstructed surface at t='+t+
+      ' s; original cell values checked, area from triangulated geometry, no exact solver-native interface claim.';
+    return sfIsoCurrent
+  }catch(err){
+    if(token===sfIsoSequence)sfIsoInvalidate('No reconstructed surface: '+String(err?.message||err));
+    return null
+  }
+}
+async function sfIsoExportObj(){
+  if(!sfIsoCurrent||!sfLatest)return;
+  const previous=sfIsoCurrent,selected=sfNum(sfEl('sfIsoTime')?.value);
+  if(selected!==previous.timeS)return sfIsoInvalidate('Physical time selection changed. Reconstruct before OBJ export.');
+  const rebuilt=await sfIsoBuild({quiet:true});
+  if(!rebuilt||rebuilt.caseId!==previous.caseId||rebuilt.timeS!==previous.timeS||
+    rebuilt.fingerprint!==previous.fingerprint||rebuilt.meshFingerprint!==previous.meshFingerprint||
+    JSON.stringify(rebuilt.surface)!==JSON.stringify(previous.surface)){
+    sfIsoInvalidate('Original geometric surface changed during verification. Rerun before OBJ export.');
+    return
+  }
+  const obj=sfIsoObj(rebuilt.surface,rebuilt);
+  if(typeof downloadText==='function')
+    downloadText('FoamLens_reconstructed_alpha_'+String(rebuilt.timeS).replace(/[^0-9.-]/g,'_')+'s.obj',obj,'text/plain')
+}
+
+function sfInstall(){
+  const host=document.getElementById('generalAnalysisModules')||document.getElementById('paTools');
+  if(!host||sfEl('sfPanel'))return;
+  const box=document.createElement('details');box.id='sfPanel';box.className='detailBlock';
+  box.innerHTML='<summary><b>3D Solidification Front · Source Volumes and Cell-Center Crossings</b></summary>'+
+    '<p class="smallnote">Original OpenFOAM volScalarField and original polyMesh only. Threshold cell volumes and crossing estimates are NOT exact subcell iso-surfaces; true front normal velocity is not inferred.</p>'+
+    '<div class="extGrid2">'+
+    '<div class="field"><label>Case</label><select id="sfCase"></select></div>'+
+    '<div class="field"><label>Material region</label><select id="sfRegion"></select></div>'+
+    '<div class="field"><label>Original liquid fraction field</label><select id="sfAlpha"></select></div>'+
+    '<div class="field"><label>Physical front projection axis</label><select id="sfAxis"><option value="x">X [m]</option><option value="y">Y [m]</option><option value="z">Z [m]</option></select></div>'+
+    '<div class="field"><label>Solid when α ≤</label><input id="sfLow" type="number" value="0.05" min="0" max="1" step="any"></div>'+
+    '<div class="field"><label>Liquid when α ≥</label><input id="sfHigh" type="number" value="0.95" min="0" max="1" step="any"></div>'+
+    '<div class="field"><label>Front threshold α =</label><input id="sfThreshold" type="number" value="0.5" min="0" max="1" step="any"></div>'+
+    '<div class="field"><label>Maximum original physical time frames (no decimation)</label><input id="sfLimit" type="number" min="2" max="500" value="100"></div></div>'+
+    '<div class="extActions"><button id="sfRefresh" type="button" class="btn soft">Refresh original source cases</button>'+
+    '<button id="sfRun" type="button" class="btn primary">Track 3D source front</button>'+
+    '<button id="sfExport" type="button" class="btn soft" disabled>Export scientific JSON</button></div>'+
+    '<p id="sfStatus" class="smallnote" aria-live="polite"></p><div id="sfReport"></div>'+
+    '<div class="extSection"><b>Interpolated 3D iso-surface · original cell sources</b>'+
+    '<p class="smallnote">Triangulated geometry is reconstructed from cell-centered α. It is NOT a solver-native subcell interface or a normal front-velocity measurement.</p>'+
+    '<div class="field"><label>Original written physical time</label><select id="sfIsoTime"></select></div>'+
+    '<div class="extActions"><button id="sfIsoRun" type="button" class="btn primary" disabled>Reconstruct 3D surface</button>'+
+    '<button id="sfIsoObj" type="button" class="btn soft" disabled>Export reconstructed OBJ (meters)</button></div>'+
+    '<p id="sfIsoStatus" class="smallnote" aria-live="polite"></p>'+
+    '<canvas id="sfIsoCanvas" style="width:100%;height:300px;touch-action:none;cursor:grab" aria-label="Drag to rotate approximate reconstructed three dimensional alpha isosurface"></canvas>'+
+    '<div id="sfIsoReport"></div></div>';
+  host.appendChild(box);
+  sfEl('sfRefresh').onclick=sfRefresh;
+  sfEl('sfRun').onclick=()=>void sfAnalyze();
+  sfEl('sfExport').onclick=sfDownload;
+  sfEl('sfIsoRun').onclick=()=>void sfIsoBuild();
+  sfEl('sfIsoObj').onclick=()=>void sfIsoExportObj();
+  sfEl('sfIsoTime').addEventListener('change',()=>sfIsoInvalidate('Physical time changed. Reconstruct the selected surface.'));
+  sfEl('sfCase').addEventListener('change',sfRefreshFields);
+  sfEl('sfRegion').addEventListener('change',sfRefreshFields);
+  for(const id of ['sfAlpha','sfAxis','sfLow','sfHigh','sfThreshold','sfLimit'])
+    sfEl(id).addEventListener(['sfLow','sfHigh','sfThreshold','sfLimit'].includes(id)?'input':'change',
+      ()=>sfInvalidate('Inputs changed; rerun before scientific export.'));
+  const canvas=sfEl('sfIsoCanvas');let drag=null;
+  canvas.addEventListener('pointerdown',e=>{
+    if(!sfIsoCurrent)return;
+    drag={x:e.clientX,y:e.clientY};canvas.setPointerCapture?.(e.pointerId);
+    canvas.style.cursor='grabbing'
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(!drag||!sfIsoCurrent)return;
+    sfIsoYaw+=(e.clientX-drag.x)*.012;
+    sfIsoPitch=Math.max(-1.45,Math.min(1.45,sfIsoPitch+(e.clientY-drag.y)*.012));
+    drag={x:e.clientX,y:e.clientY};sfIsoDraw()
+  });
+  for(const type of ['pointerup','pointercancel'])canvas.addEventListener(type,()=>{drag=null;canvas.style.cursor='grab'});
+  window.addEventListener('resize',()=>{if(sfIsoCurrent&&box.open)sfIsoDraw()});
+  // Opening or collapsing the analysis panel must not discard a verified
+  // source-backed report/isosurface. Sources refresh at initial install and
+  // only through the explicit Refresh original source cases button.
+  // The canvas is reprojected on reopen without changing scientific state.
+  box.addEventListener('toggle',()=>{if(box.open&&sfIsoCurrent)sfIsoDraw()});
+  try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(box)}catch{}
+  sfRefresh()
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',sfInstall,{once:true});else sfInstall();
+window.FoamLensSolidificationFront3D={meshVolumes:sfVolumes,front:sfFront,trajectory:sfTrajectory,isoSurface:sfIsoSurface,originalMeshDigest:sfOriginalMeshDigest};

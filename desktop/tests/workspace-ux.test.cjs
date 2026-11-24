@@ -16,6 +16,131 @@ const passed=[];
 function test(name,fn){fn();passed.push(name)}
 
 
+test('Granada: Field physical-time fallback only accepts real decimal/scientific measurements',()=>{
+  const begin=field.indexOf('function fwMeasuredNumber(raw){');
+  const end=field.indexOf('function fwPhysicalTimes(raw){',begin);
+  assert(begin>=0&&end>begin,'Original Field physical-time parser not found');
+  const code=field.slice(begin,end);
+  const numeric=new Function('window',code+';return{fwMeasuredNumber,fwPhysicalTime}')({FoamLensRegionScene:null});
+  for(const v of [null,undefined,'',false,true,'0x10','0b10','0o7','Infinity','NaN','  ',[],{}]){
+    assert(Number.isNaN(numeric.fwMeasuredNumber(v)),'Invalid sample: '+String(v));
+    assert(Number.isNaN(numeric.fwPhysicalTime(v)),'Invalid physical time: '+String(v));
+  }
+  assert.strictEqual(numeric.fwPhysicalTime('0'),0,'Real OpenFOAM zero remains valid');
+  assert.strictEqual(numeric.fwPhysicalTime(' 9.8e-3 '),0.0098);
+  assert.strictEqual(numeric.fwMeasuredNumber('-273.15'),-273.15);
+  const sourceBound=new Function('window',code+';return fwPhysicalTime')({FoamLensRegionScene:{physicalTime:()=>12.5}});
+  assert.strictEqual(sourceBound('raw'),12.5,'Native source-owned resolver stays authoritative');
+});
+
+test('Granada: navigating away preserves an explicitly requested same-case A/B comparison',()=>{
+  const start=field.indexOf('function fwLeave(){');
+  const end=field.indexOf('function fwInstall(){',start);
+  assert(start>=0&&end>start,'Original Field exit handler must exist');
+  const state={active:true,compareUserRequested:true,fieldTsSeq:0,layout:'3d',dataViewBeforeField:null};
+  const stop={play:0,time:0,inspector:0,return:0};
+  const leave=new Function('fwState','document','window','fvStopPlayback',
+    'fwTimeStop','fwSetInspector','fwReturnCompanionControlsToData',
+    'currentDataView','updateDatasetViewUI','console',
+    field.slice(start,end)+';return fwLeave;')(
+      state,{getElementById:()=>null},{FoamLensPlotSurfaces:{active:()=>null}},
+      ()=>stop.play++,()=>stop.time++,()=>stop.inspector++,()=>stop.return++,
+      'timeseries',()=>{}, {error:()=>{}});
+  leave();
+  assert.strictEqual(state.active,false);
+  assert.strictEqual(state.compareUserRequested,true,
+    'One imported OpenFOAM case is valid for A/B compare; leaving must not undo explicit choice');
+  assert.deepStrictEqual(stop,{play:1,time:1,inspector:1,return:1},
+    'Exit must still stop playback and restore real controls');
+});
+
+test('Granada: two-source spatial Time Series uses genuine decimal positions, not implicit zero',()=>{
+  const begin=field.indexOf('function fwPhysicalTime(raw){');
+  const end=field.indexOf('function fwPhysicalTimes(raw){',begin);
+  const positionStart=field.indexOf('function fwProfileTsSelection(slot){');
+  const positionEnd=field.indexOf('function fwRefreshProfileTsSlot(',positionStart);
+  assert(begin>0&&end>begin&&positionStart>0&&positionEnd>positionStart);
+  const time=new Function('window',field.slice(begin,end)+';return fwPhysicalTime')({FoamLensRegionScene:null});
+  let raw='';
+  const doc={getElementById:id=>id==='fwTsProfilePosition1'?{value:raw}:{value:'physical-source'}};
+  const select=new Function('document','fwPhysicalTime',
+    field.slice(positionStart,positionEnd)+';return fwProfileTsSelection')(doc,time);
+  for(const bad of ['', ' ', '0x10','0b1','1e999','NaN','Infinity']){
+    raw=bad;
+    assert(Number.isNaN(select(1).position),'Invalid spatial coordinate may not be silently sampled: '+bad);
+  }
+  raw='0';assert.strictEqual(select(1).position,0,'Original coordinate zero is valid');
+  raw='2e-2';assert.strictEqual(select(1).position,0.02,'Real 20 mm in meters is valid');
+  const refresh=field.slice(field.indexOf('function fwRefreshProfileTsSlot('),
+    field.indexOf('function fwRefreshProbeTsSlot('));
+  assert(refresh.includes('position:preserve?fwMeasuredNumber(pos.value):NaN'),
+    'Empty or reset selectors may not silently keep zero as a measured coordinate');
+  assert(refresh.includes('fwProfilePositionBounds(filtered)'),
+    'Domain must derive from measured spatial coordinates with stack-safe original bounds');
+});
+
+test('Granada: spatial Time Series clears stale sample position when profile source disappears',()=>{
+  const start=field.indexOf('function fwRefreshProfileTsSlot('),end=field.indexOf('function fwRefreshProbeTsSlot(',start);
+  assert(start>0&&end>start);
+  let samples=[];
+  const makeSelect=()=>{
+    let html='',value='';
+    return {get innerHTML(){return html},set innerHTML(x){
+      html=String(x);const options=[...html.matchAll(/<option value="([^"]*)"/g)].map(m=>m[1]);
+      if(!options.includes(value))value=options[0]||'';
+    },get value(){return value},set value(x){value=String(x)}}
+  };
+  const nodes=new Map(['fwTsProfileCase1','fwTsProfileSet1','fwTsProfileField1','fwTsProfileLine1']
+    .map(id=>[id,makeSelect()]));
+  const removed=[];
+  const pos={value:'0.02',min:'0',max:'1',disabled:false,
+    removeAttribute:name=>removed.push(name)};
+  const meta={textContent:'old source'};
+  nodes.set('fwTsProfilePosition1',pos);nodes.set('fwTsProfileMeta1',meta);
+  const begin=field.indexOf('function fwMeasuredNumber(');
+  const numericEnd=field.indexOf('function fwPhysicalTime(',begin);
+  const number=new Function(field.slice(begin,numericEnd)+';return fwMeasuredNumber')();
+  const refresh=new Function('document','fwProfileSeriesAll','fwMeasuredNumber','caseById',
+    'fwUi','fvEsc','localizedFieldName','fvFmt',
+    field.slice(field.indexOf('function fwProfilePositionBounds(rows){'),end)+
+      ';return fwRefreshProfileTsSlot')(
+      {getElementById:id=>nodes.get(id)||null},()=>samples,number,
+      ()=>({name:'QuickCup'}),en=>en,String,x=>x.canonical,String);
+  refresh(1);
+  assert.equal(pos.value,'','Absent profile must not retain old physical coordinate');
+  assert.strictEqual(pos.disabled,true);
+  assert.deepStrictEqual(removed,['min','max']);
+  samples=[{caseId:'1',caseName:'B3',profileOutputPath:'set',
+    field:{canonical:'T',unit:'K'},profileLineKey:'line',profileLine:'Line 1',
+    t:[0.02,0.03],profileCoordUnit:'m'}];
+  refresh(1);
+  assert.strictEqual(pos.disabled,false,'Valid measured spatial positions restore input');
+  assert.strictEqual(Number(pos.min),0.02);
+  assert.strictEqual(Number(pos.max),0.03);
+  assert(Math.abs(Number(pos.value)-0.025)<1e-12);
+});
+
+test('Granada: physical profile bounds handle 300k original coordinates and reject absent values',()=>{
+  const begin=field.indexOf('function fwProfilePositionBounds(rows){');
+  const end=field.indexOf('function fwRefreshProfileTsSlot(',begin);
+  assert(begin>0&&end>begin,'Original stack-safe coordinate domain function missing');
+  const numberBegin=field.indexOf('function fwMeasuredNumber(raw){');
+  const numberEnd=field.indexOf('function fwPhysicalTime(raw){',numberBegin);
+  const measured=new Function(field.slice(numberBegin,numberEnd)+';return fwMeasuredNumber')();
+  const bounds=new Function('fwMeasuredNumber',field.slice(begin,end)+
+    ';return fwProfilePositionBounds')(measured);
+  assert.deepStrictEqual(bounds([]),{min:NaN,max:NaN,count:0});
+  const originals=new Float64Array(300000).fill(0.02);
+  originals[0]=0;originals[299999]=0.03;
+  assert.deepStrictEqual(bounds([{t:originals},{t:[null,'','0x10','0.01',false,NaN]}]),
+    {min:0,max:0.03,count:300001});
+  assert.deepStrictEqual(bounds([{t:[null,'',false,'0x10']}]),
+    {min:NaN,max:NaN,count:0});
+  assert.deepStrictEqual(bounds([{t:'0.02'},{t:1}]),
+    {min:NaN,max:NaN,count:0},
+    'Malformed textual/spurious source must not become character-by-character XYZ');
+});
+
 test('Field Inspector closes with Escape and returns keyboard focus',()=>{
   for(const token of [
     'aria-controls="fwControlsDrawer"',
@@ -464,7 +589,9 @@ test('Field companion profile time changes only in an active split, never in hid
   const begin=field.indexOf('function fwSyncCompanionTime(');
   const end=field.indexOf('function fwUpdateViewCount(',begin);
   assert(begin>0&&end>begin,'Original Field time sync function must be present');
-  const numberStart=field.indexOf('function fwPhysicalTime(');
+  // Native fallback time delegates to the original strict numeric reader;
+  // isolated companion tests must retain that actual source dependency.
+  const numberStart=field.indexOf('function fwMeasuredNumber(');
   const numberEnd=field.indexOf('function fwPhysicalTimes(',numberStart);
   assert(numberStart>=0&&numberEnd>numberStart);
   const fwPhysicalTime=new Function('window',field.slice(numberStart,numberEnd)+
