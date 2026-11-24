@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "ab5cbc1b90d66512a8a228d5c34a72466f671ee830c88ca618eab22fac46a6be",
+  "inventory_fingerprint": "ec00f813aabb29e9144291499c084cf72e1f158619cb74717fa301ef0e1dfd62",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -949,7 +949,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "61ce901dd5de04d658cd5db4ee05e510e08eb71a"
+      "blob": "2587554bf9ab3ab8e6540a2a4b34f42510608e72"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
@@ -998,7 +998,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "af86e0db35e09ba7672b3f308dc9dae9046e3b4f"
+      "blob": "11a4bcf960ea9fceb076335cc0069898db1cd077"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1012,7 +1012,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "7b985f6e45b74489c53086acc043c0ecc7000417"
+      "blob": "26eeffdc92f7ec99e0589d775b2bee7f5abcb3dc"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1124,7 +1124,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "22e883243845ebdc6b73d3bc1ba4552b3de27bd0"
+      "blob": "1766d93b6c7594e102b2ce5d12eae0a948c041e1"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js",
@@ -1565,7 +1565,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ca729982f5f0837484b4fcf8b7e67eaaf32495c9"
+      "blob": "bc43b1b1c63b1e26a5e45495c50a5d27342474f8"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -1586,7 +1586,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "18516e29ce57894469bfa8a817fbb1d95fd0fd50"
+      "blob": "b449e1fa3fc0159800dd596f7332a62f1cac7be9"
     },
     {
       "path": "desktop/tests/field-source-copy.test.cjs",
@@ -2251,7 +2251,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "b5cd50063a997061b1bb47423b8a4c4645825ea4"
+      "blob": "f9dc1223d2bf2ed08eb214e17ca408ff17785517"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
