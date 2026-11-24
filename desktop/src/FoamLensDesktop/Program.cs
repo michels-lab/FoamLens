@@ -44,6 +44,11 @@ internal static class Program
             NativeCadOcctConverter.SelfTest();
             return;
         }
+        if (args.Any(arg => string.Equals(arg, "--cad-cartesian-self-test", StringComparison.OrdinalIgnoreCase)))
+        {
+            NativeCartesianMesh.SelfTest();
+            return;
+        }
         if (args.Any(arg => string.Equals(arg, "--cad-surfacecheck-self-test",
                 StringComparison.OrdinalIgnoreCase)))
         {
