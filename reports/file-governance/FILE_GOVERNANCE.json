@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "28772de166d16d5b31b9f83817bb7e88d8d0e9bc4791136627a5de3fb46a9a13",
+  "inventory_fingerprint": "4431d530f29a9f7427b2afdbedbcb22426286454c43ecb6c591efabf3f31a4eb",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -613,7 +613,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "2000b595dcd6fae48f499709665cc527295c5fb9"
+      "blob": "f311739791793e78af8e51cd0b21576376253acf"
     },
     {
       "path": "LICENSE",
@@ -634,7 +634,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "e4819c6373143d5f950a599344427c5d1b959f96"
+      "blob": "b680e4732a29d53622df9e80fc1be42ff50b8026"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -648,7 +648,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "5ffc88fe6db862e8ba90c4567ee10ae4b48c8b76"
+      "blob": "71d7e71f35d20dcaac759eb7058832c90dd12c11"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -1124,7 +1124,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "0dbdd2a611d98afd22385e8d6fb221a39ef3254b"
+      "blob": "34f15f3e5521833e82dfb11d14a4ec93f8f5e34b"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js",
@@ -1180,7 +1180,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "c4f043e3c301d5336eb3e171b34fb36c00e88eed"
+      "blob": "48adf27f117977d409177201479f998e9f50ab87"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-solidification-front-3d.js",
@@ -1740,7 +1740,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3b4692007fe374ada6b9610241f70cc527c23d6c"
+      "blob": "653e55a45d924d1acfbefbf346647b82e3d3edf7"
     },
     {
       "path": "desktop/tests/mesh-quality-audit.test.cjs",
@@ -2251,7 +2251,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "3050fafc195ebbef260206d9b18b3120e0ecc451"
+      "blob": "b81d240c283a75131606b004ce7a99cca3c355b4"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
