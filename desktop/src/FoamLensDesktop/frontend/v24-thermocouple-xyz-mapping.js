@@ -131,6 +131,11 @@ function tcCompare(sim,experimental,settings={}){
     return invalid('Source dimensional exponents are not thermodynamic temperature');
   const a=tcSeriesPairs(sim.t,sim.y),b=tcSeriesPairs(experimental.t,experimental.y);
   if(!a||!b)return invalid('Time/temperature measurements incomplete, non-finite, unsorted or repeated');
+  // Validate ALL source evidence, not only the overlapping reporting window.
+  // A spurious -1 K record just outside that window must not be hidden by
+  // trimming and then exported as a fully trustworthy sensor comparison.
+  if(a.some(([,v])=>v+sourceK.offset<0)||b.some(([,v])=>v+expK.offset<0))
+    return invalid('Temperature below absolute zero (0 K) in original simulation or experiment');
   const shift=tcNumber(settings.timeShiftS);
   if(!Number.isFinite(shift))return invalid('Explicit finite experiment time shift required');
   const expShifted=b.map(([t,y])=>[t+shift,y]);
@@ -142,6 +147,10 @@ function tcCompare(sim,experimental,settings={}){
     const smp=tcInterpolate(a,t);if(!smp)continue;
     const model=smp.value+sourceK.offset,observed=e+expK.offset,delta=model-observed;
     if(![model,observed,delta].every(Number.isFinite))return invalid('Non-finite Kelvin conversion');
+    // A temperature below absolute zero is not a physical thermocouple or
+    // OpenFOAM temperature measurement. It may indicate a wrong unit, bad
+    // sensor calibration, or corrupt data: do not report a plausible RMSE.
+    if(model<0||observed<0)return invalid('Temperature below absolute zero (0 K) in original simulation or experiment');
     rows.push({timeS:t,simulationK:model,experimentK:observed,simMinusExpK:delta,
       simulationTimeSource:smp.method})
   }

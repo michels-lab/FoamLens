@@ -23,6 +23,8 @@ function fcTimeBracket(values,target){
   return span>0?{ok:true,lower,upper,weight:(t-lower)/span,exact:false}:{ok:false,lower,upper,weight:NaN,exact:false}
 }
 function fcResolveTime(values,target,mode='nearest'){
+  // Never silently reinterpret an unsupported synchronization policy as nearest.
+  if(!['nearest','exact','interpolate'].includes(mode))return{ok:false,time:NaN,delta:NaN,exact:false,interpolated:false,reason:'unsupported-sync-mode'};
   const t=fcPhysicalNumber(target),near=fcNearestTime(values,t);if(!Number.isFinite(near))return{ok:false,time:NaN,delta:NaN,exact:false,interpolated:false};
   const exact=fcCloseTime(near,t);
   if(mode==='exact')return exact?{ok:true,time:near,delta:near-t,exact:true,interpolated:false}:{ok:false,time:near,delta:near-t,exact:false,interpolated:false};
@@ -34,12 +36,15 @@ function fcResolveTime(values,target,mode='nearest'){
   return{ok:true,time:near,delta:near-t,exact,interpolated:false}
 }
 function fcInterpolateValues(a,b,weight){
-  const n=Math.min(a?.length||0,b?.length||0),rawWeight=fcPhysicalNumber(weight),w=Math.max(0,Math.min(1,rawWeight)),out=new Array(n);
+  // A truncated interpolation cannot represent the original OpenFOAM field.
+  // Caller must explicitly reject incompatible source arrays, not infer missing cells.
+  if(!a||!b||!Number.isSafeInteger(a.length)||a.length!==b.length)return[];
+  const n=a.length,rawWeight=fcPhysicalNumber(weight),w=Math.max(0,Math.min(1,rawWeight)),out=new Array(n);
   for(let i=0;i<n;i++){const x=fcPhysicalNumber(a[i]),y=fcPhysicalNumber(b[i]);out[i]=Number.isFinite(rawWeight)&&rawWeight>=0&&rawWeight<=1&&Number.isFinite(x)&&Number.isFinite(y)?x+(y-x)*w:NaN}
   return out
 }
 function fcSharedRange(a,b){
-  const valid=x=>x&&Number.isFinite(fcPhysicalNumber(x.min))&&Number.isFinite(fcPhysicalNumber(x.max));
+  const valid=x=>x&&Number.isFinite(fcPhysicalNumber(x.min))&&Number.isFinite(fcPhysicalNumber(x.max))&&fcPhysicalNumber(x.min)<=fcPhysicalNumber(x.max);
   if(!valid(a)&&!valid(b))return{valid:false,min:NaN,max:NaN};
   if(!valid(a))return{valid:true,min:fcPhysicalNumber(b.min),max:fcPhysicalNumber(b.max)};
   if(!valid(b))return{valid:true,min:fcPhysicalNumber(a.min),max:fcPhysicalNumber(a.max)};
@@ -59,7 +64,9 @@ function fcSyncedCamera(primaryCamera,primaryMesh,compareMesh){
 }
 
 function fcArrayEqualNumeric(a,b,tol=0){
-  if((a?.length||0)!==(b?.length||0))return false;
+  // Missing topology on BOTH source meshes cannot establish equivalence.
+  if(a==null||b==null||!Number.isSafeInteger(a.length)||!Number.isSafeInteger(b.length))return false;
+  if(a.length!==b.length)return false;
   for(let i=0;i<(a?.length||0);i++){const x=fcPhysicalNumber(a[i]),y=fcPhysicalNumber(b[i]);if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x-y)>tol)return false}
   return true
 }
@@ -138,7 +145,7 @@ function fcSyncText(sync){
 }
 const fcState={
   enabled:false,caseId:null,region:'',fieldName:'',component:'value',fieldStorage:'volume',mesh:null,renderer:null,fieldValues:null,fieldParsed:null,time:NaN,delta:NaN,range:null,lockedRange:null,videoRangeOverride:null,
-  spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceRenderer:null,seq:0,lastError:'',camera:null,visual:null,sync:null
+  spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceSource:null,differenceRenderer:null,seq:0,lastError:'',camera:null,visual:null,sync:null
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fcPrimaryPhysicalTime(){return fcPhysicalNumber(fvState?.time)}
@@ -167,10 +174,11 @@ function fcIndependentTimeSource(state){
   const b=state===fcState,c=b?fcCase():fcExtraCase(state),
     region=b?fcRegion():fcExtraRegion(state),
     field=b?fcCurrentFieldName():fcExtraField(state),
-    group=c&&field?fcFieldFor(c,region,field):null,
+    association=b?(typeof fcCurrentFieldStorage==='function'?fcCurrentFieldStorage():''):(typeof fcExtraFieldStorage==='function'?fcExtraFieldStorage(state):''),
+    group=c&&field?fcFieldFor(c,region,field,association):null,
     times=[...new Set((group?.times||[]).map(fcPhysicalNumber)
       .filter(Number.isFinite))].sort((a,b)=>a-b);
-  return{key:c?String(c.id)+'|'+region+'|'+field:'',times}
+  return{key:c?String(c.id)+'|'+region+'|'+field+(association?'|'+association:''):'',times}
 }
 function fcIndependentTimeTarget(state){
   if(fcTimesLinked())return fcPrimaryPhysicalTime();
@@ -1065,15 +1073,25 @@ function fcPhysicalRelease(state,{clearChoices=false}={}){
 // supported by that field; never manufacture an absent source option.
 function fcReconcilePhysicalChoice(choice,groups,preferred=''){
   if(!choice||!groups?.length)return false;
-  const group=groups.find(g=>g.name===choice.field)||
-    groups.find(g=>g.name===preferred)||groups[0];
+  // The same OpenFOAM name may describe a cell, face or point field.
+  // Preserve the storage association in each region choice instead of
+  // silently reselecting an unrelated group when metadata is refreshed.
+  const exact=groups.filter(g=>g.name===choice.field&&
+    (!choice.storage||String(g.storage||'')===String(choice.storage)));
+  const preferredGroups=groups.filter(g=>g.name===preferred);
+  const group=(exact.length===1?exact[0]:null)||
+    (preferredGroups.length===1?preferredGroups[0]:null)||groups[0];
   const allowed=fvFieldComponents(group);
   const component=allowed.some(item=>item.v===choice.component)?choice.component:
     (allowed[0]?.v||'value');
-  const changed=choice.field!==group.name||choice.component!==component;
-  choice.field=group.name;choice.component=component;
+  const storage=String(group.storage||'');
+  const changed=choice.field!==group.name||choice.component!==component||String(choice.storage||'')!==storage;
+  choice.field=group.name;choice.component=component;choice.storage=storage;
   return changed
 }
+// B/C/D must show the complete real physical body on first load: the
+// selected 'Region' is the active field, not a command to hide its mold.
+// Respect explicit per-case user hiding after the default all-regions view.
 function fcPhysicalChoiceList(state,c,primary){
   const scene=fcPhysicalFor(state),key=String(c?.id??'');
   if(scene.caseId!==key){
@@ -1088,12 +1106,12 @@ function fcPhysicalChoiceList(state,c,primary){
     const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind));
     const preferred=state.fieldName||'';
     if(!scene.choices.has(region))
-      scene.choices.set(region,{visible:region===primary,visibilityExplicit:false,field:'',component:'value',opacity:region===primary?1:.48,palette:'viridis'});
+      scene.choices.set(region,{visible:true,visibilityExplicit:false,field:'',component:'value',opacity:region===primary?1:.48,palette:'viridis'});
     // Preserve user visibility/opacity/palette and any still-valid selection.
     // When indexed metadata arrives later, repair ONLY invalid field/component
     // selections using real source groups (vector defaults to magnitude).
     const choice=scene.choices.get(region);
-    if(!choice.visibilityExplicit)choice.visible=region===primary;
+    if(!choice.visibilityExplicit)choice.visible=true;
     fcReconcilePhysicalChoice(choice,fields,preferred)
   }
   return regions
@@ -1215,9 +1233,9 @@ function fcPhysicalMenu(view){
   // supported vector component in the refresh signature.
   const locale=document.getElementById('language')?.value||document.documentElement?.lang||'en';
   const key=JSON.stringify([locale,ctx.c?.id,ctx.primary,...catalog.map(({region,ch,groups})=>[
-    region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.component,ch?.palette,
+    region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.storage,ch?.component,ch?.palette,
     view==='A'?'':fcPhysicalFor(ctx.state).errors.get(region),
-    groups.map(g=>[g.name,g.kind,fvFieldComponents(g).map(x=>x.v)])
+    groups.map(g=>[g.name,g.kind,String(g.storage||''),fvFieldComponents(g).map(x=>x.v)])
   ])]);
   if(holder.dataset.fcMenuKey===key){
     fcSyncPhysicalOpacitySliders(holder,ctx,catalog);
@@ -1226,13 +1244,14 @@ function fcPhysicalMenu(view){
   holder.dataset.fcMenuKey=key;
   const expanded=fcPhysicalMenuExpanded(holder,names.length);
   const rows=catalog.map(({region,ch,groups})=>{
-    const field=groups.find(g=>g.name===ch.field);
+    const matches=groups.filter(g=>g.name===ch.field&&(!ch.storage||String(g.storage||'')===String(ch.storage)));
+    const field=matches.length===1?matches[0]:null;
     const components=field?fvFieldComponents(field):[{v:'value',t:fcUi('Value','Valor')}];
     const selection=ch.component||'value';
     return '<div class="fcPhysicalRegionRow" data-fc-region="'+fcEsc(region)+'">'+
       '<label class="fcPhysicalToggle"><input type="checkbox" data-fc-visible '+(ch.visible?'checked':'')+' aria-label="'+fcUi('Display region','Mostrar región')+' '+fcEsc(region||fcUi('Default region','Región predeterminada'))+'"> <b>'+fcEsc(region||fcUi('Default region','Región predeterminada'))+'</b></label>'+
       '<select data-fc-region-field aria-label="'+fcUi('Property for region','Propiedad de región')+' '+fcEsc(region)+'">'+
-      groups.map(g=>'<option value="'+fcEsc(g.name)+'" '+(g.name===ch.field?'selected':'')+'>'+fcEsc(g.name)+'</option>').join('')+'</select>'+
+      groups.map(g=>'<option value="'+fcEsc(g.name)+'" data-storage="'+fcEsc(g.storage||'')+'" '+(g.name===ch.field&&String(g.storage||'')===String(ch.storage||'')?'selected':'')+'>'+fcEsc(g.name)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')+'</select>'+
       '<select data-fc-region-comp aria-label="'+fcUi('Component for region','Componente de región')+' '+fcEsc(region)+'">'+
       components.map(o=>'<option value="'+fcEsc(o.v)+'" '+(o.v===selection?'selected':'')+'>'+fcEsc(o.t)+'</option>').join('')+'</select>'+
       (region===ctx.primary
@@ -1265,15 +1284,28 @@ function fcPhysicalMenu(view){
     const forwardPrimary=(kind,value)=>{
       if(region!==ctx.primary)return false;
       const source=document.getElementById(fcViewSourceMap(view)?.[kind]);
-      if(!source||![...source.options].some(option=>option.value===value))return false;
+      if(!source)return false;
+      const matches=[...source.options].filter(option=>option.value===value);
+      if(!matches.length)return false;
+      // A same-named source field can exist on cells and faces. Updating
+      // only select.value silently chooses the first matching association,
+      // even if the overlay's user selected the other one.
+      if(kind==='Field'&&matches.length>1){
+        const exact=matches.find(option=>String(option.dataset?.storage||'')===String(ch.storage||''));
+        if(!exact)return false;
+        exact.selected=true
+      }else if(kind==='Field'&&ch.storage&&matches[0]?.dataset?.storage&&
+        String(matches[0].dataset.storage)!==String(ch.storage))return false;
+      else source.value=value;
       // The selected region is owned by the ORIGINAL A/B/C/D Field controller.
       // Forward changes through its real selection listener: changing the
       // overlay metadata alone never updates the primary GPU field.
-      source.value=value;source.dispatchEvent(new Event('change',{bubbles:true}));
+      source.dispatchEvent(new Event('change',{bubbles:true}));
       return true
     };
     row.querySelector('[data-fc-region-field]').onchange=e=>{
       ch.field=e.target.value;
+      ch.storage=String(e.target.selectedOptions?.[0]?.dataset?.storage||'');
       fcReconcilePhysicalChoice(ch,groups,e.target.value);
       if(forwardPrimary('Field',ch.field))return;
       if(view==='A'){
@@ -1316,7 +1348,9 @@ async function fcPhysicalLoad(state,c,primary,time,redraw){
       if(region===primary||!choice?.visible)continue;
       try{
         const fields=fvFieldGroups(c,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),
-          group=fields.find(g=>g.name===choice.field),exact=group?fvRegionExactTime(group.times,time):undefined;
+          matching=fields.filter(g=>g.name===choice.field&&
+            (!choice.storage||String(g.storage||'')===String(choice.storage))),
+          group=matching.length===1?matching[0]:null,exact=group?fvRegionExactTime(group.times,time):undefined;
         let frame=null,mesh=null,reason='';
         if(exact!==undefined){
           frame=await fvLoadFrameData(c,group,region,exact,choice.component,{includeBoundary:false});
@@ -1414,7 +1448,7 @@ function fcPhysicalCaption(state,view){
   const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
   const dock=viewport?.querySelector('.fcPhysicalLegends');if(!dock)return;
   const scene=fcPhysicalFor(state);
-  const key=JSON.stringify([scene.seq,state.region,[...scene.choices].map(([r,ch])=>[r,ch.visible,ch.field,ch.component,ch.opacity,ch.palette])]);
+  const key=JSON.stringify([scene.seq,state.region,[...scene.choices].map(([r,ch])=>[r,ch.visible,ch.field,ch.storage,ch.component,ch.opacity,ch.palette])]);
   if(dock.dataset.fcCaptionKey===key)return;dock.dataset.fcCaptionKey=key;
   dock.innerHTML=[...scene.choices].filter(([region,ch])=>ch.visible&&region!==state.region).map(([region,ch])=>{
     const layer=scene.layers.get(region),error=scene.errors.get(region);
@@ -1462,10 +1496,44 @@ function fcCase(){return cases.find(c=>String(c.id)===String(document.getElement
 function fcRegion(){return document.getElementById('fcRegion')?.value||''}
 function fcMode(){return document.getElementById('fcSync')?.value||'nearest'}
 function fcCurrentFieldName(){return document.getElementById('fcField')?.value||fvState.fieldName||document.getElementById('fvField')?.value||''}
+function fcSelectedAssociation(select){return String(select?.selectedOptions?.[0]?.dataset?.storage||'')}
+function fcCurrentFieldStorage(){return fcSelectedAssociation(document.getElementById('fcField'))}
 function fcCurrentComponent(){return document.getElementById('fcComponent')?.value||fvState.component||document.getElementById('fvComponent')?.value||'value'}
 function fcMeshFor(c,region){return fvMeshes(c).find(g=>String(g.region||'')===String(region||'')&&g.complete)}
-function fcFieldFor(c,region,name){return fvFieldGroups(c,region,null,'any').find(g=>g.name===name)}
+function fcFieldFor(c,region,name,association=''){
+  // Never silently load "T" from a face field when the user chose "T"
+  // in a volume (or vice versa). OpenFOAM association is source identity.
+  const matching=fvFieldGroups(c,region,null,'any').filter(g=>
+    g.name===name&&['scalar','vector'].includes(g.kind)&&
+    (!association||String(g.storage||'')===association));
+  return matching.length===1?matching[0]:null
+}
 function fcVectorFor(c,region,name){return fvFieldGroups(c,region,'vector').find(g=>g.name===name)}
+// A C/D frame can become invalid after a missing original OpenFOAM field.
+// Clearing JavaScript values alone does NOT clear an already presented WebGL
+// backbuffer: the ordinary render path returns early when mesh is null.
+// Blank ONLY an invalidated frame; never blank a measured scene mid-load.
+function fcBlankInvalidFieldViewport(canvas,renderer,viewport){
+  const gl=renderer?.gl;
+  if(canvas&&gl&&typeof gl.viewport==='function'&&
+     typeof gl.clearColor==='function'&&typeof gl.clear==='function'){
+    gl.viewport(0,0,Math.max(1,canvas.width||1),Math.max(1,canvas.height||1));
+    gl.clearColor(0,0,0,0);
+    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT)
+  }
+  for(const node of viewport?.querySelectorAll?.(
+    '.fcMetricAxes, .fcMetricBounds, .fcPhysicalLegends, .fcLegend, .fcProbeMarker')||[]){
+    if(node.classList?.contains('fcMetricBounds')){
+      node.textContent='';node.hidden=true
+    }else if(node.classList?.contains('fcProbeMarker')){
+      // Keep the native probe marker <span>. Future valid picks reuse it.
+      node.classList.add('hidden')
+    }else{
+      node.innerHTML='';
+      if(node.classList?.contains('fcLegend'))node.classList.add('hidden')
+    }
+  }
+}
 function fcClearRenderer(){
   // Disable/invalid states must supersede any old asynchronous B load.
   // Without this increment, a resolved old frame can repaint hidden B
@@ -1479,7 +1547,12 @@ function fcClearRenderer(){
       fcExtraInvalidateFrame(state,fcUi('Comparison disabled.','Comparación desactivada.'));
   }
   fcPhysicalRelease(fcState);
-  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.range=null;fcState.time=NaN;fcState.delta=NaN;fcState.sync=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;fcRender();fcUpdateLabels();fcUpdateStatsGrid()
+  const r=fcState.renderer;if(r){r.surfaceCount=0;r.edgeCount=0;r.sliceCount=0;r.isoCount=0;r.vectorCount=0;r.lineCount=0;r.probeCount=0}const dr=fcState.differenceRenderer;if(dr){dr.surfaceCount=0;dr.edgeCount=0;dr.sliceCount=0;dr.isoCount=0;dr.vectorCount=0;dr.lineCount=0}fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;fcState.mesh=null;fcState.fieldValues=null;fcState.fieldParsed=null;fcState.range=null;fcState.time=NaN;fcState.delta=NaN;fcState.sync=null;fcState.vectorValues=null;fcState.streamlines=[];fcState.probe=null;
+  fcBlankInvalidFieldViewport(document.getElementById('fcCanvas'),fcState.renderer,
+    document.getElementById('fcViewport'));
+  fcBlankInvalidFieldViewport(document.getElementById('fcDifferenceCanvas'),fcState.differenceRenderer,
+    document.getElementById('fcDifferenceViewport'));
+  fcRender();fcUpdateLabels();fcUpdateStatsGrid()
 }
 function fcSetStatus(text,error=false){
   fcState.lastError=error?String(text||''):'';const e=document.getElementById('fcStatus');if(e){e.textContent=String(text||'');e.classList.toggle('error',!!error)}
@@ -1515,10 +1588,16 @@ function fcRefreshSelectors(preserve=true){
   const selectedCase=fcCase(),oldRegion=preserve?regionSel.value:'',regions=typeof fvReadyRegions==='function'?fvReadyRegions(selectedCase):fvMeshes(selectedCase).filter(g=>g.complete).map(g=>String(g.region||''));
   fcExtraSetOptionMarkup(regionSel,regions.length?regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join(''):'<option value="">—</option>',!preserve);
   if(regions.includes(oldRegion))regionSel.value=oldRegion;else{const primaryRegion=document.getElementById('fvRegion')?.value||'';if(regions.includes(primaryRegion))regionSel.value=primaryRegion}
-  const region=regionSel.value||'',groups=fvFieldGroups(selectedCase,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';
-  fcExtraSetOptionMarkup(fieldSel,groups.length?groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join(''):'<option value="">—</option>',!preserve);
-  if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else{const primaryField=document.getElementById('fvField')?.value||'';if(groups.some(g=>g.name===primaryField))fieldSel.value=primaryField}
-  const group=groups.find(g=>g.name===fieldSel.value),components=typeof fvFieldComponents==='function'?fvFieldComponents(group):[{v:'value',t:fcUi('Value','Valor')}],oldComp=preserve?componentSel.value:'';
+  const region=regionSel.value||'',groups=fvFieldGroups(selectedCase,region,null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'',oldAssociation=preserve&&typeof fcSelectedAssociation==='function'?fcSelectedAssociation(fieldSel):'';
+  fcExtraSetOptionMarkup(fieldSel,groups.length?groups.map(g=>'<option value="'+fcEsc(g.name)+'" data-storage="'+fcEsc(g.storage||'')+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join(''):'<option value="">—</option>',!preserve);
+  if(oldField&&groups.some(g=>g.name===oldField&&(!oldAssociation||String(g.storage||'')===oldAssociation))){
+    fieldSel.value=oldField;
+    if(oldAssociation)for(const option of fieldSel.options||[])
+      if(option.value===oldField&&option.dataset?.storage===oldAssociation){option.selected=true;break}
+  }else{const primaryField=document.getElementById('fvField')?.value||'';if(groups.some(g=>g.name===primaryField))fieldSel.value=primaryField}
+  const selectedStorage=fcSelectedAssociation(fieldSel),
+    group=groups.find(g=>g.name===fieldSel.value&&String(g.storage||'')===selectedStorage)||
+      (!selectedStorage?groups.find(g=>g.name===fieldSel.value):null),components=typeof fvFieldComponents==='function'?fvFieldComponents(group):[{v:'value',t:fcUi('Value','Valor')}],oldComp=preserve?componentSel.value:'';
   fcExtraSetOptionMarkup(componentSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''),!preserve);if(oldComp&&components.some(o=>o.v===oldComp))componentSel.value=oldComp;else{const primaryComp=document.getElementById('fvComponent')?.value||'value';if(components.some(o=>o.v===primaryComp))componentSel.value=primaryComp}
   const badge=document.getElementById('fcBadge');if(badge)badge.textContent=eligible.length?eligible.length+' '+fcUi('3D cases','casos 3D'):fcUi('no 3D case','sin caso 3D');
   fcUpdateLabels();fcScheduleToolbarSync()
@@ -1564,42 +1643,93 @@ function fcUpdateDerived(range){
 }
 
 function fcDifferenceMvp(canvas){return fcMvp(canvas)}
+// A delta is a DERIVED physical field, not a self-contained source. Every
+// displayed/exported A-B must still belong to exactly the case, region,
+// field, source buffers and measured times used to calculate its GPU colors.
+function fcDifferenceSourceKey(){
+  return JSON.stringify([
+    fvState.caseId,fvState.region,fvState.fieldName,fvState.component,
+    fvState.fieldStorage,fvState.fieldParsed?.dimensions||'',fvState.time,fvState.frameSeq,
+    fcState.caseId,fcState.region,fcState.fieldName,fcState.component,
+    fcState.fieldStorage,fcState.fieldParsed?.dimensions||'',fcState.time,fcState.seq,
+    // A user can move a selector before its asynchronous OpenFOAM read has
+    // committed the new case/field to the renderer. Do not expose the old
+    // difference as belonging to that freshly selected source.
+    ...['fvCase','fvRegion','fvField','fvComponent',
+        'fcCase','fcRegion','fcField','fcComponent'].map(id=>
+      document.getElementById(id)?.value??''),
+    document.getElementById('fvField')?.selectedOptions?.[0]?.dataset?.storage||'',
+    document.getElementById('fcField')?.selectedOptions?.[0]?.dataset?.storage||'',
+    document.getElementById('fcDifferenceMode')?.value||'signed',
+    Number(document.getElementById('fcPercentEpsilon')?.value)||1e-12
+  ])
+}
+function fcDifferenceSourceMatches(){
+  const previous=fcState.differenceSource;
+  return !!(previous&&fcState.differenceRange?.valid&&fcState.differenceValues?.length&&
+    previous.primaryMesh===fvState.mesh&&previous.compareMesh===fcState.mesh&&
+    previous.primaryValues===fvState.fieldValues&&
+    previous.compareValues===fcState.fieldValues&&
+    previous.key===fcDifferenceSourceKey()&&
+    fcDifferenceTimesMatch(fvState.time,fcState.time))
+}
 function fcRenderDifference(exportSize=null){
   if((fcState._fcFrameHold||fcState._fcGroupHold||fvState._fvFrameHold||fvState._fvGroupHold)&&!exportSize)return;
-  if(!fcState.enabled||!document.getElementById('fcDifference')?.checked)return;const r=fcState.differenceRenderer,canvas=document.getElementById('fcDifferenceCanvas');if(!r||!canvas||!fvState.mesh||!fcState.differenceValues)return;
+  if(!fcState.enabled||!document.getElementById('fcDifference')?.checked)return;
+  if(!fcDifferenceSourceMatches()){
+    // A hidden stale canvas is still capturable by exports/recordings.
+    fcBlankInvalidFieldViewport(document.getElementById('fcDifferenceCanvas'),
+      fcState.differenceRenderer,document.getElementById('fcDifferenceViewport'));
+    return
+  }
+  const r=fcState.differenceRenderer,canvas=document.getElementById('fcDifferenceCanvas');
+  if(!r||!canvas||!fvState.mesh||!fcState.differenceValues)return;
   const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcDifferenceMvp(canvas));
   const opacity=fvClamp(document.getElementById('fvOpacity')?.value??.92,.05,1),showEdges=document.getElementById('fvEdges')?.checked!==false;
   fvBindDraw(r,r.surfacePos,r.surfaceColor,r.surfaceCount,gl.TRIANGLES,opacity);
   if(showEdges){gl.depthFunc(gl.LEQUAL);fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}
 }
+// A and B must represent the same physical instant, regardless of whether
+// the UI clock is linked. The 'nearest' policy can legally select a different
+// measured B frame; that is useful for side-by-side viewing, not for A-B.
+function fcDifferenceTimesMatch(a,b){
+  const primary=fcPhysicalNumber(a),secondary=fcPhysicalNumber(b);
+  return Number.isFinite(primary)&&Number.isFinite(secondary)&&
+    Math.abs(primary-secondary)<=Math.max(1e-15,
+      1e-10*Math.max(Math.abs(primary),Math.abs(secondary)))
+}
 function fcUpdateDifference(primaryMesh,compareMesh,primaryValues,compareValues){
   const enabled=!!document.getElementById('fcDifference')?.checked,viewport=document.getElementById('fcDifferenceViewport'),status=document.getElementById('fcDifferenceStatus');
-  viewport?.classList.toggle('hidden',!enabled);if(!enabled){fcState.differenceValues=null;fcState.differenceRange=null;fcUpdateLayout();return}
-  // Independent timestamps must never produce a misleading scientific A-B.
-  if(!fcTimesLinked()&&(!Number.isFinite(fvState.time)||!Number.isFinite(fcState.time)||
-    Math.abs(fvState.time-fcState.time)>1e-9*Math.max(1,Math.abs(fvState.time),Math.abs(fcState.time)))){
-    fcState.differenceValues=null;fcState.differenceRange=null;
-    flSetIssue(status,'Independent physical times differ; 3D difference requires matching t (s)',{analysis:'3D Difference'});
+  if(!enabled){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;fcUpdateLayout();return}
+  // Linked controls synchronize TARGET time, not necessarily the measured
+  // source time. Nearest-frame B can be at a different instant from A.
+  // A-B is scientifically valid only at the same EFFECTIVE physical t (s),
+  // either exact or with a source-backed interpolated B frame at A's t.
+  if(!fcDifferenceTimesMatch(fvState.time,fcState.time)){
+    fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;
+    flSetIssue(status,fcUi('Physical times differ or are missing; A − B requires matching measured/interpolated t (s).','Los tiempos físicos difieren o faltan; A − B requiere el mismo t medido/interpolado (s).'),{analysis:'3D Difference'});
     fcUpdateLayout();return
   }
-  if(!fcSameQuantity()){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'different field/component/association/dimensions; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
-  if(String(fvState.fieldStorage||'volume')!=='volume'||String(fcState.fieldStorage||'volume')!=='volume'){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'3D difference currently requires cell-associated volume fields',{analysis:'3D Difference'});fcUpdateLayout();return}
-  const compat=fcMeshesEquivalent(primaryMesh,compareMesh);if(!compat.ok){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'mesh mismatch: '+compat.reason+'; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
+  if(!fcSameQuantity()){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;flSetIssue(status,'different field/component/association/dimensions; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
+  if(String(fvState.fieldStorage||'volume')!=='volume'||String(fcState.fieldStorage||'volume')!=='volume'){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;flSetIssue(status,'3D difference currently requires cell-associated volume fields',{analysis:'3D Difference'});fcUpdateLayout();return}
+  const compat=fcMeshesEquivalent(primaryMesh,compareMesh);if(!compat.ok){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;flSetIssue(status,'mesh mismatch: '+compat.reason+'; difference unavailable',{analysis:'3D Difference'});fcUpdateLayout();return}
   // Matching topology alone is insufficient. Dynamic/corrupt OpenFOAM field
   // inputs can report fewer or more cell values; a partial A-B would imply a
   // false physical comparison and leave some geometry colored incorrectly.
   const expectedCells=primaryMesh?.cellCount;
   if(!Number.isSafeInteger(expectedCells)||expectedCells<=0||primaryValues?.length!==expectedCells||compareValues?.length!==expectedCells){
-    fcState.differenceValues=null;fcState.differenceRange=null;
+    fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;
     flSetIssue(status,fcUi('3D difference unavailable: cell field lengths differ from the original mesh.','Diferencia 3D no disponible: los tamaños de los campos no coinciden con la malla original.'),{analysis:'3D Difference'});
     fcUpdateLayout();return
   }
-  const mode=document.getElementById('fcDifferenceMode')?.value||'signed',epsilon=Number(document.getElementById('fcPercentEpsilon')?.value)||1e-12,values=fcDifferenceValues(primaryValues,compareValues,mode,epsilon),range=fcDifferenceRange(values,mode);if(!range.valid){fcState.differenceValues=null;fcState.differenceRange=null;flSetIssue(status,'no-compatible-values',{analysis:'3D Difference'});fcUpdateLayout();return}
+  const mode=document.getElementById('fcDifferenceMode')?.value||'signed',epsilon=Number(document.getElementById('fcPercentEpsilon')?.value)||1e-12,values=fcDifferenceValues(primaryValues,compareValues,mode,epsilon),range=fcDifferenceRange(values,mode);if(!range.valid){fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;flSetIssue(status,'no-compatible-values',{analysis:'3D Difference'});fcUpdateLayout();return}
   const canvas=document.getElementById('fcDifferenceCanvas');if(!fcState.differenceRenderer)fcState.differenceRenderer=fvCreateRenderer(canvas);const r=fcState.differenceRenderer,b=fvBuildSurfaceBuffers(primaryMesh);
   fvUploadBuffer(r,'surfacePos',b.surfacePositions);r.surfaceCount=b.surfacePositions.length/3;fvUploadBuffer(r,'edgePos',b.edgePositions);r.edgeCount=b.edgePositions.length/3;fvUploadBuffer(r,'edgeColor',fvConstantColors(r.edgeCount,[.12,.16,.22]));
   fvUploadBuffer(r,'surfaceColor',fvSurfaceColors(primaryMesh,values,range.min,range.max,mode==='absolute'?'turbo':'coolwarm'),r.gl.DYNAMIC_DRAW);
-  fcState.differenceValues=values;fcState.differenceRange=range;fcState.differenceMode=mode;const formula=mode==='absolute'?'|A − B|':mode==='percent'?'100·(A − B)/max(|A|, ε)':'A − B',diffLabel=document.getElementById('fcDifferenceLabel'),diffBadge=document.getElementById('fcDifferenceTimeBadge');if(diffLabel)diffLabel.textContent=(mode==='absolute'?fcUi('Absolute difference','Diferencia absoluta'):mode==='percent'?fcUi('Percent difference','Diferencia porcentual'):fcUi('Signed difference','Diferencia con signo'))+' · '+formula;if(diffBadge)diffBadge.textContent='Δ · '+fcSyncText(fcState.sync);if(status){status.classList.remove('error');status.textContent=formula+' · '+(fvCase()?.name||fcUi('Primary','Principal'))+' vs '+(fcCase()?.name||fcUi('Comparison','Comparado'))+' · ['+fcFmt(range.min)+', '+fcFmt(range.max)+']'+(mode==='percent'?' %':'')}
+  fcState.differenceValues=values;fcState.differenceRange=range;fcState.differenceMode=mode;
+  fcState.differenceSource={primaryMesh,compareMesh,primaryValues,compareValues,
+    key:fcDifferenceSourceKey()};const formula=mode==='absolute'?'|A − B|':mode==='percent'?'100·(A − B)/max(|A|, ε)':'A − B',diffLabel=document.getElementById('fcDifferenceLabel'),diffBadge=document.getElementById('fcDifferenceTimeBadge');if(diffLabel)diffLabel.textContent=(mode==='absolute'?fcUi('Absolute difference','Diferencia absoluta'):mode==='percent'?fcUi('Percent difference','Diferencia porcentual'):fcUi('Signed difference','Diferencia con signo'))+' · '+formula;if(diffBadge)diffBadge.textContent='Δ · '+fcSyncText(fcState.sync);if(status){status.classList.remove('error');status.textContent=formula+' · '+(fvCase()?.name||fcUi('Primary','Principal'))+' vs '+(fcCase()?.name||fcUi('Comparison','Comparado'))+' · ['+fcFmt(range.min)+', '+fcFmt(range.max)+']'+(mode==='percent'?' %':'')}
   fcUpdateLayout();fcRenderDifference()
 }
 async function fcLoadVectorAtTime(c,g,region,time,mesh){
@@ -1640,9 +1770,16 @@ function fcApplySharedRange(compareRange){
   const union=fcSharedRange(primary,compareRange);if(!union.valid)return union;fvUpdateSurfaceColors(fvState.fieldValues,union);fvUpdateSlice(union);if(typeof fvUpdateIso==='function')fvUpdateIso(union);fvLegend(union,fvState.fieldParsed);return union
 }
 async function fcRefreshFrame(){
-  fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
+  fcRefreshSelectors(true);fcState.enabled=!!document.getElementById('fcEnabled')?.checked;
+  // The user may have selected another case, field or physical timestamp.
+  // Invalidate the old derived A-B before an asynchronous B read begins.
+  // Valid A/B meshes can remain visible until their next complete payload.
+  fcState.differenceValues=null;fcState.differenceRange=null;fcState.differenceSource=null;
+  const deltaStatus=document.getElementById('fcDifferenceStatus');
+  if(deltaStatus)deltaStatus.textContent=fcUi('Updating A − B from selected OpenFOAM sources…','Actualizando A − B desde las fuentes OpenFOAM seleccionadas…');
+  fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
   const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
-  const group=fcFieldFor(selected,region,field);if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
+  const group=fcFieldFor(selected,region,field,typeof fcCurrentFieldStorage==='function'?fcCurrentFieldStorage():'');if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
   const seq=++fcState.seq;fcState._fcFrameHold=seq;try{
     fcSetStatus(fcUi('Loading synchronized comparison…','Cargando comparación sincronizada…'));const loaded=await fcLoadSynchronizedData(selected,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==fcState.seq)return;if(!loaded.ok)throw new Error(fcUi('Comparison time could not be resolved.','No se pudo resolver el tiempo de comparación.'));const data=loaded,sync=loaded.sync;
@@ -1673,6 +1810,7 @@ function fcExtraDom(id,suffix){return document.getElementById('fcExtra'+id+suffi
 function fcExtraCase(state){return (cases||[]).find(c=>String(c.id)===String(fcExtraDom(state.id,'Case')?.value||state.caseId||''))}
 function fcExtraRegion(state){return fcExtraDom(state.id,'Region')?.value||state.region||''}
 function fcExtraField(state){return fcExtraDom(state.id,'Field')?.value||state.fieldName||''}
+function fcExtraFieldStorage(state){return fcSelectedAssociation(fcExtraDom(state.id,'Field'))}
 function fcExtraComponent(state){return fcExtraDom(state.id,'Component')?.value||state.component||'value'}
 function fcExtraMvp(state,canvas){return fcMvpForCamera(fcCameraFor(state,state.mesh),canvas)}
 function fcExtraRender(state,exportSize=null){
@@ -1760,8 +1898,10 @@ function fcExtraRefreshSelectors(state,preserve=true){
   else if(eligible.some(c=>String(c.id)===String(document.getElementById('fvCase')?.value||'')))caseSel.value=String(document.getElementById('fvCase').value);
   else if(eligible.length)caseSel.value=String(eligible[0].id);
   const selected=fcExtraCase(state),regions=typeof fvReadyRegions==='function'?fvReadyRegions(selected):[],oldRegion=preserve?regionSel.value:'';fcExtraSetOptionMarkup(regionSel,regions.map(r=>'<option value="'+fcEsc(r)+'">'+fcEsc(r||fcUi('Default region','Región predeterminada'))+'</option>').join('')||'<option value="">—</option>',!preserve);if(regions.includes(oldRegion))regionSel.value=oldRegion;else if(regions.includes(document.getElementById('fvRegion')?.value||''))regionSel.value=document.getElementById('fvRegion').value;
-  const groups=fvFieldGroups(selected,regionSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'';fcExtraSetOptionMarkup(fieldSel,groups.map(g=>'<option value="'+fcEsc(g.name)+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>',!preserve);if(oldField&&groups.some(g=>g.name===oldField))fieldSel.value=oldField;else if(groups.some(g=>g.name===document.getElementById('fvField')?.value))fieldSel.value=document.getElementById('fvField').value;
-  const group=groups.find(g=>g.name===fieldSel.value),components=fvFieldComponents(group),oldComp=preserve?compSel.value:'';fcExtraSetOptionMarkup(compSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''),!preserve);if(oldComp&&components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===(document.getElementById('fvComponent')?.value||'value')))compSel.value=document.getElementById('fvComponent')?.value||'value';
+  const groups=fvFieldGroups(selected,regionSel.value||'',null,'any').filter(g=>['scalar','vector'].includes(g.kind)),oldField=preserve?fieldSel.value:'',oldAssociation=preserve&&typeof fcSelectedAssociation==='function'?fcSelectedAssociation(fieldSel):'';fcExtraSetOptionMarkup(fieldSel,groups.map(g=>'<option value="'+fcEsc(g.name)+'" data-storage="'+fcEsc(g.storage||'')+'">'+fcEsc(g.name)+' · '+fcEsc(g.kind)+' · '+fcEsc(fvAssociationLabel(g.storage))+'</option>').join('')||'<option value="">—</option>',!preserve);if(oldField&&groups.some(g=>g.name===oldField&&(!oldAssociation||String(g.storage||'')===oldAssociation))){fieldSel.value=oldField;if(oldAssociation)for(const option of fieldSel.options||[])if(option.value===oldField&&option.dataset?.storage===oldAssociation){option.selected=true;break}}else if(groups.some(g=>g.name===document.getElementById('fvField')?.value))fieldSel.value=document.getElementById('fvField').value;
+  const selectedStorage=fcSelectedAssociation(fieldSel),
+    group=groups.find(g=>g.name===fieldSel.value&&String(g.storage||'')===selectedStorage)||
+      (!selectedStorage?groups.find(g=>g.name===fieldSel.value):null),components=fvFieldComponents(group),oldComp=preserve?compSel.value:'';fcExtraSetOptionMarkup(compSel,components.map(o=>'<option value="'+fcEsc(o.v)+'">'+fcEsc(o.t)+'</option>').join(''),!preserve);if(oldComp&&components.some(o=>o.v===oldComp))compSel.value=oldComp;else if(components.some(o=>o.v===(document.getElementById('fvComponent')?.value||'value')))compSel.value=document.getElementById('fvComponent')?.value||'value';
   state.caseId=caseSel.value;state.region=regionSel.value;state.fieldName=fieldSel.value;state.component=compSel.value;fcExtraUpdateLabel(state);fcScheduleToolbarSync()
 }
 function fcExtraInvalidateFrame(state,message){
@@ -1770,7 +1910,10 @@ function fcExtraInvalidateFrame(state,message){
   if(state.renderer)for(const key of ['surfaceCount','edgeCount','sliceCount','isoCount','faceFieldCount','vectorCount','lineCount','probeCount'])state.renderer[key]=0;
   fcPhysicalRelease(state);
   state.mesh=null;state.geometryUpload=null;state.fieldValues=null;state.fieldParsed=null;state.range=null;state.time=NaN;state.delta=NaN;state.sync=null;state.probe=null;
+  fcBlankInvalidFieldViewport(fcExtraDom(state.id,'Canvas'),state.renderer,
+    fcExtraDom(state.id,'Viewport'));
   fcExtraUpdateLabel(state);
+  fcUpdateStatsGrid();
   const status=fcExtraDom(state.id,'Status');if(status)status.textContent=message
 }
 async function fcExtraRefreshFrame(state,selectorsReady=false){
@@ -1779,7 +1922,7 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   // handlers that just refreshed selectors must not do the same work twice.
   if(!selectorsReady)fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcIndependentTimeTarget(state),status=fcExtraDom(state.id,'Status');
   if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
-  const group=fcFieldFor(c,region,field);if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
+  const group=fcFieldFor(c,region,field,typeof fcExtraFieldStorage==='function'?fcExtraFieldStorage(state):'');if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
   const seq=++state.seq;state._fcFrameHold=seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;
     if(!data.ok){
@@ -1948,10 +2091,31 @@ async function fcSwapPrimaryCompare(){
   }finally{if(enabled)enabled.checked=wasEnabled}
   await fcRefreshFrame();return true
 }
+// A viewport selected by the user is not necessarily the same original
+// OpenFOAM source currently committed to its GPU canvas. During async case,
+// field or region changes, never label/export an older B/C/D frame as new.
+function fcVideoSourceCurrent(state,id){
+  if(!state?.mesh||!state.fieldValues?.length||!state.range?.valid||
+    !Number.isFinite(fcPhysicalNumber(state.time))||
+    state._fcFrameHold||state._fcGroupHold)return false;
+  const prefix=id==='B'?'fc':'fcExtra'+id,controls=[
+    ['Case',state.caseId],['Region',state.region],['Field',state.fieldName],
+    ['Component',state.component]
+  ];
+  for(const [suffix,loaded] of controls){
+    const selector=document.getElementById(prefix+suffix);
+    if(selector&&String(selector.value??'')!==String(loaded??''))return false
+  }
+  const field=document.getElementById(prefix+'Field'),
+    association=String(field?.selectedOptions?.[0]?.dataset?.storage||'');
+  if(association&&association!==String(id==='B'?state.fieldStorage||'':state.storage||''))
+    return false;
+  return true
+}
 function fcVideoDescriptors(){
-  const out=[];if(fcState.enabled&&fcState.mesh&&fcState.fieldValues)out.push({key:'view2',canvasId:'fcCanvas',labelId:'fcCompareLabel',caseName:fcCase()?.name||'',fieldName:fcState.fieldName||fcCurrentFieldName(),component:fcState.component||fcCurrentComponent(),time:fcState.time,range:fvFiniteRange(fcState.fieldValues),dimensions:fcState.fieldParsed?.dimensions||''});
-  for(const s of fcExtraViews)if(fcState.enabled&&s.mesh&&s.fieldValues)out.push({key:'view'+s.id,canvasId:'fcExtra'+s.id+'Canvas',labelId:'fcExtra'+s.id+'Label',caseName:fcExtraCase(s)?.name||'',fieldName:s.fieldName||fcExtraField(s),component:s.component||fcExtraComponent(s),time:s.time,range:fvFiniteRange(s.fieldValues),dimensions:s.fieldParsed?.dimensions||''});
-  if(fcState.enabled&&document.getElementById('fcDifference')?.checked&&fcState.differenceValues)out.push({key:'difference',canvasId:'fcDifferenceCanvas',labelId:'',caseName:'Δ',fieldName:(fvState.fieldName||'')+' − '+(fcState.fieldName||''),component:(fcState.differenceMode||'signed')+' difference',time:fvState.time,range:fcState.differenceRange,dimensions:fvState.fieldParsed?.dimensions||''});return out
+  const out=[];if(fcState.enabled&&fcVideoSourceCurrent(fcState,'B'))out.push({key:'view2',canvasId:'fcCanvas',labelId:'fcCompareLabel',caseName:fcCase()?.name||'',fieldName:fcState.fieldName||fcCurrentFieldName(),component:fcState.component||fcCurrentComponent(),time:fcState.time,range:fvFiniteRange(fcState.fieldValues),dimensions:fcState.fieldParsed?.dimensions||''});
+  for(const s of fcExtraViews)if(fcState.enabled&&fcVideoSourceCurrent(s,s.id))out.push({key:'view'+s.id,canvasId:'fcExtra'+s.id+'Canvas',labelId:'fcExtra'+s.id+'Label',caseName:fcExtraCase(s)?.name||'',fieldName:s.fieldName||fcExtraField(s),component:s.component||fcExtraComponent(s),time:s.time,range:fvFiniteRange(s.fieldValues),dimensions:s.fieldParsed?.dimensions||''});
+  if(fcState.enabled&&document.getElementById('fcDifference')?.checked&&fcDifferenceSourceMatches())out.push({key:'difference',canvasId:'fcDifferenceCanvas',labelId:'',caseName:'Δ',fieldName:(fvState.fieldName||'')+' − '+(fcState.fieldName||''),component:(fcState.differenceMode||'signed')+' difference',time:fvState.time,range:fcState.differenceRange,dimensions:fvState.fieldParsed?.dimensions||''});return out
 }
 function fcSetVideoRanges(ranges){
   fcState.videoRangeOverride=ranges?.view2?.valid?ranges.view2:null;for(const s of fcExtraViews)s.videoRangeOverride=ranges?.['view'+s.id]?.valid?ranges['view'+s.id]:null;
@@ -1981,14 +2145,31 @@ function fcUpdateLayout(){
   fcState.enabled=!!document.getElementById('fcEnabled')?.checked;
   if(!fcState.enabled)fcStopAllIndependentPlayback();
   const panel=document.getElementById('fieldViewPanel'),compare=document.getElementById('fcViewport');if(!panel||!compare)return;panel.classList.toggle('fcCompareMode',fcState.enabled);compare.classList.toggle('hidden',!fcState.enabled);for(const state of fcExtraViews)fcExtraDom(state.id,'Viewport')?.classList.toggle('hidden',!fcState.enabled);const diff=document.getElementById('fcDifferenceViewport'),
-    samePhysicalTime=fcTimesLinked()||(Number.isFinite(fvState.time)&&Number.isFinite(fcState.time)&&
-      Math.abs(fvState.time-fcState.time)<=1e-9*Math.max(1,Math.abs(fvState.time),Math.abs(fcState.time))),
-    showDiff=fcState.enabled&&!!document.getElementById('fcDifference')?.checked&&samePhysicalTime;if(diff)diff.classList.toggle('hidden',!showDiff);panel.classList.toggle('fcDifferenceMode',showDiff);document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
+    differenceRequested=fcState.enabled&&!!document.getElementById('fcDifference')?.checked,
+    samePhysicalTime=fcDifferenceTimesMatch(fvState.time,fcState.time),
+    differenceReady=fcDifferenceSourceMatches(),
+    showDiff=differenceRequested&&samePhysicalTime&&differenceReady;
+  if(diff)diff.classList.toggle('hidden',!showDiff);
+  panel.classList.toggle('fcDifferenceMode',showDiff);
+  // A hidden invalid delta pane must not also hide the scientific reason.
+  // Place its real status in the compare controls, outside the 3D canvas.
+  const notice=document.getElementById('fcDifferenceNotice');
+  if(notice){
+    notice.hidden=!differenceRequested||showDiff;
+    if(!notice.hidden){
+      const problem=document.getElementById('fcDifferenceStatus')?.textContent?.trim();
+      notice.textContent=!samePhysicalTime?
+        fcUi('A − B unavailable: physical times do not match.','A − B no disponible: los tiempos físicos no coinciden.'):
+        fcState.differenceValues?.length&&!differenceReady?
+        fcUi('A − B outdated: original case, field or source data changed. Recalculate difference.','A − B obsoleta: cambió el caso, campo o fuente original. Recalcula la diferencia.'):
+        problem||fcUi('A − B is not available for the selected fields or geometry.','A − B no está disponible para estos campos o geometría.')
+    }else notice.textContent=''
+  }document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
 }
 function fcInstallUi(){
   if(document.getElementById('fcPanel'))return true;const controls=document.getElementById('fieldViewControls'),status=document.getElementById('fvStatus'),panel=document.getElementById('fieldViewPanel'),primary=panel?.querySelector('.fvViewport');if(!controls||!status||!panel||!primary)return false;
   const box=document.createElement('details');box.className='analysisExt';box.id='fcPanel';box.open=false;box.innerHTML='<summary class="analysisExtHead"><strong data-fl-en="Synchronized 3D case comparison" data-fl-es="Comparación 3D sincronizada de casos">Synchronized 3D case comparison</strong><span class="badge" id="fcBadge">—</span></summary><div class="extSectionBody">'+
-    '<div class="fvChecks"><label class="inlineCheck"><input id="fcEnabled" type="checkbox"> <span data-fl-en="Compare side by side" data-fl-es="Comparar lado a lado">Compare side by side</span></label><label class="inlineCheck"><input id="fcDifference" type="checkbox"> <span data-fl-en="Show 3D difference" data-fl-es="Mostrar diferencia 3D">Show 3D difference</span></label></div>'+
+    '<div class="fvChecks"><label class="inlineCheck"><input id="fcEnabled" type="checkbox"> <span data-fl-en="Compare side by side" data-fl-es="Comparar lado a lado">Compare side by side</span></label><label class="inlineCheck"><input id="fcDifference" type="checkbox"> <span data-fl-en="Show 3D difference" data-fl-es="Mostrar diferencia 3D">Show 3D difference</span></label></div><div class="smallnote" id="fcDifferenceNotice" role="status" aria-live="polite" hidden></div>'+
     '<div class="row2" style="margin-top:8px"><div class="field"><label data-fl-en="View 2 case" data-fl-es="Caso de vista 2">View 2 case</label><select id="fcCase"></select></div><div class="field"><label data-fl-en="Region" data-fl-es="Región">Region</label><select id="fcRegion"></select></div></div>'+
     '<div class="row2"><div class="field"><label data-fl-en="View 2 field" data-fl-es="Variable de vista 2">View 2 field</label><select id="fcField"></select></div><div class="field"><label data-fl-en="Component" data-fl-es="Componente">Component</label><select id="fcComponent"></select></div></div>'+
     '<div class="field"><label data-fl-en="Physical-time synchronization" data-fl-es="Sincronización por tiempo físico">Physical-time synchronization</label><select id="fcSync"><option value="nearest" data-fl-en="Nearest available (show Δt)" data-fl-es="Más cercano disponible (mostrar Δt)">Nearest available (show Δt)</option><option value="exact" data-fl-en="Exact time only" data-fl-es="Solo tiempo exacto">Exact time only</option><option value="interpolate" data-fl-en="Interpolated between frames" data-fl-es="Interpolado entre frames">Interpolated between frames</option></select></div>'+
@@ -2007,6 +2188,11 @@ function fcInstallUi(){
   const statsGrid=document.createElement('div');statsGrid.id='fcStatsGrid';statsGrid.className='fcStatsGrid hidden';grid.insertAdjacentElement('afterend',statsGrid);
   const style=document.createElement('style');style.id='fcStyles';style.textContent='.fcViewGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0;align-items:stretch;align-content:start;width:100%;box-sizing:border-box}.fieldViewPanel.fcCompareMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr));overflow-x:clip;min-width:0;max-width:100%;padding-bottom:0}.fieldViewPanel.fcCompareMode.fcDifferenceMode .fcViewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.fieldViewPanel.fcCompareMode .fcComposedViewport{display:flex;flex-direction:column;min-width:0;max-width:100%;width:100%;box-sizing:border-box}.fcViewport.hidden{display:none}.fcComposedViewport{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}.fcViewportScene{position:relative;min-width:0;height:clamp(340px,36vw,500px);min-height:340px;flex:0 0 auto;overflow:hidden}.fcViewportCaption{display:flex;align-items:start;min-width:0;max-width:100%;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel2)}.fcViewportCaption:empty{display:none}.fcComposedViewport .fcViewportScene>canvas{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcComposedViewport .fcViewportScene>#fvCanvas{height:100%;min-height:0}.fcViewport .fcViewportScene>#fcCanvas,.fcViewport .fcViewportScene>#fcDifferenceCanvas,.fcViewport .fcViewportScene>canvas[id^="fcExtra"]{display:block;width:100%;height:100%;min-height:0;touch-action:none}.fcTimeBadge{position:absolute;left:12px;top:12px;z-index:8;padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 94%,transparent);font-size:11px;font-weight:850;backdrop-filter:blur(8px)}.fcViewLabel{position:static;display:block;min-width:0;width:100%;max-width:100%;box-sizing:border-box;margin:0;padding:0;border:0;border-radius:0;background:transparent;font-size:12px;line-height:1.5;font-weight:650;white-space:normal;overflow-wrap:anywhere;word-break:break-word;text-overflow:clip;text-shadow:none;box-shadow:none;backdrop-filter:none}.fcLegend{position:absolute;right:12px;bottom:12px;width:min(180px,44%);padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(8px);z-index:7}.fcLegend.hidden{display:none}.fcLegendTitle{font-size:9px;font-weight:850;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcLegendTitle span{color:var(--muted);font-weight:700}.fcLegendBar{height:10px;border-radius:999px;margin-bottom:5px}.fcLegendTicks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;font-size:8px;color:var(--muted)}.fcLegendTicks span{display:block;min-width:0;overflow-wrap:anywhere;text-align:center}.fcLegendTicks span:first-child{text-align:left}.fcLegendTicks span:last-child{text-align:right}.fcLegendDelta{margin-top:4px;font-size:8px;color:var(--muted)}.fcLegendUniform{font-size:9px;color:var(--text);padding:6px 0}.fcProbeMarker{position:absolute;z-index:9;transform:translate(-50%,-50%);width:28px;height:28px;border:2px solid #ffd34d;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.5),0 0 13px rgba(255,211,77,.55);pointer-events:none}.fcProbeMarker:before,.fcProbeMarker:after{content:"";position:absolute;left:50%;top:50%;background:#fff3b0;transform:translate(-50%,-50%)}.fcProbeMarker:before{width:145%;height:2px}.fcProbeMarker:after{width:2px;height:145%}.fcProbeMarker span{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#ffb300;transform:translate(-50%,-50%)}.fcProbeMarker.hidden{display:none}.fcStatsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));align-items:start;gap:10px;margin-top:10px;min-width:0}.fcStatsGrid.hidden{display:none}.fcStatsCard{padding:10px;min-width:0;max-width:100%;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.fcStatsTitle{font-size:12px;line-height:1.5;font-weight:700;margin-bottom:9px;min-width:0;max-width:100%;width:100%;box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word;white-space:normal;text-shadow:none}.fcStatsCells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;min-width:0}.fcStatsCells>div{padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);min-width:0;min-height:56px}.fcStatsCells span{display:block;color:var(--muted);font-size:8px}.fcStatsCells b{display:block;margin-top:3px;font-size:12px;line-height:1.4;white-space:normal;overflow:visible;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.fcSelectedStat{grid-column:span 2}.fcViewToolbar{display:flex;align-items:center;align-content:flex-start;flex-wrap:wrap;gap:8px;min-width:0;height:auto;min-height:0;max-height:none;overflow:visible;box-sizing:border-box;padding:10px;border-bottom:1px solid var(--line);background:var(--panel2)}.fcMoveHandle{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:9px 10px;min-height:36px;color:var(--text);cursor:grab;white-space:nowrap;font-weight:800;font-size:12px}.fcMoveHandle:active{cursor:grabbing}.fcDropTarget{outline:2px solid var(--accent);outline-offset:-2px}.fcDraggingView{opacity:.48}.fcViewFieldRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,135px),1fr));min-width:0;gap:6px;width:100%}.fcViewPicker{display:grid;gap:3px;flex:1 1 115px;min-width:0;max-width:100%;margin:0}.fcQuickCase{flex:1 1 200px;max-width:min(100%,320px)}.fcViewPicker span{font-size:11px;font-weight:750;color:var(--text)}.fcViewPicker select{height:36px;padding:5px 7px;width:100%;min-width:0!important;max-width:100%;font-size:12px;text-overflow:ellipsis}.fcPickerRegion,.fcPickerComponent{flex:1 1 88px;max-width:145px}.fcViewZoom{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px;margin-left:auto;flex:0 0 auto}.fcViewZoom button{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);min-width:38px;height:38px;font-size:19px;font-weight:750;cursor:pointer}.fcViewZoom [data-fc-fit]{width:auto;min-width:64px;padding:0 10px;font-size:12px;font-weight:750}.fcViewZoom button:hover{border-color:var(--accent);color:var(--accent)}.fcPhysicalMenu{flex:1 0 100%;min-width:0}.fcPhysicalMenu details{border-top:1px solid var(--line);padding-top:5px}.fcPhysicalMenu summary{cursor:pointer;font-weight:750;font-size:10px;color:var(--text);width:max-content;max-width:100%;padding:4px 7px;border:1px solid var(--line);border-radius:7px}.fcPhysicalActions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}.fcPhysicalActions .btn{font-size:12px;min-height:36px}.fcPhysicalRows{display:flex;flex-direction:column;gap:7px;margin-top:7px}.fcPhysicalRegionRow{display:grid;grid-template-columns:minmax(100px,1fr) minmax(110px,1.6fr) minmax(90px,1fr) minmax(110px,1fr);align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:7px}.fcPhysicalToggle{display:flex;align-items:center;gap:8px;font-size:12px;min-width:0;line-height:1.4}.fcPhysicalRegionRow select{box-sizing:border-box;display:block;min-width:0;max-width:100%;width:100%;height:auto;min-height:44px;padding:8px 10px;font-size:13px;line-height:1.35;vertical-align:middle;text-overflow:ellipsis}.fcPhysicalOpacity{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-size:12px;line-height:1.4;min-width:0}.fcPhysicalOpacity input{min-width:45px;width:100%}.fcPhysicalRegionStatus{grid-column:1/-1;font-size:9px;color:var(--muted)}.fcDimensionSwitch{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:10px;white-space:nowrap}.fcMetricAxes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}.fcMetricBounds{position:absolute;z-index:6;top:39px;left:9px;max-width:calc(100% - 20px);border:1px solid var(--line);border-radius:9px;background:color-mix(in srgb,var(--panel) 90%,transparent);padding:5px 7px;font-size:9px;line-height:1.45;pointer-events:none}.fcMetricBounds[hidden]{display:none}.fcPhysicalLegends{display:flex;flex-wrap:wrap;gap:8px;width:100%}.fcPhysicalLegend{min-width:120px;max-width:220px;font-size:9px}.fcPhysicalLegend .fvRegionLegendBar{height:8px}.fcViewportCaption:has(.fcPhysicalLegends:not(:empty)){flex-wrap:wrap}.fcPhysicalLegend .fvRegionLegendBounds{display:flex;justify-content:space-between}@media(max-width:700px){.fcPhysicalRegionRow{grid-template-columns:minmax(90px,1fr) minmax(100px,1.2fr)}.fcPhysicalRegionStatus{grid-column:1/-1}}.fieldViewPanel.fcCompareMode .fvLegend{width:min(190px,45%)}.fcExtraActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.fcExtraCard{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fcExtraHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}@media(max-width:980px){.fcComposedViewport .fcViewportScene{height:420px}}';// Layout must adapt to EACH A/B/C/D pane width, not global browser width.
   // The original 4-column control grid overflows narrow side-by-side viewports.
+  // Responsive columns are based on the Field panel's *actual* content
+  // width, not the monitor width (the sidebar and Windows DPI change both).
+  // Keep four original A/B/C/D sources in one row at wide widths; never
+  // reintroduce the explicitly rejected horizontal-scrollbar layout.
+  style.textContent += "/* Wide-window multi-view: all four original A/B/C/D cases form ONE aligned\n   row when the actual Field panel has enough CSS pixels. A third/fourth pane\n   must never force 4 cramped cards on a narrow WebView2 desktop window.\n   Width of the panel (not entire screen) accounts for sidebars and DPI. */\n#fieldViewPanel{container-name:fc-field-space;container-type:inline-size}\n@container fc-field-space (min-width:1040px){\n  #fieldViewPanel.fcCompareMode #fcViewGrid:has(> #fcExtra3Viewport:not(.hidden)):not(:has(> #fcExtra4Viewport:not(.hidden))){grid-template-columns:repeat(3,minmax(0,1fr))}\n}\n@container fc-field-space (min-width:1320px){\n  #fieldViewPanel.fcCompareMode #fcViewGrid:has(> #fcExtra4Viewport:not(.hidden)){grid-template-columns:repeat(4,minmax(0,1fr))}\n}\n@container fc-field-space (max-width:699px){\n  #fieldViewPanel.fcCompareMode #fcViewGrid{grid-template-columns:minmax(0,1fr)}\n}\n#fieldViewPanel #fcViewGrid{max-width:100%;min-width:0;overflow-x:clip;align-items:start;align-content:start}\n#fieldViewPanel #fcViewGrid>.fcViewport{min-width:0;max-width:100%}\n/* Prevent the four pane toolbars from forcing the columns wider than their\n   grid tracks; controls wrap within their own pane, never a page-wide strip. */\n#fieldViewPanel #fcViewGrid .fcViewToolbar{min-width:0;max-width:100%;overflow-wrap:anywhere}\n";
   style.textContent += `
     /* XYZ numeric values and independent real region scales live in the
        caption, never in a floating block over the measured 3D mesh. */

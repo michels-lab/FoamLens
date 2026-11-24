@@ -40,6 +40,38 @@ const celsius=api.compare(history('a',point,[0,1,2],[26.85,36.85,46.85],{
   {...exp,y:[27.85,37.85,47.85],unit:'C'},config);
 assert(celsius.valid,celsius.reason);
 near(celsius.metrics.bias,-1);
+// Granada physical temperature truth: 0 K is valid, temperatures below
+// absolute zero are not; rejecting an impossible Kelvin source prevents a
+// visually plausible but scientifically meaningless RMSE/CSV.
+const zeroKelvin=api.compare(history('a',point,[0,1,2],[0,0,0]),
+  {...exp,y:[0,0,0]},config);
+assert(zeroKelvin.valid,'Exactly 0 K is a mathematically valid physical limit');
+for(const [label,sourceRecord,experimentalRecord] of [
+  ['negative simulation Kelvin',history('a',point,[0,1,2],[300,-1,320]),exp],
+  ['negative experimental Kelvin',sim,{...exp,y:[299,-1,319]}],
+  ['Celsius experiment below -273.15',sim,{...exp,unit:'C',y:[26.85,-274.15,46.85]}],
+  ['Celsius simulation below -273.15',
+    history('a',point,[0,1,2],[26.85,-274.15,46.85],
+      {field:{unit:'C',dimensions:'[0 0 0 1 0 0 0]'}}),exp]
+]){
+  const check=api.compare(sourceRecord,experimentalRecord,config);
+  assert.equal(check.valid,false,label+' must fail instead of reporting calibration metrics');
+  assert.match(check.reason,/below absolute zero/);
+  assert.equal(check.metrics,null);
+  assert.deepStrictEqual(check.rows,[]);
+}
+
+// A bad measurement before/after overlap is still corrupt input evidence,
+// even if the time-window plot would have excluded that particular row.
+const offWindowExperiment=api.compare(sim,{...exp,t:[-2,0,1,2,3],
+  y:[-1,299,309,319,300]},config);
+assert.equal(offWindowExperiment.valid,false,'Unphysical source data outside overlap must fail closed');
+assert.match(offWindowExperiment.reason,/below absolute zero/);
+const offWindowSimulation=api.compare(history('a',point,[-1,0,1,2,3],
+  [-1,300,310,320,330]),exp,config);
+assert.equal(offWindowSimulation.valid,false,'Unphysical simulation source outside overlap must fail closed');
+assert.match(offWindowSimulation.reason,/below absolute zero/);
+
 const shifted=api.compare(sim,{...exp,t:[-1,0,1]}, {...config,timeShiftS:1});
 assert(shifted.valid,shifted.reason);
 assert.equal(shifted.commonTime.start,0);

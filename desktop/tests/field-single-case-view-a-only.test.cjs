@@ -22,24 +22,25 @@ test('the real A viewport has the required ID for the same height/restore/reset 
  assert(layout.includes("toolbar.appendChild(div)"));
 });
 
-test('single case: selecting mold displays mold only, not the unrequested metal region',()=>{
+test('single case: A displays real metal and mold without opening B',()=>{
  const scene={choices:new Map()},selection={value:'metal'};
  const choice=isolate(field,'function fvRegionChoice(c,region){','function fvRegionPrimaryVisible()',[
   'fvRegionEnsureCase','fvRegionScene','fvFieldGroups','document'],[
   ()=>{},scene,()=>[{name:'T',kind:'scalar'}],{getElementById:id=>id==='fvRegion'?selection:{value:'T'}}]);
  const c={id:'case',regions:['metal','mold']};
  assert.equal(choice(c,'metal').visible,true);
- assert.equal(choice(c,'mold').visible,false);
+ assert.equal(choice(c,'mold').visible,true,'A must show the original mold by default');
  selection.value='mold';
- assert.equal(choice(c,'metal').visible,false,'implicit old primary must disappear');
+ assert.equal(choice(c,'metal').visible,true,'Active probe region must not hide original metal');
  assert.equal(choice(c,'mold').visible,true);
- const overlay=choice(c,'metal');overlay.visible=true;overlay.visibilityExplicit=true;
- assert.equal(choice(c,'metal').visible,true,'explicit overlay remains available');
+ const overlay=choice(c,'metal');overlay.visible=false;overlay.visibilityExplicit=true;
+ assert.equal(choice(c,'metal').visible,false,'An explicit user hide must remain applied');
  selection.value='metal';
- assert.equal(choice(c,'mold').visible,false,'unrequested mold must follow primary changes');
+ assert.equal(choice(c,'mold').visible,true,'Changing the active field region must retain the mold');
+ assert.equal(choice(c,'metal').visible,false,'User-hidden metal stays hidden');
 });
 
-test('comparison regions also default to selected primary only, preserving explicit overlays',()=>{
+test('B/C/D display all real regions on first load and preserve explicit hiding',()=>{
  const state={};
  const scene={caseId:null,choices:new Map(),savedByCase:new Map(),layers:new Map()};
  const list=isolate(compare,'function fcPhysicalChoiceList(state,c,primary){','function fcPhysicalViewContext(',[
@@ -47,15 +48,15 @@ test('comparison regions also default to selected primary only, preserving expli
    ()=>scene,()=>{},()=>['metal','mold'],()=>[{name:'T',kind:'scalar'}],()=>{}]);
  const c={id:'case'};
  list(state,c,'mold');
- assert.equal(scene.choices.get('metal').visible,false);
+ assert.equal(scene.choices.get('metal').visible,true,'Metal remains visible beside mold');
  assert.equal(scene.choices.get('mold').visible,true);
  list(state,c,'metal');
  assert.equal(scene.choices.get('metal').visible,true);
- assert.equal(scene.choices.get('mold').visible,false);
- scene.choices.get('mold').visible=true;
+ assert.equal(scene.choices.get('mold').visible,true,'Mold remains visible after changing primary');
+ scene.choices.get('mold').visible=false;
  scene.choices.get('mold').visibilityExplicit=true;
  list(state,c,'metal');
- assert.equal(scene.choices.get('mold').visible,true);
+ assert.equal(scene.choices.get('mold').visible,false,'Explicitly hidden mold stays hidden');
 });
 
 test('an imported single case cannot restore an old B without a new user comparison action',()=>{
@@ -104,13 +105,39 @@ test('physical-region menu exposes explicit bulk controls and correct region-spe
    'multi-region change in A must load overlays into A, not create B');
 });
 
-test('real Windows-native multi-region fixture opts in to both measured regions (selected-only remains the app default)',()=>{
+test('real Windows-native multi-region fixture explicitly verifies both measured regions',()=>{
  const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
- assert(program.includes('const choice=fvRegionChoice(c,region);'));
- assert(program.includes('choice.visible=true;choice.visibilityExplicit=true;'),
-   'native WebView2 smoke must declare manual multi-region visibility explicitly');
+ assert(program.includes('const firstLoadRegions=expected.map(region=>{'));
+ assert(program.includes('if(firstLoadRegions.some(x=>!x.visible))'),
+   'real QuickCup smoke must verify default mold visibility, not force an override');
  assert(program.includes('await api.load(c,fvState.time);'),
    'native smoke must still require real OpenFOAM same-canvas GPU composition');
+});
+
+
+test('native original QuickCup Windows smoke independently verifies B/C/D with metal, mold, time, GPU and XYZ',()=>{
+ const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8'),
+   start=program.indexOf('// Native A/B/C/D acceptance with the ACTUAL imported QuickCup source:'),
+   end=program.indexOf('// Pixel-backed native WebView2 check:',start);
+ assert(start>=0&&end>start,'QuickCup must exercise the original B/C/D source rather than A only');
+ const native=program.slice(start,end);
+ new Function('return async function originalQuickCupFourViews(){'+native+'}')();
+ for(const term of [
+   "workspace.add3DView()",
+   "await compare.fcRefreshFrame()",
+   "await compare.refreshExtras()",
+   "compare.getPhysicalRegionDescriptors()",
+   "['view2','view3','view4']",
+   "allRegionsVisible:all.every(row=>row?.visible===true)",
+   "allRegionsLoaded:all.every(row=>row?.loaded===true)",
+   "Number(row.gpuPayloadBytes)>0",
+   "data.bounds.max[axis]>data.bounds.min[axis]",
+   "['X:','Y:','Z:']",
+   "if(!physicalScene.multiView.ok)",
+   "if(!wasEnabled)workspace.disableCompare?.()"
+ ])assert(native.includes(term),'Original WebView2 acceptance missing: '+term);
+ assert(!native.includes('choice.visible=true;choice.visibilityExplicit=true;'),
+   'Native B/C/D must prove the default metal/mold behavior, not force it in the test');
 });
 
 test('view A remembers real physical-region selections separately for each loaded case',()=>{
@@ -126,25 +153,27 @@ test('view A remembers real physical-region selections separately for each loade
    scene,()=>{clears++},()=>[{name:'T',kind:'scalar'}],
    {getElementById:id=>id==='fvRegion'?selection:{value:'T'}});
  const first={id:'case-B3'},second={id:'case-C3'};
- assert.equal(f.fvRegionChoice(first,'mold').visible,false);
- const mold=f.fvRegionChoice(first,'mold');mold.visible=true;mold.visibilityExplicit=true;
+ assert.equal(f.fvRegionChoice(first,'mold').visible,true);
+ const mold=f.fvRegionChoice(first,'mold');mold.visible=false;mold.visibilityExplicit=true;
  f.fvRegionChoice(first,'metal');
  selection.value='mold';
- assert.equal(f.fvRegionChoice(second,'metal').visible,false,'a new case must not inherit B3 metal');
+ assert.equal(f.fvRegionChoice(second,'metal').visible,true,'each imported case shows its original metal by default');
  assert.equal(f.fvRegionChoice(second,'mold').visible,true,'C3 primary mold loads independently');
- const metal=f.fvRegionChoice(second,'metal');metal.visible=true;metal.visibilityExplicit=true;
+ const metal=f.fvRegionChoice(second,'metal');metal.visible=false;metal.visibilityExplicit=true;
  selection.value='metal';
- assert.equal(f.fvRegionChoice(first,'mold').visible,true,'B3 explicit mold overlay survives C3 visit');
+ assert.equal(f.fvRegionChoice(first,'mold').visible,false,'B3 explicit hidden mold survives C3 visit');
  assert.equal(f.fvRegionChoice(first,'metal').visible,true);
  assert.notStrictEqual(f.fvRegionChoice(first,'mold'),mold,'A region selection is restored by value, not shared mutable state');
  selection.value='mold';
- assert.equal(f.fvRegionChoice(second,'metal').visible,true,'C3 explicit metal overlay also survives B3 visit');
+ assert.equal(f.fvRegionChoice(second,'metal').visible,false,'C3 explicit hidden metal survives B3 visit');
  assert(clears>=3,'old GPU scene must be cleared each time the case changes');
 });
 
 test('changing a physical-region field/component uses the real primary control, never a fake overlay update',()=>{
  assert(compare.includes("const source=document.getElementById(fcViewSourceMap(view)?.[kind]);"));
- assert(compare.includes("source.value=value;source.dispatchEvent(new Event('change',{bubbles:true}))"));
+ assert(compare.includes("source.dispatchEvent(new Event('change',{bubbles:true}))"));
+ assert(compare.includes("exact.selected=true")&&compare.includes("if(kind==='Field'&&matches.length>1)"),
+   'real primary control forwards exact association, not the first of duplicate field names');
  assert(compare.includes("if(forwardPrimary('Field',ch.field))return;"));
  assert(compare.includes("if(forwardPrimary('Component',ch.component))return;"));
  assert(compare.includes('fcReconcilePhysicalChoice(ch,groups,e.target.value)'));
@@ -152,18 +181,19 @@ test('changing a physical-region field/component uses the real primary control, 
    'secondary component changes must still redraw the secondary physical overlay');
 });
 
-test('native asymmetric on-disk smoke explicitly opts into mold geometry without changing primary-only defaults',()=>{
+test('native asymmetric on-disk smoke verifies mold geometry without altering first-load visibility',()=>{
  const program=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
  const start=program.indexOf('if(options.asymmetricCase){');
  const end=program.indexOf('physicalScene.asymmetric=asymmetric',start);
  assert(start>=0&&end>start,'must retain packaged asymmetric OpenFOAM regression');
  const smoke=program.slice(start,end);
  const chosen=smoke.indexOf('const asymmetricMoldChoice=fvRegionChoice(c2,moldName);');
- const enable=smoke.indexOf('asymmetricMoldChoice.visible=true;');
- const explicit=smoke.indexOf('asymmetricMoldChoice.visibilityExplicit=true;');
+ const defaultCheck=smoke.indexOf('if(!asymmetricMoldChoice.visible)');
  const frame=smoke.indexOf('await fvLoadFrame(targetIndex);');
- assert(chosen>=0&&chosen<enable&&enable<explicit&&explicit<frame,
-  'asymmetric case must deliberately enable real mold before loading its measured/missing frame');
+ assert(chosen>=0&&chosen<defaultCheck&&defaultCheck<frame,
+   'asymmetric original mold must be visible by default before loading geometry fallback');
+ assert(!smoke.includes('asymmetricMoldChoice.visible=true;'),
+   'native smoke must not override the product default before testing it');
  assert(smoke.includes('layer.geometryOnly===true&&layer.sourceTime===null'),
   'missing source frame must still produce geometry-only without fake T');
  assert(smoke.includes('noScale&&notice&&api.gpuPayloadStats().regionCount===1'),
@@ -238,14 +268,16 @@ test('Granada block 1: disabling B invalidates stale asynchronous B, C and D loa
   const state={seq:14,enabled:true,renderer:{surfaceCount:2},differenceRenderer:null};
   const extra=[{id:3,seq:4},{id:4,seq:9}];
   const toggle={checked:false};
-  const cancelled=[];
+  const cancelled=[],clearedCanvas=[];
   const clear=isolate(compare,'function fcClearRenderer(){','function fcSetStatus(',[
     'fcState','fcExtraViews','document','fcExtraInvalidateFrame','fcUi',
-    'fcPhysicalRelease','fcRender','fcUpdateLabels','fcUpdateStatsGrid'
+    'fcPhysicalRelease','fcRender','fcUpdateLabels','fcUpdateStatsGrid',
+    'fcBlankInvalidFieldViewport'
   ],[
     state,extra,{getElementById:id=>id==='fcEnabled'?toggle:null},
     (view,message)=>{view.seq++;cancelled.push({id:view.id,message})},
-    en=>en,()=>{},()=>{},()=>{},()=>{}
+    en=>en,()=>{},()=>{},()=>{},()=>{},
+    (canvas,renderer)=>clearedCanvas.push({canvas,renderer})
   ]);
   clear();
   assert.equal(state.seq,15,'old pending B request must become stale');
@@ -256,11 +288,15 @@ test('Granada block 1: disabling B invalidates stale asynchronous B, C and D loa
   assert.deepEqual(cancelled.map(x=>x.id),[3,4],'C and D pending requests are invalidated');
   assert.deepEqual(extra.map(x=>x.seq),[5,10]);
   assert(cancelled.every(x=>x.message==='Comparison disabled.'));
+  assert.equal(clearedCanvas.length,2,
+    'Disabling B also clears both stale compare and difference canvas backbuffers');
 
   toggle.checked=true;
   clear();
   assert.equal(state.seq,16,'an invalid B frame also invalidates its own stale request');
   assert.equal(cancelled.length,2,'clearing an enabled B must not alter independent C/D');
+  assert.equal(clearedCanvas.length,4,
+    'Every invalidation of B and difference repaints their stale canvas, even while C/D remain active');
 });
 
 test('Granada block 1: re-enabling comparison reloads each real extra view after B',()=>{
@@ -350,4 +386,87 @@ test('Granada block 2: the real region toolbar renders colormap controls and ref
   assert(compare.includes("fcApplyPhysicalPalette(ctx,region,e.target.value)"));
   assert(compare.includes("fvRegionRecolorLayer(layer,choice)"),'update original source GPU colors');
   assert(compare.includes("fcPhysicalPrimaryPalette"),'primary color control must not conflict with its source selector');
+});
+
+
+test('Granada Field A: missing original case clears old OpenFOAM GPU pixels, axes, measurements and source state',()=>{
+ const state={frameSeq:4,mesh:{cellCount:1},fieldValues:[900],fieldParsed:{},
+   time:9.8,_fvFrameHold:0,_fvGroupHold:0,
+   renderer:{gl:{COLOR_BUFFER_BIT:0x4000,DEPTH_BUFFER_BIT:0x100,
+     viewport:(...a)=>rendered.push(['viewport',...a]),
+     clearColor:(...a)=>rendered.push(['color',...a]),
+     clear:v=>rendered.push(['clear',v])},surfaceCount:42,edgeCount:12}};
+ const rendered=[],axes={innerHTML:'old XYZ',replaceChildren(){this.innerHTML=''}},
+   dimensions={textContent:'old X/Y/Z',hidden:false},secondary={innerHTML:'old mold scale'},
+   readout={textContent:'t = 9.8 s'},badge={textContent:'A · t=9.8 s'},
+   legend={innerHTML:'old T scale'},association={textContent:'old volume'};
+ const canvas={width:400,height:300,getBoundingClientRect:()=>({width:400,height:300})};
+ const dom={getElementById:id=>({fvCanvas:canvas,fvPhysicalAxes:axes,
+   fvMeshDimensions:dimensions,fvSecondaryScaleLegends:secondary,fvTimeReadout:readout,
+   fcPrimaryTimeBadge:badge,fvLegend:legend,fvAssociation:association})[id]||null};
+ const render=isolate(field,'function fvRender(exportSize=null){','function fvUpdateMeshBuffers(',[
+   'fvState','document','window'
+ ],[state,dom,{devicePixelRatio:1}]);
+ const invalid=isolate(field,'function fvInvalidateUnavailableSelection(){','async function fvLoadSelection(){',[
+   'fvState','fvRegionClearLayers','document','fvRender','flUi','fvSetStats'
+ ],[state,()=>rendered.push(['release']),dom,render,(en)=>en,()=>rendered.push(['stats'])]);
+ invalid();
+ assert.equal(state.frameSeq,5);
+ assert.strictEqual(state.mesh,null);assert.strictEqual(state.fieldValues,null);
+ assert(Number.isNaN(state.time),'Missing A source may never display an old measured physical timestamp');
+ assert.equal(state.renderer.surfaceCount,0,'Old primary A geometry cannot remain renderable');
+ assert.deepEqual(rendered.filter(x=>x[0]==='clear'),[['clear',0x4100]]);
+ assert.equal(axes.innerHTML,'');assert.equal(dimensions.textContent,'');
+ assert.equal(dimensions.hidden,true);assert.equal(secondary.innerHTML,'');
+ assert.equal(readout.textContent,'t = —');
+ assert.equal(badge.textContent,'A · —','Old A time badge is not a measured frame');
+ assert.equal(legend.innerHTML,'','Old scientific colorbar is discarded');
+ assert.equal(association.textContent,'Association: —');
+ assert.equal(rendered.filter(x=>x[0]==='stats').length,1);
+ assert.equal(rendered.filter(x=>x[0]==='release').length,1);
+ rendered.length=0;state._fvFrameHold=7;render();
+ assert.equal(rendered.length,0,'Valid in-flight timestep must NOT flash an empty A canvas');
+});
+
+test('Granada Field A: load selection is awaitable and superseded failures cannot destroy a newer scene',async()=>{
+ const readyCase={id:14,name:'B14'},status=[],invalidations=[];
+ const state={frameSeq:0,mesh:null,fieldValues:null,caseId:null,region:'',time:NaN};
+ let ready=true,load=null;
+ const doc={getElementById:id=>id==='fvRegion'?{value:'metal'}:
+   id==='fvLegend'?{innerHTML:''}:null};
+ const loader=isolate(field,'async function fvLoadSelection(){','function fvSyncComponent(){',[
+   'fvState','fvStopPlayback','fvRefreshSelectors','fvCase','fvAvailability','document',
+   'fvCurrentFieldGroup','fvInvalidateUnavailableSelection','fvSetStatus','flUi',
+   'fvSetStats','fvEsc','fvRender','fvLoadFrame','console'
+ ],[
+   state,()=>{},()=>{},()=>readyCase,()=>({ready,reason:'original source missing'}),
+   doc,()=>({name:'T'}),
+   ()=>{invalidations.push(state.frameSeq);state.frameSeq++;state.mesh=null;state.fieldValues=null;state.time=NaN},
+   (txt,error)=>status.push({txt,error}),en=>en,()=>{},String,()=>{},
+   ()=>{state.frameSeq++;return load},
+   {error:()=>{}}
+ ]);
+ ready=false;
+ const missing=loader();
+ assert.equal(typeof missing?.then,'function','Field workspace startup requires an actual native Promise');
+ assert.equal(await missing,false);assert.equal(invalidations.length,1);
+ ready=true;
+ let resolve1,reject1;load=new Promise((a,b)=>{resolve1=a;reject1=b});
+ const p1=loader();
+ assert.equal(typeof p1?.catch,'function','Native Field mounting attaches an error handler to this Promise');
+ state.mesh={id:'B14'};state.fieldValues=[300];state.time=10;resolve1();
+ assert.equal(await p1,true,'A may report ready only after the original measured frame commits');
+ assert.equal(invalidations.length,1);
+ load=Promise.reject(new Error('genuine OpenFOAM file missing'));
+ const failed=await loader();
+ assert.equal(failed,false);assert.equal(invalidations.length,2,
+   'A current failed source invalidates stale geometry and sampled values');
+ assert.equal(state.mesh,null);assert(Number.isNaN(state.time));
+ let rejectOld;load=new Promise((resolve,reject)=>{rejectOld=reject});
+ const stale=loader();state.frameSeq++;
+ state.mesh={id:'newest'};state.fieldValues=[273];state.time=20;
+ rejectOld(new Error('superseded old case failed'));assert.equal(await stale,false);
+ assert.equal(invalidations.length,2,
+   'An older failed A case may not erase newer committed physical data');
+ assert.equal(state.mesh.id,'newest');assert.equal(state.time,20);
 });

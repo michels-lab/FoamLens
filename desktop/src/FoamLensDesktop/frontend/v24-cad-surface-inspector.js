@@ -1,7 +1,17 @@
 /* FoamLens CAD Surface Inspector: local, read-only STL/OBJ inspection.  Not a STEP or volume-mesh engine. */
 /* FOAMLENS_CAD_CORE_START */
 const cgLimitTriangles=200000;
-function cgNumber(n){const v=Number(n);if(!Number.isFinite(v))throw new Error('Non-finite geometry coordinate');return v}
+function cgNumber(n){
+  // A CAD coordinate cannot arise from Number(null), Number('') or an
+  // implicit JS hexadecimal/octal coercion. Accept genuine decimal/scientific
+  // STL/OBJ notation, including explicitly measured zero and negative values.
+  if(typeof n!=='number'&&(typeof n!=='string'||!n.trim()||
+    !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(n.trim())))
+    throw new Error('Non-finite geometry coordinate');
+  const v=Number(n);
+  if(!Number.isFinite(v))throw new Error('Non-finite geometry coordinate');
+  return v
+}
 function cgVec(x,y,z){return [cgNumber(x),cgNumber(y),cgNumber(z)]}
 function cgCross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]}
 function cgSub(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]]}

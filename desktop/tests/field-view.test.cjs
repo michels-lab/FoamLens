@@ -1255,7 +1255,7 @@ test('native Windows QuickCup exercises actual independent mold legend without c
     'An OpenFOAM read failure must update the physical legend and status only after the new source scene is settled');
 });
 
-test('default field view shows only the selected physical region; secondary opacity remains available for manual overlays',()=>{
+test('default field view shows real metal and mold together with secondary transparency',()=>{
   const scene=new Function([
     'const window={};',
     'const document={getElementById:id=>id==="fvRegion"?{value:"metal"}:id==="fvField"?{value:"T"}:null};',
@@ -1266,10 +1266,10 @@ test('default field view shows only the selected physical region; secondary opac
     'return {primary:fvRegionChoice(c,"metal"),secondary:fvRegionChoice(c,"mold")};'
   ].join('\n'))();
   assert.equal(scene.primary.visible,true);
-  assert.equal(scene.secondary.visible,false,'secondary mold must not render unless explicitly enabled');
+  assert.equal(scene.secondary.visible,true,'real mold must render by default on A alongside metal');
   assert.equal(scene.primary.opacity,1);
   assert(scene.secondary.opacity>0&&scene.secondary.opacity<.65,
-    'Optional enclosing mold overlay stays translucent when manually enabled');
+    'The default enclosing mold overlay stays translucent so metal remains visible');
   assert.equal(scene.primary.field,'T');
   assert.equal(scene.secondary.field,'T');
 });
@@ -2046,7 +2046,7 @@ test('real primary Field renderer does not let transparent slice, iso or line an
     'useProgram(){},uniformMatrix4fv(){},depthFunc(){},depthMask(value){depth=!!value}};',
     'const r={gl,program:1,mvp:2,probeCount:1};',
     'for(const key of ["surface","slice","iso","edge","vector","line","probe"]){r[key+"Pos"]=key;r[key+"Color"]=key+"-color";r[key+"Count"]=3}',
-    'const fvState={renderer:r,fieldStorage:"volume"};',
+    'const fvState={renderer:r,fieldStorage:"volume",mesh:{cellCount:1},fieldValues:[273]};',
     'const canvas={width:0,height:0,getBoundingClientRect(){return {width:750,height:450}}};',
     'const checked=new Set(["fvSurface","fvEdges","fvSlice","fvIso","fvVectors","fvStreamlines"]);',
     'const values={fvOpacity:".65",fvSliceOpacity:".55",fvIsoOpacity:".45"};',
@@ -2125,7 +2125,7 @@ test('hidden physical regions release GPU layers and are never eagerly loaded',(
   const exercise=[
     'fvRegionScene.caseId="1";',
     'fvRegionScene.choices.set("solid",{visible:true});',
-    'fvRegionScene.choices.set("fluid",{visible:false});',
+    'fvRegionScene.choices.set("fluid",{visible:false,visibilityExplicit:true});',
     'fvRegionScene.layers.set("fluid",{gl,surfacePos:1,surfaceColor:2,edgePos:3,edgeColor:4,mesh:{boundsMin:[-9,0,0],boundsMax:[-8,1,1]}});',
     'fvRegionApplyVisibility(c);',
     'return {remaining:fvRegionScene.layers.size,deletions:calls.slice(),camera:fvState.camera.target};'
@@ -2501,7 +2501,7 @@ test('actual Field renderer composites opaque physical regions before transparen
     'const window={devicePixelRatio:1};',
     'const bounds=(z,x=0)=>({boundsMin:[x-.2,-.2,z],boundsMax:[x+.2,.2,z+1]});',
     'const r={gl,program:1,mvp:2,surfacePos:"metal",surfaceColor:"metal-col",surfaceCount:3,probeCount:0};',
-    'const fvState={renderer:r,fieldStorage:"volume",mesh:bounds(primaryDepth,primaryX||0),camera:{target:[0,0,0],distance:10,pitch:0,yaw:0}};',
+    'const fvState={renderer:r,fieldStorage:"volume",mesh:bounds(primaryDepth,primaryX||0),fieldValues:[273],camera:{target:[0,0,0],distance:10,pitch:0,yaw:0}};',
     'const moldMesh=bounds(moldDepth,moldX||0);if(invalidBounds==="null")moldMesh.boundsMin[2]=null;',
     'if(invalidBounds==="false")moldMesh.boundsMin[2]=false;',
     'if(invalidBounds==="empty")moldMesh.boundsMin[2]="";',

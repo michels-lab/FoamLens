@@ -71,7 +71,11 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
     helperStart=source.indexOf('function fcExtraSetOptionMarkup('),
     helperEnd=source.indexOf('function fcExtraRefreshSelectors(',helperStart);
   assert(bBegin>0&&bEnd>bBegin&&helperStart>0&&helperEnd>helperStart);
-  const helper=source.slice(helperStart,helperEnd);
+  const associationStart=source.indexOf('function fcSelectedAssociation(select){'),
+    associationEnd=source.indexOf('function fcCurrentFieldStorage(',associationStart);
+  assert(associationStart>=0&&associationEnd>associationStart,
+    'Original per-view source association helper must be independently testable');
+  const helper=source.slice(associationStart,associationEnd)+source.slice(helperStart,helperEnd);
   const ready=c=>!!c?.ready,regions=c=>c?.ready?c.regions:[],
     fieldGroups=(c,r)=>c?.groups?.[r]||[],
     meshes=c=>(c?.regions||[]).map(region=>({region,complete:true})),
@@ -141,6 +145,27 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
 }
 
 
+// Original OpenFOAM storage associations are part of field identity.
+// B and C/D must resolve the correct component inventory when a volume and
+// surface field share a name (not merely preserve the visible dropdown label).
+{
+  const matching=[...source.matchAll(/const selectedStorage=fcSelectedAssociation\(fieldSel\),([\s\S]*?),components=/g)];
+  assert.equal(matching.length,2,'B and C/D must both resolve field associations');
+  const fields=[{name:'U',kind:'scalar',storage:'volume'},
+    {name:'U',kind:'vector',storage:'surface'}];
+  for(const match of matching){
+    const resolver=new Function('groups','fieldSel','fcSelectedAssociation',
+      'const selectedStorage=fcSelectedAssociation(fieldSel),'+match[1]+';return group');
+    const fieldSel={value:'U',selectedOptions:[{dataset:{storage:'surface'}}]};
+    assert.strictEqual(resolver(fields,fieldSel,()=> 'surface'),fields[1],
+      'Selecting a surface vector must not load scalar-volume components');
+    assert.strictEqual(resolver(fields,fieldSel,()=> 'volume'),fields[0],
+      'Selecting a volume scalar must not load surface-vector components');
+    assert.strictEqual(resolver(fields,fieldSel,()=> 'point'),null,
+      'Unknown source association may not silently borrow another field');
+  }
+}
+
 // GRANADA Field A–D: real field catalogs can be indexed after the physical
 // region toolbar is mounted. A source-option refresh must not require a change
 // to the selected region/case/field, and vector fields must never retain the
@@ -165,6 +190,14 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   const state={fieldName:'U'};
   assert.deepStrictEqual(physical.fcPhysicalChoiceList(state,caseB,'metal'),['metal','mold']);
   const scene=physical.fcPhysicalFor(state),metal=scene.choices.get('metal'),mold=scene.choices.get('mold');
+  assert.equal(metal.visible,true,'Original B metal must be visible from the first load');
+  assert.equal(mold.visible,true,'Original B/C/D mold must NOT be hidden by default');
+  assert.equal(mold.opacity,.48,'Mold is overlaid translucently without masking metal');
+  // Changing the active field region is NOT an instruction to hide a physically
+  // separate region. Explicit per-case user visibility remains the only override.
+  physical.fcPhysicalChoiceList(state,caseB,'mold');
+  assert.equal(metal.visible,true);
+  assert.equal(mold.visible,true);
   assert.equal(metal.field,'','unindexed region cannot invent a field');
   assert.equal(scene.choices.size,2);
   caseB.groups.set('metal',[{name:'U',kind:'vector'},{name:'T',kind:'scalar'}]);
@@ -214,11 +247,11 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
     'fvRegionChoice','fcPhysicalFor','fvFieldGroups','fvFieldComponents',
     'fcReconcilePhysicalChoice','document','fcVisualsSynced','fcUi','fcEsc',
     'fcPhysicalReload','fvRegionLoadFrame','fvRegionRefreshList','fvState',
-    'fvRender','fcRender','fcExtraRender','fvRegionPalette',
+    'fvRender','fcRender','fcExtraRender','fvRegionPalette','fvAssociationLabel',
     source.slice(menuStart,menuEnd)+';return fcPhysicalMenu;'
   )(()=>ctx,list,physical.fcPhysicalChoiceList,()=>choice,physical.fcPhysicalFor,groups,fvFieldComponents,
     physical.fcReconcilePhysicalChoice,{getElementById:id=>({value:id==='language'?locale:'U'}),documentElement:{lang:'en'}},()=>true,
-    (en,es)=>locale==='es'?es:en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{},ch=>ch?.palette||'viridis');
+    (en,es)=>locale==='es'?es:en,v=>String(v),()=>{},()=>Promise.resolve(),()=>{}, {time:0},()=>{},()=>{},()=>{},ch=>ch?.palette||'viridis',storage=>storage||'volume');
 
   menu('3');
   assert.equal(holder.renders,1);
@@ -253,6 +286,26 @@ assert.strictEqual(api.fcViewSourceMap('Δ'),null,'Difference field is not indep
   assert.equal(holderA.renders,2,'original physical menu must re-render on Spanish language change');
   assert(holderA.innerHTML.includes('Regiones físicas'),'Spanish labels follow the real locale');
   menu('A');assert.equal(holderA.renders,2,'same locale does not reset focused region options');
+  // A B/C/D physical-region menu may contain a second same-name field
+  // with a different original OpenFOAM storage association. Reindexing that
+  // OTHER option must invalidate the menu even if the primary selected
+  // field and its vector components have not changed.
+  caseMenu.groups.set('metal',[
+    {name:'U',kind:'vector',storage:'volume'},
+    {name:'T',kind:'scalar',storage:'volume'}]);
+  menu('A');
+  const beforeStorageChange=holderA.renders;
+  assert(holderA.innerHTML.includes('value="T" data-storage="volume"'));
+  caseMenu.groups.set('metal',[
+    {name:'U',kind:'vector',storage:'volume'},
+    {name:'T',kind:'scalar',storage:'surface'}]);
+  menu('A');
+  assert.equal(holderA.renders,beforeStorageChange+1,
+    'Source association changes must refresh the existing physical-region menu');
+  assert(holderA.innerHTML.includes('value="T" data-storage="surface"'),
+    'New original surface option must be represented without a manual refresh');
+  assert.equal(choice.field,'U','Reindexing a different field may not replace selected U');
+  assert.equal(choice.storage,'volume','The selected physical source association must remain independent');
   assert(source.includes("fcUpdateLabels();fcScheduleToolbarSync()"),
     'real original language-change listener must resync physical A–D toolbars');
   console.log('Field physical region catalog PASS: late A–D fields, scalar/vector components, ES/EN and preserved physical controls.');
@@ -483,10 +536,15 @@ for(const fragment of [
       metal:[{name:'alpha1',kind:'scalar',storage:'volume'}]}}
   ];
   const bDocument={getElementById:id=>bControls[id]||null};
+  const associationSourceStart=source.indexOf('function fcSelectedAssociation(select){');
+  const associationSourceEnd=source.indexOf('function fcCurrentFieldStorage(',associationSourceStart);
+  assert(associationSourceStart>=0&&associationSourceEnd>associationSourceStart,
+    'Original physical source association helper must be available to all isolated selector tests');
+  const associationSource=source.slice(associationSourceStart,associationSourceEnd);
   const bRefresh=new Function('cases','document','fvCaseViewAvailable',
     'fcCase','fvReadyRegions','fvMeshes','fvFieldGroups','fcUi','fcEsc',
     'fvAssociationLabel','fvFieldComponents','fcUpdateLabels','fcScheduleToolbarSync',
-    source.slice(helperStart,helperEnd)+bSource+';return fcRefreshSelectors;')(
+    associationSource+source.slice(helperStart,helperEnd)+bSource+';return fcRefreshSelectors;')(
     bCases,bDocument,()=>true,
     ()=>bCases.find(c=>String(c.id)===bControls.fcCase.value),
     c=>c?.regions||[],c=>(c?.regions||[]).map(region=>({region,complete:true})),
@@ -559,7 +617,7 @@ for(const fragment of [
   const factory=new Function('cases','fcExtraDom','fvCaseViewAvailable','fcEsc',
     'document','fcExtraCase','fvReadyRegions','fcUi','fvFieldGroups',
     'fvAssociationLabel','fvFieldComponents','fcExtraUpdateLabel','fcScheduleToolbarSync',
-    source.slice(start,end)+';return{fcExtraRefreshSelectors,fcExtraSetOptionMarkup};');
+    associationSource+source.slice(start,end)+';return{fcExtraRefreshSelectors,fcExtraSetOptionMarkup};');
   const api=factory(cases,(id,suffix)=>id===3?selects[suffix]:null,()=>true,
     String,doc,()=>cases.find(c=>String(c.id)===selects.Case.value),
     c=>c?.regions||[],en=>en,(c,region)=>c?.groups?.[region]||[],
@@ -601,6 +659,41 @@ for(const fragment of [
     'Unrelated playback routes must retain their source-refresh fallback');
 }
 
+
+{
+  // Failed original OpenFOAM frames must NOT leave pixels from an earlier
+  // physical time visible on B, C or D. Execute the native clear helper with
+  // WebGL canvas, metric axes/XYZ labels and per-region legends.
+  const start=source.indexOf('function fcBlankInvalidFieldViewport('),
+    end=source.indexOf('function fcClearRenderer(){',start);
+  assert(start>=0&&end>start,'Native invalid-viewport GPU cleanup required');
+  const blank=new Function(source.slice(start,end)+';return fcBlankInvalidFieldViewport')();
+  const log=[],gl={COLOR_BUFFER_BIT:0x4000,DEPTH_BUFFER_BIT:0x100,
+    viewport:(...v)=>log.push(['viewport',...v]),
+    clearColor:(...v)=>log.push(['color',...v]),
+    clear:v=>log.push(['clear',v])};
+  const mk=(cls,html='stale')=>({innerHTML:html,textContent:html,hidden:false,
+    classList:{contains:v=>v===cls,add:v=>log.push(['hide',cls,v])}});
+  const axes=mk('fcMetricAxes'),bounds=mk('fcMetricBounds'),
+    legend=mk('fcLegend'),physical=mk('fcPhysicalLegends'),probe=mk('fcProbeMarker');
+  blank({width:450,height:310},{gl},{querySelectorAll:()=>[axes,bounds,physical,legend,probe]});
+  assert.deepStrictEqual(log.slice(0,3),[
+    ['viewport',0,0,450,310],['color',0,0,0,0],['clear',0x4100]],
+    'WebGL invalidation must really erase old color and depth buffers');
+  assert.equal(axes.innerHTML,'','Old XYZ axes cannot persist into missing C/D physical time');
+  assert.equal(bounds.textContent,'','Old dimensional numbers cannot persist');
+  assert.equal(bounds.hidden,true);
+  assert.equal(physical.innerHTML,'','Old metal/mold legends cannot remain visible');
+  assert.equal(legend.innerHTML,'','Old color legend must not present prior physics');
+  assert(log.some(x=>x[0]==='hide'&&x[1]==='fcLegend'));
+  assert(log.some(x=>x[0]==='hide'&&x[1]==='fcProbeMarker'));
+  assert.equal(probe.innerHTML,'stale',
+    'Probe marker must keep its reusable child for a later valid source pick');
+  const validDuringLoad=source.slice(source.indexOf('async function fcExtraRefreshFrame('),
+    source.indexOf('async function fcRefreshExtras(){'));
+  assert(!validDuringLoad.includes('fcBlankInvalidFieldViewport'),
+    'A valid source frame must stay visible while the next file is loading');
+}
 
 {
   // Execute production GPU upload logic, not a mirrored test implementation.
@@ -678,14 +771,17 @@ for(const fragment of [
   assert.equal(counts.surfaceBuild,3,'New WebGL renderer must upload its own geometry');
   assert.equal(writes.surfacePos,3);
   const invalidation=new Function('fcPhysicalRelease','fcExtraUpdateLabel','fcExtraDom',
+    'fcBlankInvalidFieldViewport','fcUpdateStatsGrid',
     source.slice(invalidStart,invalidEnd)+';return fcExtraInvalidateFrame;')(
-    ()=>counts.release++,()=>{},helpers.fcExtraDom);
+    ()=>counts.release++,()=>{},helpers.fcExtraDom,
+    ()=>counts.blank=(counts.blank||0)+1,()=>counts.stats++);
   state.seq=4;state.time=9.8;invalidation(state,'missing measured time');
   assert.equal(state.seq,5);
   assert.strictEqual(state.geometryUpload,null,'Invalidated frame must forget old GPU buffers');
   assert.strictEqual(state.mesh,null);
   assert(Number.isNaN(state.time),'Missing physical timestamps must not retain prior time');
   assert.equal(state.renderer.surfaceCount,0,'Stale surface vertices cannot remain drawable');
+  assert.equal(counts.blank,1,'C/D invalidation must blank the old WebGL framebuffer');
   upload(state,data(meshB,'volume',123));
   assert.equal(counts.surfaceBuild,4,'Restoring valid frame after invalidation uploads fresh GPU geometry');
 }
@@ -704,13 +800,14 @@ for(const fragment of [
     differenceRange:{valid:true},vectorValues:[1],streamlines:[{}],
     probe:{value:888},renderer:{surfaceCount:12,probeCount:1},
     differenceRenderer:{surfaceCount:8}};
-  const ops={released:0,renders:0,labels:0,stats:0,extraClears:0};
+  const ops={released:0,renders:0,labels:0,stats:0,extraClears:0,blanks:0};
   const clear=new Function('fcState','document','fcExtraViews','fcExtraInvalidateFrame',
     'fcUi','fcPhysicalRelease','fcRender','fcUpdateLabels','fcUpdateStatsGrid',
+    'fcBlankInvalidFieldViewport',
     source.slice(begin,end)+';return fcClearRenderer;')(
     state,{getElementById:()=>({checked:true})},[{id:3}],
     ()=>ops.extraClears++,en=>en,()=>ops.released++,
-    ()=>ops.renders++,()=>ops.labels++,()=>ops.stats++);
+    ()=>ops.renders++,()=>ops.labels++,()=>ops.stats++,()=>ops.blanks++);
   clear();
   assert.equal(state.seq,11,'superseded B request must be invalidated');
   assert.equal(state.mesh,null);assert.equal(state.fieldValues,null);
@@ -721,7 +818,7 @@ for(const fragment of [
   assert.equal(state.differenceValues,null,'old A−B difference must be erased');
   assert.equal(state.renderer.surfaceCount,0,'stale B mesh cannot remain drawable');
   assert.equal(state.differenceRenderer.surfaceCount,0,'stale difference cannot remain drawable');
-  assert.deepStrictEqual(ops,{released:1,renders:1,labels:1,stats:1,extraClears:0},
+  assert.deepStrictEqual(ops,{released:1,renders:1,labels:1,stats:1,extraClears:0,blanks:2},
     'B clearing refreshes original labels and stats without clearing independent C/D');
 }
 
@@ -1328,8 +1425,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'active overlay drag stays focused and is not programmatically reset');
   document.activeElement=null;fn.sync(holder,c,[{region:'metal',ch:cc},{region:'mold',ch:secondary}]);
   assert.equal(Number(sliderOverlay.value),.25,'idle secondary slider reconciles actual alpha');
-  assert(source.includes("region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.component,ch?.palette"),
-    'volatile alpha cannot invalidate the menu and destroy the active thumb');
+  assert(source.includes("region,ch?.visible,ch?.visibilityExplicit,ch?.field,ch?.storage,ch?.component,ch?.palette"),
+    'physical field association must refresh the menu, but volatile alpha cannot destroy the active thumb');
   assert(source.includes("fcSyncPhysicalOpacitySliders(holder,ctx,catalog);"),
     'unchanged real catalog must update slider value without rebuilding all controls');
   assert(source.includes("fcSetPhysicalOpacity(ctx,region,ch,e.target.value)"),
@@ -1645,7 +1742,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const counts={B:0,C:0,D:0,extra:0,sync:0};
   const current=state=>state===B?'B':state===C?'C':'D';
   const apiTime=new Function('document','fcState','fcExtraViews','fcCase','fcExtraCase',
-    'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField','fcFieldFor',
+    'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField','fcCurrentFieldStorage','fcExtraFieldStorage','fcFieldFor',
     'fcPhysicalNumber','fcPrimaryPhysicalTime','fcEsc','fcFmt','fcUi',
     'fcRefreshFrame','fcExtraRefreshFrame','fcRefreshExtras','fcScheduleToolbarSync',
     source.slice(a,b)+
@@ -1653,6 +1750,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     document,B,[C,D],()=>catalogs.B,state=>catalogs[current(state)],
     ()=>catalogs.B.region,state=>catalogs[current(state)].region,
     ()=>catalogs.B.field,state=>catalogs[current(state)].field,
+    () => '',() => '',
     (c,region,field)=>c.region===region&&c.field===field?{times:c.times}:null,
     value=>Number(value),()=>primaryTime,String,String,(en,es)=>language==='es'?es:en,
     ()=>counts.B++,state=>counts[current(state)]++,()=>counts.extra++,()=>counts.sync++
@@ -1735,8 +1833,9 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const document={getElementById:id=>id==='fcDifference'?{checked:true}:
     id==='fcDifferenceViewport'?viewport:id==='fcDifferenceStatus'?{}:null};
   const fn=new Function('document','fcState','fvState','fcTimesLinked','flSetIssue',
-    'fcUpdateLayout',source.slice(start,end)+';return fcUpdateDifference;')(
-    document,secondary,primary,()=>false,(node,message)=>{issue=message},()=>layouts++);
+    'fcUpdateLayout','fcDifferenceTimesMatch','fcUi',source.slice(start,end)+';return fcUpdateDifference;')(
+    document,secondary,primary,()=>false,(node,message)=>{issue=message},()=>layouts++,
+    (a,b)=>a===b,en=>en);
   fn(null,null,null,null);
   assert.equal(secondary.differenceValues,null);
   assert.equal(secondary.differenceRange,null);
@@ -2024,3 +2123,136 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert(source.includes("fcSetIndependentPlaybackOptions(view,{loop:event.target.checked})"));
   console.log('Granada individual native playback rate and looping PASS: B/C/D 0.5×/1×/2×, independent timers, real-frame wrap, linked safety');
 })().catch(error=>{console.error(error);process.exitCode=1});
+
+
+ 
+// GRANADA: source-true volume/face/point ownership for the original metal/mold
+// overlay menus in A AND B/C/D (not only the primary field selector).
+{
+  const physicalBegin=source.indexOf('function fcReconcilePhysicalChoice(choice,groups,preferred=');
+  const physicalEnd=source.indexOf('function fcPhysicalChoiceList(',physicalBegin);
+  assert(physicalBegin>=0&&physicalEnd>physicalBegin);
+  const reconcile=new Function('fvFieldComponents',source.slice(physicalBegin,physicalEnd)+
+    ';return fcReconcilePhysicalChoice')(
+      group=>group?.kind==='vector'?[{v:'magnitude',t:'Magnitude'}]:[{v:'value',t:'Value'}]);
+  const volume={name:'T',kind:'scalar',storage:'volume'};
+  const surface={name:'T',kind:'scalar',storage:'surface'};
+  const vector={name:'U',kind:'vector',storage:'point'};
+  const choice={field:'T',storage:'surface',component:'value'};
+  assert.equal(reconcile(choice,[volume,surface,vector]),false);
+  assert.deepStrictEqual([choice.field,choice.storage,choice.component],['T','surface','value']);
+  assert.equal(reconcile(choice,[volume,vector]),true);
+  assert.deepStrictEqual([choice.field,choice.storage,choice.component],['T','volume','value']);
+  assert.equal(reconcile(choice,[vector]),true);
+  assert.deepStrictEqual([choice.field,choice.storage,choice.component],['U','point','magnitude']);
+  const menu=source.slice(source.indexOf('function fcPhysicalMenu(view){'),
+    source.indexOf('function fcPhysicalReload(',source.indexOf('function fcPhysicalMenu(view){')));
+  assert(menu.includes('data-storage='),'B/C/D physical-region menu must expose original association');
+  assert(menu.includes('ch.storage=String(e.target.selectedOptions?.[0]?.dataset?.storage'),
+    'Changing a same-named metal/mold field must preserve selected face/point association');
+  assert(menu.includes('ch?.storage'),'Toolbar render key must track association changes');
+  assert(menu.includes("if(kind==='Field'&&matches.length>1)")&&
+    menu.includes("exact.selected=true")&&
+    menu.includes("option.dataset?.storage||'')===String(ch.storage||'')"),
+    'Primary-field forwarding must select the correct face/volume option rather than first same-name entry');
+  const physicalLoad=source.slice(source.indexOf('async function fcPhysicalLoad('),
+    source.indexOf('function fcPhysicalRenderLayers(',source.indexOf('async function fcPhysicalLoad(')));
+  assert(physicalLoad.includes('matching=fields.filter(')&&physicalLoad.includes('matching.length===1?matching[0]:null'),
+    'B/C/D overlay loader must refuse ambiguous same-name OpenFOAM fields');
+
+  const aSource=fs.readFileSync(path.join(dir,'v14-field-view.js'),'utf8');
+  const start=aSource.indexOf('function fvRegionChoice(c,region){');
+  const end=aSource.indexOf('function fvRegionPrimaryVisible(',start);
+  assert(start>=0&&end>start);
+  const caseA={id:'B13'};
+  const scene={choices:new Map()};
+  const owned=new Function('fvRegionEnsureCase','fvRegionScene','fvFieldGroups','document',
+    aSource.slice(start,end)+';return fvRegionChoice')(
+      ()=>{},scene,()=>[volume,surface],
+      {getElementById:id=>({fvField:{value:'T'},fvRegion:{value:'metal'},fvPalette:{value:'viridis'}})[id]||null});
+  const initial=owned(caseA,'mold');
+  assert.equal(initial.storage,'volume','Initial default must name the real storage association');
+  initial.storage='surface';
+  assert.strictEqual(owned(caseA,'mold').storage,'surface','A region source is stable across UI refresh');
+  const aUi=aSource.slice(aSource.indexOf('function fvRegionRefreshList(){'),
+    aSource.indexOf('function fvRegionApplyVisibility(',aSource.indexOf('function fvRegionRefreshList(){')));
+  assert(aUi.includes('data-storage='),'A region selector must surface original OpenFOAM association');
+  const aHandlers=aSource.slice(aSource.indexOf('function fvRegionInstallControls('),
+    aSource.indexOf('function fvRegionMakeBuffer('));
+  assert(aSource.includes("choice.storage=String(e.target.selectedOptions?.[0]?.dataset?.storage||'')"),
+    'A region menu handler must store the chosen association');
+  const aLoad=aSource.slice(aSource.indexOf('function fvRegionLoadFrame('),
+    aSource.indexOf('function fvRegionRender(',aSource.indexOf('function fvRegionLoadFrame(')));
+  assert(aLoad.includes('const selected=candidates.length===1?candidates[0]:null'),
+    'A physical region cannot silently draw a wrong-association field');
+  console.log('Granada A-D physical metal/mold association PASS: same T in volume and surface, source selection and safe load');
+}
+
+// Granada A/B/C/D: verify the ACTUAL responsive Field panel CSS and the
+// ACTUAL DPI/viewport-audit function. No synthetic fixed 4-column scroll strip.
+{
+  const styles=[...source.matchAll(/style\.textContent \+= ("(?:\\.|[^"\\])*");/g)]
+    .map(m=>new Function('return '+m[1])());
+  const responsive=styles.find(x=>x.includes('container-name:fc-field-space'));
+  assert(responsive,'Field view must adapt to its real panel width, not just monitor width');
+  for(const css of [
+    '#fieldViewPanel{container-name:fc-field-space;container-type:inline-size}',
+    '@container fc-field-space (min-width:1040px)',
+    'grid-template-columns:repeat(3,minmax(0,1fr))',
+    '@container fc-field-space (min-width:1320px)',
+    'grid-template-columns:repeat(4,minmax(0,1fr))',
+    '@container fc-field-space (max-width:699px)',
+    'grid-template-columns:minmax(0,1fr)',
+    'overflow-x:clip',
+    'align-items:start;align-content:start'
+  ])assert(responsive.includes(css),'Original Field four-way CSS missing '+css);
+  assert(responsive.includes('#fcExtra4Viewport:not(.hidden)'),
+    'Four columns must activate only when the original D renderer is present');
+  assert(!responsive.includes('overflow-x:auto')&&!responsive.includes('overflow-x:scroll'),
+    'Do not reintroduce the horizontal-scrollbar layout the owner rejected');
+
+  const f2=fs.readFileSync(path.join(dir,'v24-field-f2-viewport-layout.js'),'utf8');
+  const a=f2.indexOf('/* FOAMLENS_F2_LAYOUT_CORE_START */'),
+    b=f2.indexOf('/* FOAMLENS_F2_LAYOUT_CORE_END */',a);
+  assert(a>=0&&b>a,'Real source-backed Field F2 geometry auditor required');
+  const audited=new Function(f2.slice(a,b)+';return pvGridRowAudit;')();
+  const rect=(x,y,w,h)=>({left:x,right:x+w,top:y,bottom:y+h,width:w,height:h});
+  const make=(id,x,y,w=320)=>({id,rect:rect(x,y,w,420)});
+  const gridWide=rect(0,0,1380,1000);
+  const four=[
+    make('fvViewport',0,0),make('fcViewport',340,0),
+    make('fcExtra3Viewport',680,0),make('fcExtra4Viewport',1020,0)];
+  let result=audited(gridWide,four);
+  assert.equal(result.state,'no-observed-conflict','Wide 4-up layout must share a measured first row');
+  assert.equal(result.expectedColumns,4);assert.equal(result.rows,1);
+  result=audited(rect(0,0,1280,1000),[
+    make('fvViewport',0,0,298),make('fcViewport',320,0,298),
+    make('fcExtra3Viewport',640,0,298),make('fcExtra4Viewport',960,0,298)],1320);
+  assert.equal(result.expectedColumns,4,
+    'F2 must use the CSS query-container PANEL width, not the narrower padded grid');
+  assert.equal(result.rows,1);
+  const wrapped=[four[0],four[1],make('fcExtra3Viewport',0,450),
+    make('fcExtra4Viewport',340,450)];
+  result=audited(gridWide,wrapped);
+  assert.equal(result.state,'layout-conflict',
+    'Wide Field grid mistakenly stacking C/D under A/B must be detectable');
+  assert(result.issues.some(x=>x.type==='wide-quad-wrapped'));
+  result=audited(rect(0,0,800,1100),[
+    make('fvViewport',0,0),make('fcViewport',400,0),
+    make('fcExtra3Viewport',0,460),make('fcExtra4Viewport',400,460)]);
+  assert.equal(result.expectedColumns,2,'Smaller desktop windows use two readable columns');
+  assert.equal(result.state,'no-observed-conflict',
+    'Two rows are valid only when there is not enough panel width for a single row');
+  result=audited(rect(0,0,600,1800),[
+    make('fvViewport',0,0),make('fcViewport',0,460),
+    make('fcExtra3Viewport',0,920),make('fcExtra4Viewport',0,1380)]);
+  assert.equal(result.expectedColumns,1);
+  assert.equal(result.state,'no-observed-conflict','Narrow windows must not force horizontal scrolling');
+  result=audited(gridWide,[...four,make('fcDifferenceViewport',0,460)]);
+  assert.equal(result.visibleCount,4,
+    'Optional scientifically validated delta may wrap without shifting A/B/C/D');
+  result=audited(gridWide,[...four.slice(0,3),make('fcExtra4Viewport',1200,0)]);
+  assert(result.issues.some(x=>x.type==='viewport-overflows-grid'),
+    'Viewport extending outside the Field grid must be detected');
+  console.log('Granada wide A/B/C/D responsive 4-up and measured no-scroll viewport audit PASS');
+}

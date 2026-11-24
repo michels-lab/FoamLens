@@ -65,6 +65,35 @@ function pvClassify(sample){
       expected:sample.buffer.expected,actual:sample.buffer.actual});
   return{state:issues.some(x=>x.severity==='error')?'layout-conflict':issues.length?'review':'no-observed-conflict',issues}
 }
+// Audit the measured A/B/C/D GRID, not only independent caption overlays.
+// Four sources across on a wide panel is an explicit usability requirement;
+// a two-row layout at that width is a measurable regression.
+function pvGridRowAudit(grid,items,panelWidth){
+  const rect=pvRect(grid),active=(items||[]).filter(x=>
+    ['fvViewport','fcViewport','fcExtra3Viewport','fcExtra4Viewport'].includes(x.id)&&
+    pvRect(x.rect)).map(x=>({id:x.id,rect:pvRect(x.rect)}));
+  if(!rect||rect.width<120)return{state:'unmeasured',expectedColumns:0,
+    visibleCount:active.length,rows:0,issues:[{type:'grid-not-rendered'}]};
+  // CSS container queries measure the enclosing Field PANEL, not the grid
+  // after its padding/borders. The audit must use the same breakpoint basis.
+  const n=active.length,width=Number.isFinite(pvNumber(panelWidth))&&panelWidth>0?
+    Number(panelWidth):rect.width;
+  const expectedColumns=width<700?1:n>=4&&width>=1320?4:
+    n>=3&&width>=1040?3:Math.min(n,2);
+  const tops=[];
+  for(const entry of active){
+    const top=entry.rect.top;
+    if(!tops.some(value=>Math.abs(value-top)<=5))tops.push(top)
+  }
+  const rows=tops.length,issues=[];
+  for(const item of active)if(item.rect.left<rect.left-4||item.rect.right>rect.right+4)
+    issues.push({type:'viewport-overflows-grid',severity:'error',view:item.id});
+  if(n&&rows>Math.ceil(n/Math.max(1,expectedColumns)))
+    issues.push({type:n===4&&expectedColumns===4?'wide-quad-wrapped':'unexpected-extra-grid-row',
+      severity:'error',expectedColumns,rows});
+  return{state:issues.length?'layout-conflict':'no-observed-conflict',
+    expectedColumns,visibleCount:n,rows,issues}
+}
 /* FOAMLENS_F2_LAYOUT_CORE_END */
 function pvEl(id){return document.getElementById(id)}
 let pvHeights={},pvFocus=null,pvFrame=0,pvObserver=null,pvObservedGrid=null,pvEscapeGrid=null,pvLast=null;
@@ -200,12 +229,13 @@ function pvAudit(){
   const grid=pvEl('fcViewGrid'),
     elements=grid?[...grid.children].filter(x=>pvViews[x.id]&&!x.classList.contains('hidden')&&x.getBoundingClientRect().width>0):[],
     views=elements.map(pvMeasure),
+    gridLayout=pvGridRowAudit(grid?.getBoundingClientRect?.(),elements.map(x=>({id:x.id,rect:x.getBoundingClientRect?.()})),pvEl('fieldViewPanel')?.getBoundingClientRect?.()?.width),
     counts={};for(const v of views)counts[v.state]=(counts[v.state]||0)+1;
   const report={schema:'foamlens/field-f2-layout/1',capturedUtc:new Date().toISOString(),
     environment:{innerCssPx:{width:window.innerWidth,height:window.innerHeight},
       devicePixelRatio:Number(window.devicePixelRatio)||1,
       visualViewportScale:window.visualViewport?.scale??null},
-    counts,views,confidence:'current-rendered-dom-geometry-only',
+    counts,views,gridLayout,confidence:'current-rendered-dom-geometry-only',
     limitations:[
       'No other screen width, DPI scale, monitor or installed Windows Setup/Portable is measured unless independently run there.',
       'DOM overlays are classified inside the canvas scene and XYZ/legend annotations inside their own caption; neither classification proves OpenFOAM numerical accuracy.',
@@ -215,8 +245,8 @@ function pvAudit(){
     ]};
   pvLast=report;
   if(pvEl('pvStatus'))pvEl('pvStatus').textContent=views.length+' measured viewport(s); '+
-    (counts['layout-conflict']||0)+' with overlay conflicts, '+(counts.review||0)+' need review. Current CSS px/DPR only.';
-  if(pvEl('pvEvidence'))pvEl('pvEvidence').textContent=views.map(v=>v.view+': '+v.state+' · '+
+    (counts['layout-conflict']||0)+' with overlay conflicts, '+(counts.review||0)+' need review; '+gridLayout.issues.length+' grid arrangement issue(s). Current CSS px/DPR only.';
+  if(pvEl('pvEvidence'))pvEl('pvEvidence').textContent='Grid A/B/C/D: '+gridLayout.state+' · '+gridLayout.expectedColumns+' column(s), '+gridLayout.rows+' row(s) · '+gridLayout.issues.map(x=>x.type).join(', ')+'\n'+views.map(v=>v.view+': '+v.state+' · '+
     v.issues.map(i=>i.type+(i.a?' '+i.a+(i.b?' vs '+i.b:''):'')).join(', ')).join('\n')||'No active Field viewport';
   if(pvEl('pvExport'))pvEl('pvExport').disabled=!views.length;
   return report

@@ -26,8 +26,12 @@ function tsdMatchesVariable(canonical,primary,secondary){
 function tsdDimensionPowers(dimensions){
   const match=/^\[\s*([^\]]+?)\s*\]$/.exec(String(dimensions??'').trim().replace(/\s+/g,' '));
   if(!match)return null;
-  const words=match[1].trim().split(/\s+/),powers=words.map(Number);
-  return words.length===7&&powers.every(Number.isFinite)?powers:null
+  const words=match[1].trim().split(/\s+/);
+  // OpenFOAM dimension exponents are signed decimal/scientific numbers.
+  // Number() alone accepts hex/binary/octal labels that are not physical exponents.
+  if(words.length!==7||words.some(w=>!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(w)))return null;
+  const powers=words.map(Number);
+  return powers.every(Number.isFinite)?powers:null
 }
 function tsdAxisMetadataVerified(field){
   const f=field||{},unit=String(f.unit??'').trim(),quantity=String(f.quantity||f.canonical||f.name||'').trim();
@@ -108,6 +112,36 @@ function tsdSourceEvidence(allSeries,canonical){
     unverifiedHistoryDimensions:rows.some(s=>s.fieldHistoryEvidence&& !s.fieldHistoryEvidence.verifiedDimensions)
   }
 }
+// A time-series chart has precisely two numeric Y axes. Before plotting,
+// check ACTUAL visible source records, not collapsed selector metadata.
+// Unknown metadata from independent cases is not evidence of compatibility.
+function tsdPlotAxisPreflight(visible){
+  const vis=Array.isArray(visible)?visible:[];
+  const groups=[],canonicalMetadata=new Map(),axisById=new Map();
+  for(const s of vis){
+    const f=s?.field||{},canonical=String(f.canonical??'').trim();
+    const unit=String(f.unit??'').trim(),quantity=String(f.quantity??'').trim();
+    const powers=tsdDimensionPowers(f.dimensions);
+    const dimensions=powers?powers.join(','):String(f.dimensions??'').trim();
+    const signature=JSON.stringify([quantity,unit,dimensions]);
+    if(canonical){
+      const previous=canonicalMetadata.get(canonical);
+      if(previous!==undefined&&previous!==signature)
+        return {ok:false,reason:'conflicting-source-metadata',groups:groups.length,axisById:new Map()};
+      canonicalMetadata.set(canonical,signature)
+    }
+    const verified=tsdAxisMetadataVerified(f);
+    const source=JSON.stringify([String(s?.caseId??''),String(s?.region??''),canonical,signature]);
+    const key=verified?'verified:'+signature:'unverified:'+source;
+    let index=groups.indexOf(key);
+    if(index<0){index=groups.length;groups.push(key)}
+    if(groups.length>2)
+      return {ok:false,reason:'more-than-two-physical-axes',groups:groups.length,axisById:new Map()};
+    axisById.set(s?.id,index===0?'left':'right')
+  }
+  return {ok:true,reason:'',groups:groups.length,axisById}
+}
+
 /* FOAMLENS_DUAL_TIMESERIES_CORE_END */
 
 function tsdUi(en,es){try{return typeof flUi==='function'?flUi(en,es):(document.getElementById('language')?.value==='es'?es:en)}catch{return en}}
@@ -155,7 +189,25 @@ function tsdUpdateLabels(){
   if(s)s.innerHTML=tsdEsc(tsdUi('Variable 2 (optional)','Variable 2 (opcional)'))+' <span class="tsdAxisHint">'+tsdEsc(tsdUi('auto Y','Y auto'))+'</span>'
 }
 function tsdFields(ts){
-  return[...new Map((ts||[]).map(s=>[s.field.canonical,s.field])).values()].sort((a,b)=>localizedFieldName(a).localeCompare(localizedFieldName(b),undefined,{numeric:true}))
+  // A canonical name may occur in several original cases/regions. The
+  // previous Map kept the last source's units and could advertise K for
+  // a mixture of K and degC (or vice versa), depending on import order.
+  const byCanonical=new Map();
+  for(const series of ts||[]){
+    const field=series?.field||{},canonical=String(field.canonical??'').trim();
+    if(!canonical)continue;
+    const existing=byCanonical.get(canonical);
+    if(!existing){byCanonical.set(canonical,{...field,canonical});continue}
+    for(const key of ['unit','dimensions','quantity']){
+      if(String(existing[key]??'').trim()!==String(field[key]??'').trim()){
+        // Unknown is intentional: display no invented unit/dimensions and
+        // prevent physically incompatible fields sharing a certified Y axis.
+        existing[key]=key==='quantity'?'unknown':'?'
+      }
+    }
+  }
+  return [...byCanonical.values()].sort((a,b)=>
+    localizedFieldName(a).localeCompare(localizedFieldName(b),undefined,{numeric:true}))
 }
 function tsdPopulateSecondary(vars,primary,preferred=''){
   const sel=document.getElementById('timeSeriesVariable2');if(!sel)return'';
@@ -459,16 +511,26 @@ function tsdRefreshTimeSeriesControls(){
 }
 function tsdPatchAssignments(){
   if(typeof assignments!=='function'||assignments.__tsdPatched)return;
-  const previous=assignments;assignments=function(vis){
+  const previous=assignments;
+  assignments=function(vis){
     const out=previous.apply(this,arguments);
     if(currentDataView!=='timeseries')return out;
-    const primary=document.getElementById('timeSeriesVariable')?.value||'',secondary=document.getElementById('timeSeriesVariable2')?.value||'';
-    if(!primary||!secondary||primary===secondary)return out;
-    const fields=tsdFields(timeSeriesOptionsBase()),pf=fields.find(f=>f.canonical===primary),sf=fields.find(f=>f.canonical===secondary),plan=tsdAxisPlan(pf,sf);
+    const plan=tsdPlotAxisPreflight(vis);
+    // An invalid chart is blocked at visibleCurrentSeries(), before it
+    // reaches the renderer. Do not invent third-axis coordinates here.
+    if(!plan.ok)return out;
+    // One physical quantity preserves explicit user axis choices.
+    if(plan.groups<=1)return out;
+    // Two distinct compatible source families get two distinct axes even
+    // when the variable names overlap across cases or user style is stale.
     for(const item of vis||[]){
-      if(item.axis==='Left'||item.axis==='Right')continue;
-      if(item?.field?.canonical===primary)out.set(item.id,plan.primary);
-      else if(item?.field?.canonical===secondary)out.set(item.id,plan.secondary)
+      const required=plan.axisById.get(item.id)||'left';
+      if(item.axis==='Left'||item.axis==='Right'){
+        // Preserve explicit choices only when they already agree with
+        // scientific separation; never merge incompatible source scales.
+        if(out.get(item.id)===required)continue
+      }
+      out.set(item.id,required)
     }
     return out
   };assignments.__tsdPatched=true
@@ -502,4 +564,4 @@ function tsdInstall(){
   refreshTimeSeriesControls();return true
 }
 tsdInstall();
-window.FoamLensDualTimeSeries={tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisPlan,tsdUnverifiedColumn,tsdEvidenceFieldLabel,tsdSourceEvidence,tsdRefreshTimeSeriesControls};
+window.FoamLensDualTimeSeries={tsdFieldAxisKey,tsdVariableSet,tsdPrimaryChoice,tsdMatchesVariable,tsdAxisPlan,tsdPlotAxisPreflight,tsdUnverifiedColumn,tsdEvidenceFieldLabel,tsdSourceEvidence,tsdRefreshTimeSeriesControls};
