@@ -33,3 +33,9 @@ assert.throws(()=>settings(bg,'0.005 -0.02 0.005','2 1',200000));
 assert.throws(()=>settings(bg,'0.005 -0.02 0.005','1 5',200000));
 assert.throws(()=>settings(bg,'0.005 -0.02 0.005','1 2',350001));
 console.log('Explicit region splitting and single-surface snappy settings PASS');
+
+const visStart=src.indexOf('function cmbVisibleSurfaces('),visEnd=src.indexOf('function cmbMount()',visStart);
+const fixtureModels=[{visible:true,unit:'mm',partsVisible:new Map([['metal',true],['hidden',false],['mold',true]]),partSummaries:new Map([['metal',{triangles:1}],['mold',{triangles:1}]]),triangles:[{part:'metal'},{part:'mold'}]}];
+const visible=new Function('cgModels','cgUnitScale','cgBinaryStl',src.slice(visStart,visEnd)+';return cmbVisibleSurfaces') (fixtureModels,u=>u==='mm'?.001:null,(tris,scale)=>new Uint8Array(84+50*tris.length));
+assert.deepEqual(visible().map(x=>x.part),['metal','mold']);assert.equal(visible()[0].bytes.length,134);fixtureModels[0].unit='';assert.throws(visible);
+console.log('Visible multi-surface selection and unit gate PASS');
