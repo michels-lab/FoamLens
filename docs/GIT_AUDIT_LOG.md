@@ -1,3 +1,7 @@
+## 2026-11-24 — responsive 3D/profile workspace and v1.8.23 retry
+
+Previous official publisher 45348751995 stopped at the isolated Field time regression evaluator (missing fcTimeLinkRequested helper and primary-state dependency); previous camera regression passed. Commit 4e05164b includes actual production helper and state and checks suspended/recovered linkage without disabling gates. Product commit f3093ddb: existing 3D + Profile companion now uses measured workspace width and visible view count for automatic/side/stack layout, persisted width priority, adjustable plot height and reset; original plot and source ownership unchanged. Direct syntax and three layout arithmetic cases checked; native appearance not verified. Retry same unpublished v1.8.23, last verified v1.8.22. No CFD changes.
+
 ## 2026-11-24 — v1.8.23 publication retry with complete owner feedback block
 
 Initial official run [45345463170](https://github.com/michels-lab/FoamLens/actions/runs/45345463170) failed at independent camera fallback regression (expected existing distance 8, got auto-fit 132.4). No release was published. Source ab7a1054 corrects fallback for an existing A mesh with hidden/invalid visible union, preserves saved independent camera, and fits only when A genuinely lacks a mesh; shared physical axis and legend regression harness now invokes actual new production helper. No checks were disabled.

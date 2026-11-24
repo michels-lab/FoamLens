@@ -9,9 +9,9 @@
   "progress_percent": 47,
   "verified_milestones": 7,
   "total_milestones": 15,
-  "phase": "v1.8.23 publication retry after camera regression; #377 merged with axes, legend, composite and source inventory diagnosis",
+  "phase": "v1.8.23 publication retry; responsive 3D + Profile workspace integrated",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/377",
-  "source_head_sha": "614e3060631a038a19bb75d1e4db09321520ea4e",
+  "source_head_sha": "f3093ddbbc63bd67908a9235cc5fe499b7ee5b27",
   "latest_verified_stable": "v1.8.22",
   "release_hold": false,
   "owner_physical_acceptance": false,
@@ -148,7 +148,7 @@
       ]
     }
   ],
-  "next_step": "Confirm official retry v1.8.23 and verify real B14/C14; continue independent field/data workflow and CAD.",
+  "next_step": "Verify official publisher and real B14/C14; consolidate Data profiles and physical playback; advance CAD.",
   "limitations": "7/15 verified formal milestones; release milestone remains for final exact-current scope. Published v1.8.22 verified, later owner screenshot defects still require acceptance. No B14 source inventory inspected.",
   "last_granada": {
     "as_of": "2026-11-24",
@@ -156,12 +156,12 @@
     "progress_after": 47,
     "verified_milestones": 7,
     "total_milestones": 15,
-    "source_code_sha": "614e3060631a038a19bb75d1e4db09321520ea4e",
-    "scope": "Axis/legend clarity, comparison transparency, camera fallback, indexed source diagnostics; release retry",
+    "source_code_sha": "f3093ddbbc63bd67908a9235cc5fe499b7ee5b27",
+    "scope": "Responsive 3D+Profile workspace and real linked-time regression harness",
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/pull/377",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45345463170"
+      "https://github.com/michels-lab/FoamLens/commit/f3093ddbbc63bd67908a9235cc5fe499b7ee5b27",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45348751995"
     ],
-    "pending": "Exact-source publisher and owner B14/C14 verification"
+    "pending": "Exact release and physical installed validation"
   }
 }

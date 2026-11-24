@@ -1,5 +1,7 @@
 # FoamLens — avance global verificable
 
+**Granada 2026-11-24:** integrado espacio 3D + perfil con distribución adaptable y preferencias persistentes; publicación 1.8.23 reactivada tras corregir dependencia del evaluador de tiempos. Última estable verificada 1.8.22; aceptación 7/15.
+
 **Granada 2026-11-24:** #377 fusionado; primer release v1.8.23 falló en cámara independiente y se corrige en nueva fuente con diagnóstico por región y mejoras de cotas/leyendas/transparencia. Última publicación confirmada v1.8.22. Hitos formales 7/15 hasta aceptación integral.
 
 **Actualización 2026-11-24:** v1.8.22 publicada ([release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.22)); PR #375 y #376 fusionados; recuperación Field A–D y ajuste visual en fuente v1.8.23. Los datos B14 reales, cotas y revisión instalada siguen pendientes. 7/15 hitos formales; el registro histórico de abajo no describe la publicación actual.

@@ -1,6 +1,6 @@
 # FoamLens Desktop v1.8.23
 
-**FoamLens Desktop v1.8.23 with frontend v51** is the release source pending publication. Field A–D fall back to their own saved physical time and fitted cameras when A is unavailable; aligned scenes, clearer unavailable-case evidence, multicase spatial profiles and interactive 2D/3D comparison. Also includes shared collision-aware XYZ labels, compact scientific legends, depth-ordered comparison regions and indexed case source diagnosis. Owner manual validation follows publication.
+**FoamLens Desktop v1.8.23 with frontend v51** is the release source pending publication. Field A–D fall back to their own saved physical time and fitted cameras when A is unavailable; aligned scenes, clearer unavailable-case evidence, multicase spatial profiles and interactive 2D/3D comparison. Also includes shared collision-aware XYZ labels, compact scientific legends, depth-ordered comparison regions and indexed case source diagnosis. Responsive 3D + Profile arrangements and plot sizing are included. Owner manual validation follows publication.
 
 ## Previous published stable: v1.8.22
 
