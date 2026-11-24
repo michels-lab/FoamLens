@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 67
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "830c6b2adca9cc33347df61b4cf3e23b00604dd0e471a8e63c9ce2753292aff4",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "93c96018185ef737e52895ce95479d966f35cb84a736520a801d3552e657350c",
+  "evidence_fingerprint": "1fea960ea4cde14842a212e8643865d417b0a7f6d08caf2a37cf30769eb0ab73",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -886,7 +888,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "f30a75d24d32c455eda05b9787c7eb2ec72b77bb"
+      "blob": "13fd73f0b063799ec26b3914fca7616df7642d74"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-temporal-alignment.js",
@@ -949,7 +951,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8245863a34b728682eec4433fb7856e0370b6de7"
+      "blob": "ebde43926aab2a7eaad4a64f72d4d6d6bf5aa2a7"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
@@ -998,7 +1000,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "489b66d887e3cc22d9f4f97c7e87859a228bba3a"
+      "blob": "9a86f64fe9a32be469da03d328ea5cbabbe32d5a"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1012,7 +1014,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "1a9375ab3cee0ccf00bb30d18bde74152978bb37"
+      "blob": "aede0ca10254a79d441d2b41b6942e9d64c8b1f8"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1124,7 +1126,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "34f15f3e5521833e82dfb11d14a4ec93f8f5e34b"
+      "blob": "cce634ba912b2f570c07492aeba63aba6b7d9d89"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js",
@@ -2251,7 +2253,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "68076407cca7e7705506f69c8994a66dc81ea7f2"
+      "blob": "ac8381f057f14bf6bd4bac32bb4196127324ab4d"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -3654,7 +3656,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "86b503626f3cdedb",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "4 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-field-view.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
