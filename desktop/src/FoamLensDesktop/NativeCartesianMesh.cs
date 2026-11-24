@@ -78,6 +78,7 @@ internal static class NativeCartesianMesh
             """;
         using var doc=JsonDocument.Parse(valid);
         var (dict,cells)=Build(doc.RootElement);
+        var zones=CartesianZones(doc.RootElement,cells);if(zones["metal"]!=40||zones["mold"]!=60)throw new InvalidOperationException("Cartesian split zone count mismatch.");
         if(cells!=100 || !dict.Contains(" metal (2 4 5)") || !dict.Contains(" mold (3 4 5)") || !dict.Contains("type patch;"))throw new InvalidOperationException("Cartesian host topology self-test failed.");
         foreach(var bad in new[]{valid.Replace("metal","metal;include"),valid.Replace("[0,1,2]","[0,0,2]"),valid.Replace("[1,0,0]","[0,0,0]"),valid.Replace("[4]","[10001]")})
         {
@@ -120,7 +121,7 @@ internal static class NativeCartesianMesh
 
     // Strict canonical MSH 2.2 subset emitted by our inspector; no arbitrary
     // sections, strings, directives, paths, binaries or higher-order elements.
-    internal static long ValidateGmsh(string source)
+    internal static long ValidateGmsh(string source, Dictionary<string,long>? volumeGroups = null)
     {
         if(source.Length>32*1024*1024 || source.Contains('\0') || source.Contains('\r'))throw new ArgumentException("Invalid canonical MSH transfer.");
         using var rd=new StringReader(source);
@@ -130,16 +131,36 @@ internal static class NativeCartesianMesh
         int Id(string v){if(!int.TryParse(v,NumberStyles.None,CultureInfo.InvariantCulture,out var n)||n<=0)throw new ArgumentException("Invalid MSH ID.");return n;}
         int Count(int cap){int n=Id(Line());if(n>cap)throw new ArgumentException("MSH record limit exceeded.");return n;}
         Expect("$MeshFormat");Expect("2.2 0 8");Expect("$EndMeshFormat");Expect("$PhysicalNames");
-        var groups=new Dictionary<int,int>();var names=new HashSet<string>(StringComparer.Ordinal);
+        var groups=new Dictionary<int,(int Dim,string Name)>();var names=new HashSet<string>(StringComparer.Ordinal);
         int ng=Count(10000);
-        for(int i=0;i<ng;i++){var t=Row();if(t.Length!=3||t[0] is not ("2" or "3")||!System.Text.RegularExpressions.Regex.IsMatch(t[2],@"\A""fl_[23]_[0-9]+""\z")||!names.Add(t[2])||!groups.TryAdd(Id(t[1]),int.Parse(t[0],CultureInfo.InvariantCulture)))throw new ArgumentException("Invalid canonical physical group.");}
+        for(int i=0;i<ng;i++){var t=Row();if(t.Length!=3||t[0] is not ("2" or "3")||!System.Text.RegularExpressions.Regex.IsMatch(t[2],@"\A""fl_[23]_[0-9]+""\z")||!names.Add(t[2])||!groups.TryAdd(Id(t[1]),(int.Parse(t[0],CultureInfo.InvariantCulture),t[2].Trim('"'))))throw new ArgumentException("Invalid canonical physical group.");}
         Expect("$EndPhysicalNames");Expect("$Nodes");int nn=Count(1000000);var nodes=new HashSet<int>();
         for(int i=0;i<nn;i++){var t=Row();if(t.Length!=4||!nodes.Add(Id(t[0]))||t.Skip(1).Any(x=>!double.TryParse(x,NumberStyles.Float,CultureInfo.InvariantCulture,out var v)||!double.IsFinite(v)))throw new ArgumentException("Invalid MSH node.");}
         Expect("$EndNodes");Expect("$Elements");int ne=Count(1500000),volumes=0;var elements=new HashSet<int>();
-        for(int i=0;i<ne;i++){var t=Row();if(t.Length<5||!elements.Add(Id(t[0]))||t[2]!="2"||!groups.TryGetValue(Id(t[3]),out var dim))throw new ArgumentException("Invalid MSH element or group.");
+        for(int i=0;i<ne;i++){var t=Row();if(t.Length<5||!elements.Add(Id(t[0]))||t[2]!="2"||!groups.TryGetValue(Id(t[3]),out var group))throw new ArgumentException("Invalid MSH element or group.");
+            int dim=group.Dim;
             int count=t[1]=="5"&&dim==3?8:t[1]=="3"&&dim==2?4:0;if(count==0||t.Length!=5+count)throw new ArgumentException("Only grouped QUAD4 and HEX8 supported.");
-            Id(t[4]);var ids=t.Skip(5).Select(Id).ToArray();if(ids.Distinct().Count()!=count||ids.Any(x=>!nodes.Contains(x)))throw new ArgumentException("Invalid MSH connectivity.");if(dim==3&&++volumes>350000)throw new ArgumentException("Native Gmsh cap: 350000 HEX8 cells.");}
+            Id(t[4]);var ids=t.Skip(5).Select(Id).ToArray();if(ids.Distinct().Count()!=count||ids.Any(x=>!nodes.Contains(x)))throw new ArgumentException("Invalid MSH connectivity.");if(dim==3){if(++volumes>350000)throw new ArgumentException("Native Gmsh cap: 350000 HEX8 cells.");if(volumeGroups!=null)volumeGroups[group.Name]=volumeGroups.GetValueOrDefault(group.Name)+1;}}
         Expect("$EndElements");if(rd.ReadLine()!=null||volumes==0)throw new ArgumentException("Trailing MSH data or empty volume.");return volumes;
+    }
+
+    internal static Dictionary<string,long> CartesianZones(JsonElement root, long total)
+    {
+        var axes=root.GetProperty("axes").EnumerateArray().Select(a=>a.GetProperty("counts").EnumerateArray().Select(x=>x.GetInt32()).ToArray()).ToArray();
+        var counts=new Dictionary<string,long>(StringComparer.Ordinal);
+        foreach(var z in root.GetProperty("zones").EnumerateArray()){
+            var q=z.GetProperty("ijk").EnumerateArray().Select(x=>x.GetInt32()).ToArray();
+            string name=Name(z.GetProperty("name"));
+            counts[name]=counts.GetValueOrDefault(name)+(long)axes[0][q[0]]*axes[1][q[1]]*axes[2][q[2]];
+        }
+        ValidateSplit(counts,total);
+        return counts;
+    }
+    private static void ValidateSplit(Dictionary<string,long> zones,long total)
+    {
+        if(zones.Count is <2 or >12 || zones.Values.Any(n=>n<=0) || zones.Values.Sum()!=total ||
+            zones.Keys.Any(n=>n is "polyMesh" or "region0" or "sets" or "triSurface" or "geometry"))
+            throw new ArgumentException("Split requires 2–12 nonempty explicit cell zones covering every cell, with distinct non-reserved region names.");
     }
 
     // Fixed program; positional args are only the host-owned temp path and an allowlisted version.
@@ -170,7 +191,19 @@ internal static class NativeCartesianMesh
         timeout --kill-after=5s 90s checkMesh -case "$1" > checkMesh.log 2>&1
         code=$?
         printf '%s\n' "$code" > checkMesh.exit
-        exit "$code"
+        if [ "$code" -ne 0 ] || [ "$4" != split ]; then exit "$code"; fi
+        if ! command -v splitMeshRegions >/dev/null; then echo 'splitMeshRegions unavailable' >&2; exit 127; fi
+        timeout --kill-after=5s 120s splitMeshRegions -case "$1" -cellZonesOnly > splitMeshRegions.log 2>&1
+        code=$?
+        printf '%s\n' "$code" > splitMeshRegions.exit
+        if [ "$code" -ne 0 ]; then exit "$code"; fi
+        while IFS= read -r region; do
+          if [ ! -d "constant/$region/polyMesh" ]; then echo "Expected region missing: $region" >&2; exit 3; fi
+          timeout --kill-after=5s 60s checkMesh -case "$1" -region "$region" > "checkMesh.$region.log" 2>&1
+          code=$?
+          printf '%s\n' "$code" > "checkMesh.$region.exit"
+        done < expected-regions.txt
+        exit 0
         """;
     internal static async Task<object> RunAsync(JsonElement root, CancellationToken token, bool gmsh = false)
     {
@@ -178,7 +211,10 @@ internal static class NativeCartesianMesh
         if(version is not ("13" or "14"))throw new ArgumentException("Select Foundation OpenFOAM 13 or 14.");
         string? msh=gmsh?root.GetProperty("msh").GetString():null;
         if(gmsh&&msh is null)throw new ArgumentException("Canonical MSH missing.");
-        var (dict,cells)=gmsh?("",ValidateGmsh(msh!)):Build(root);
+        bool split=root.TryGetProperty("splitRegions",out var splitNode)&&splitNode.GetBoolean();
+        var expected=new Dictionary<string,long>(StringComparer.Ordinal);
+        var (dict,cells)=gmsh?("",ValidateGmsh(msh!,split?expected:null)):Build(root);
+        if(split){if(gmsh)ValidateSplit(expected,cells);else expected=CartesianZones(root,cells);}
         string utility=gmsh?"gmshToFoam":"blockMesh";
         long exportLimit=gmsh?48*1024*1024:MaxOutput;
         var wsl=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"wsl.exe");
@@ -187,13 +223,14 @@ internal static class NativeCartesianMesh
         Directory.CreateDirectory(Path.Combine(dir,"system"));Directory.CreateDirectory(Path.Combine(dir,"constant"));
         try
         {
+            if(split)await File.WriteAllTextAsync(Path.Combine(dir,"expected-regions.txt"),string.Join("\n",expected.Keys)+"\n",token);
             if(gmsh)await File.WriteAllTextAsync(Path.Combine(dir,"source.msh"),msh!,token);
             else await File.WriteAllTextAsync(Path.Combine(dir,"system","blockMeshDict"),dict,token);
             await File.WriteAllTextAsync(Path.Combine(dir,"system","controlDict"),"FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }\napplication blockMesh; startFrom startTime; startTime 0; stopAt endTime; endTime 1; deltaT 1; writeControl timeStep; writeInterval 1; writeFormat ascii; writePrecision 12; writeCompression off; timeFormat general; timePrecision 6; runTimeModifiable false;\n",token);
             var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","wslpath","-a",dir},TimeSpan.FromSeconds(15),token);
             var linux=translated.Stdout.Trim();
             if(translated.ExitCode!=0 || !linux.StartsWith("/") || linux.Contains('\n') || linux.Contains('\r'))throw new NotSupportedException("WSL path mapping failed.");
-            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility},TimeSpan.FromSeconds(205),token);
+            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?1100:205),token);
             string Clean(string s)=>s.Replace(linux,"<temporary case>",StringComparison.Ordinal).Replace(dir,"<temporary case>",StringComparison.OrdinalIgnoreCase);
             async Task<string?> Small(string file,int limit)
             {
@@ -206,7 +243,33 @@ internal static class NativeCartesianMesh
             var bm=Exit("generation.exit");var cm=Exit("checkMesh.exit");
             var detected=(await Small("detected-version.txt",128))?.Trim();
             var files=new Dictionary<string,string>();long total=0;string? exportError=null;
-            if(bm==0)
+            var splitExit=Exit("splitMeshRegions.exit");var regions=new Dictionary<string,object>();string? splitError=null;long splitBytes=0;
+            if(split&&splitExit==0)
+            {
+                foreach(var (name,expectedCells) in expected)
+                {
+                    var regionDir=Path.Combine(dir,"constant",name);
+                    var regionFiles=new Dictionary<string,string>();
+                    if(!Directory.Exists(regionDir)||(File.GetAttributes(regionDir)&FileAttributes.ReparsePoint)!=0){splitError="Expected region absent or linked: "+name;break;}
+                    var poly=Path.Combine(regionDir,"polyMesh");
+                    if(!Directory.Exists(poly)||(File.GetAttributes(poly)&FileAttributes.ReparsePoint)!=0){splitError="Expected region mesh absent or linked: "+name;break;}
+                    foreach(var file in MeshNames.Concat(new[]{"cellRegionAddressing","faceRegionAddressing","pointRegionAddressing","boundaryRegionAddressing"}))
+                    {
+                        var info=new FileInfo(Path.Combine(poly,file));
+                        if(!info.Exists){if(Array.IndexOf(MeshNames,file) is >=0 and <5)splitError="Missing region mesh file: "+name+"/"+file;continue;}
+                        if((info.Attributes&FileAttributes.ReparsePoint)!=0||info.Length>64*1024*1024-splitBytes){splitError="Region transfer exceeds 64 MiB or includes a link.";break;}
+                        splitBytes+=info.Length;var data=await File.ReadAllTextAsync(info.FullName,token);
+                        if(data.Contains('\0')||!System.Text.RegularExpressions.Regex.IsMatch(data.Substring(0,Math.Min(data.Length,2048)),@"\bformat\s+ascii\s*;")){splitError="Only ASCII region mesh output is supported.";break;}
+                        regionFiles["constant/polyMesh/"+file]=data;
+                    }
+                    if(splitError!=null)break;
+                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),checkMeshLog=await Small("checkMesh."+name+".log",48000),files=regionFiles };
+                }
+                if(splitError!=null)regions.Clear();
+                // Combined and separated meshes are different snapshots. Do not
+                // duplicate a potentially large combined mesh in the same reply.
+            }
+            if(bm==0&&(!split||splitExit!=0))
             {
                 var mesh=Path.Combine(dir,"constant","polyMesh");
                 foreach(var name in MeshNames)
@@ -221,7 +284,7 @@ internal static class NativeCartesianMesh
                 }
                 if(exportError!=null)files.Clear();
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small("generation.log",48000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),files,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small("generation.log",48000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
