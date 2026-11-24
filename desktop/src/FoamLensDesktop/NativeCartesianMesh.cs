@@ -98,7 +98,7 @@ internal static class NativeCartesianMesh
         using(var sn=JsonDocument.Parse(snappyJson))
         {
             var (sd,surface)=BuildSnappy(sn.RootElement,cells);
-            if(!sd.Contains("insidePoint (0.5 0.5 0.5);")||!sd.Contains("level (1 2)")||!sd.Contains("addLayers false;")||surface.Length!=134)throw new InvalidOperationException("Snappy dictionary self-test failed.");
+            if(!sd.Contains("insidePoint (0.5 0.5 0.5);")||!sd.Contains("level (1 2)")||!sd.Contains("addLayers false;")||surface.Count!=1||surface.Values.Single().Length!=134)throw new InvalidOperationException("Snappy dictionary self-test failed.");
         }
         foreach(var invalid in new[]{snappyJson.Replace("[0.5,0.5,0.5]","[0,0.5,0.5]"),snappyJson.Replace("\"maxLevel\":2","\"maxLevel\":9")})
         {
@@ -182,34 +182,50 @@ internal static class NativeCartesianMesh
             throw new ArgumentException("Split requires 2–12 nonempty explicit cell zones covering every cell, with distinct non-reserved region names.");
     }
 
-    internal static (string Dictionary, byte[] Surface) BuildSnappy(JsonElement root, long cells)
+    internal static (string Dictionary, Dictionary<string,byte[]> Surfaces) BuildSnappy(JsonElement root, long cells)
     {
         var settings=root.GetProperty("snappy");
-        if(root.GetProperty("zones").GetArrayLength()!=0)throw new ArgumentException("Single-surface snappy run requires a background plan without assigned zones.");
+        if(root.GetProperty("zones").GetArrayLength()!=0)throw new ArgumentException("Snappy run requires a background plan without assigned zones.");
         var axes=root.GetProperty("axes").EnumerateArray().Select(a=>a.GetProperty("points").EnumerateArray().Select(x=>x.GetDouble()).ToArray()).ToArray();
         var inside=settings.GetProperty("inside").EnumerateArray().Select(x=>x.GetDouble()).ToArray();
         if(inside.Length!=3||inside.Where((x,i)=>!double.IsFinite(x)||x<=axes[i][0]||x>=axes[i][^1]).Any())throw new ArgumentException("Explicit retained point must be strictly inside the background domain.");
         int min=settings.GetProperty("minLevel").GetInt32(),max=settings.GetProperty("maxLevel").GetInt32(),limit=settings.GetProperty("maxCells").GetInt32();
         if(min<0||max<min||max>4||limit<cells||limit>350000)throw new ArgumentException("Refinement levels 0–4 and cell limit up to 350000 required.");
-        var base64=settings.GetProperty("stlBase64").GetString()??"";
-        if(base64.Length>5600000)throw new ArgumentException("Selected STL exceeds transfer limit.");
-        byte[] data=Convert.FromBase64String(base64);
-        int triangles=NativeCadSurfaceCheck.ValidateBinaryStl(data);
-        for(int t=0;t<triangles;t++)for(int p=0;p<3;p++)for(int d=0;d<3;d++){
-            float x=System.Buffers.Binary.BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(84+50*t+12+12*p+4*d,4));
-            if(x<=axes[d][0]||x>=axes[d][^1])throw new ArgumentException("Surface must lie strictly inside the background mesh; expand its bounds first.");
+        var payloads=settings.TryGetProperty("surfaces",out var list)
+            ?list.EnumerateArray().Select(x=>x.GetProperty("stlBase64").GetString()??"").ToArray()
+            :new[]{settings.GetProperty("stlBase64").GetString()??""};
+        if(payloads.Length is <1 or >8||payloads.Sum(x=>(long)x.Length)>5600000)throw new ArgumentException("Select 1–8 STL surfaces totaling at most 4 MiB.");
+        var surfaces=new Dictionary<string,byte[]>();
+        long totalBytes=0;
+        for(int i=0;i<payloads.Length;i++)
+        {
+            byte[] data=Convert.FromBase64String(payloads[i]);
+            int triangles=NativeCadSurfaceCheck.ValidateBinaryStl(data);
+            totalBytes+=data.Length;
+            if(totalBytes>4*1024*1024)throw new ArgumentException("Combined selected STL exceeds 4 MiB.");
+            for(int t=0;t<triangles;t++)for(int p=0;p<3;p++)for(int d=0;d<3;d++){
+                float x=System.Buffers.Binary.BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(84+50*t+12+12*p+4*d,4));
+                if(x<=axes[d][0]||x>=axes[d][^1])throw new ArgumentException("Every selected surface must lie strictly inside the background mesh; expand bounds first.");
+            }
+            surfaces.Add("surface_"+(i+1).ToString("D3",CultureInfo.InvariantCulture)+".stl",data);
+        }
+        var geometry=new StringBuilder();var refine=new StringBuilder();
+        int index=0;foreach(var file in surfaces.Keys){
+            string key="flSurface_"+(++index).ToString("D3",CultureInfo.InvariantCulture);
+            geometry.AppendLine(key+" { type triSurface; file \""+file+"\"; }");
+            refine.AppendLine(key+" { level ("+min+" "+max+"); patchInfo { type wall; } }");
         }
         string dict=$$"""
             FoamFile { version 2.0; format ascii; class dictionary; object snappyHexMeshDict; }
             castellatedMesh true;
             snap true;
             addLayers false;
-            geometry { flSurface { type triSurface; file "surface.stl"; } }
+            geometry { {{geometry.ToString()}} }
             castellatedMeshControls
             {
                 maxLocalCells {{limit}}; maxGlobalCells {{limit}}; minRefinementCells 0; maxLoadUnbalance 0.1; nCellsBetweenLevels 2;
                 features ();
-                refinementSurfaces { flSurface { level ({{min}} {{max}}); patchInfo { type wall; } } }
+                refinementSurfaces { {{refine.ToString()}} }
                 resolveFeatureAngle 30;
                 refinementRegions {}
                 insidePoint {{FoamList(inside.Select(Num))}};
@@ -221,7 +237,7 @@ internal static class NativeCartesianMesh
             debug 0;
             mergeTolerance 1e-6;
             """;
-        return (dict,data);
+        return (dict,surfaces);
     }
 
     // Fixed program; positional args are only the host-owned temp path and an allowlisted version.
@@ -252,10 +268,15 @@ internal static class NativeCartesianMesh
         if [ "$3" = snappyHexMesh ]; then printf '%s\n' "$code" > blockMesh.exit; cp generation.log blockMesh.log; fi
         if [ "$code" -ne 0 ]; then exit "$code"; fi
         if [ "$3" = snappyHexMesh ]; then
-          timeout --kill-after=5s 60s surfaceCheck -checkSelfIntersection "$1/constant/geometry/surface.stl" > surfaceCheck.log 2>&1
-          code=$?
-          printf '%s\n' "$code" > surfaceCheck.exit
-          if [ "$code" -ne 0 ]; then printf '%s\n' "$code" > generation.exit; exit "$code"; fi
+                    : > surfaceCheck.log
+          for surface in "$1"/constant/geometry/surface_*.stl; do
+            if [ ! -f "$surface" ]; then exit 3; fi
+            printf 'Surface %s\n' "$(basename "$surface")" >> surfaceCheck.log
+            timeout --kill-after=5s 30s surfaceCheck -checkSelfIntersection "$surface" >> surfaceCheck.log 2>&1
+            code=$?
+            printf '%s\n' "$code" > surfaceCheck.exit
+            if [ "$code" -ne 0 ]; then printf '%s\n' "$code" > generation.exit; exit "$code"; fi
+          done
           timeout --kill-after=5s 180s snappyHexMesh -case "$1" > generation.log 2>&1
           code=$?
           printf '%s\n' "$code" > generation.exit
@@ -287,7 +308,7 @@ internal static class NativeCartesianMesh
         if(gmsh&&msh is null)throw new ArgumentException("Canonical MSH missing.");
         bool split=root.TryGetProperty("splitRegions",out var splitNode)&&splitNode.GetBoolean();
         bool snappy=!gmsh&&root.TryGetProperty("snappy",out _);
-        if(snappy&&split)throw new ArgumentException("Single-surface snappy and zone splitting are separate operations.");
+        if(snappy&&split)throw new ArgumentException("Surface snappy and zone splitting are separate operations.");
         var expected=new Dictionary<string,long>(StringComparer.Ordinal);
         var (dict,cells)=gmsh?("",ValidateGmsh(msh!,split?expected:null)):Build(root);
         if(split){if(gmsh)ValidateSplit(expected,cells);else expected=CartesianZones(root,cells);}
@@ -303,12 +324,12 @@ internal static class NativeCartesianMesh
             if(split)await File.WriteAllTextAsync(Path.Combine(dir,"expected-regions.txt"),string.Join("\n",expected.Keys)+"\n",token);
             if(gmsh)await File.WriteAllTextAsync(Path.Combine(dir,"source.msh"),msh!,token);
             else await File.WriteAllTextAsync(Path.Combine(dir,"system","blockMeshDict"),dict,token);
-            if(snappy){Directory.CreateDirectory(Path.Combine(dir,"constant","geometry"));await File.WriteAllBytesAsync(Path.Combine(dir,"constant","geometry","surface.stl"),snappyInput.Surface!,token);await File.WriteAllTextAsync(Path.Combine(dir,"system","snappyHexMeshDict"),snappyInput.Dictionary!,token);}
+            if(snappy){Directory.CreateDirectory(Path.Combine(dir,"constant","geometry"));foreach(var (name,data) in snappyInput.Surfaces!)await File.WriteAllBytesAsync(Path.Combine(dir,"constant","geometry",name),data,token);await File.WriteAllTextAsync(Path.Combine(dir,"system","snappyHexMeshDict"),snappyInput.Dictionary!,token);}
             await File.WriteAllTextAsync(Path.Combine(dir,"system","controlDict"),"FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }\napplication blockMesh; startFrom startTime; startTime 0; stopAt endTime; endTime 1; deltaT 1; writeControl timeStep; writeInterval 1; writeFormat ascii; writePrecision 12; writeCompression off; timeFormat general; timePrecision 6; runTimeModifiable false;\n",token);
             var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","wslpath","-a",dir},TimeSpan.FromSeconds(15),token);
             var linux=translated.Stdout.Trim();
             if(translated.ExitCode!=0 || !linux.StartsWith("/") || linux.Contains('\n') || linux.Contains('\r'))throw new NotSupportedException("WSL path mapping failed.");
-            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?1100:snappy?450:205),token);
+            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?1100:snappy?650:205),token);
             string Clean(string s)=>s.Replace(linux,"<temporary case>",StringComparison.Ordinal).Replace(dir,"<temporary case>",StringComparison.OrdinalIgnoreCase);
             async Task<string?> Small(string file,int limit)
             {
