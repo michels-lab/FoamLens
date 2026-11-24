@@ -1727,11 +1727,12 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
 // Granada independently timed A/B/C/D view controllers. Execute the actual
 // OpenFOAM catalog time resolver and native per-pane selector synchronization.
 {
-  const a=source.indexOf('function fcTimesLinked(){');
+  const a=source.indexOf('function fcTimeLinkRequested(){');
   const b=source.indexOf('function fcLinkedPhysicalCamera(',a);
   assert(a>=0&&b>a,'source-owned time unlink controller must exist');
   const B={enabled:true,time:.25,mesh:{},timeTarget:NaN},C={id:3,time:.3,mesh:{}},D={id:4,time:.4,mesh:{}};
   let linked=false,primaryTime=0,language='en';
+  const primaryState={mesh:{},fieldValues:[1]};
   const catalogs={
     B:{id:'B3',region:'metal',field:'T',times:[0,.25,.5]},
     C:{id:'C3',region:'mold',field:'U',times:[0,.3,.6]},
@@ -1741,13 +1742,13 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   const document={getElementById:id=>id==='fcLinkTimes'?input:null};
   const counts={B:0,C:0,D:0,extra:0,sync:0};
   const current=state=>state===B?'B':state===C?'C':'D';
-  const apiTime=new Function('document','fcState','fcExtraViews','fcCase','fcExtraCase',
+  const apiTime=new Function('document','fvState','fcState','fcExtraViews','fcCase','fcExtraCase',
     'fcRegion','fcExtraRegion','fcCurrentFieldName','fcExtraField','fcCurrentFieldStorage','fcExtraFieldStorage','fcFieldFor',
     'fcPhysicalNumber','fcPrimaryPhysicalTime','fcEsc','fcFmt','fcUi',
     'fcRefreshFrame','fcExtraRefreshFrame','fcRefreshExtras','fcScheduleToolbarSync',
     source.slice(a,b)+
     ';return{fcTimesLinked,fcIndependentTimeSource,fcIndependentTimeTarget,fcSyncIndependentTimePicker,fcSetIndependentTime,fcRefreshTimeLink};')(
-    document,B,[C,D],()=>catalogs.B,state=>catalogs[current(state)],
+    document,primaryState,B,[C,D],()=>catalogs.B,state=>catalogs[current(state)],
     ()=>catalogs.B.region,state=>catalogs[current(state)].region,
     ()=>catalogs.B.field,state=>catalogs[current(state)].field,
     () => '',() => '',
@@ -1807,6 +1808,8 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
   assert.equal(controls.B.wrapper.hidden,true,
     'linked B physical-time picker must not masquerade as an independent control');
   assert.equal(apiTime.fcSetIndependentTime('B',2),false);
+  primaryState.mesh=null;assert.equal(apiTime.fcTimesLinked(),false,'Missing A suspends effective linkage');assert.equal(input.checked,true);assert.equal(apiTime.fcIndependentTimeTarget(B),2);
+  primaryState.mesh={};assert.equal(apiTime.fcTimesLinked(),true,'Valid A restores link preference');
   input.checked=false;apiTime.fcRefreshTimeLink();
   assert.equal(counts.extra,1);
   assert(counts.B>=2);
