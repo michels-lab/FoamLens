@@ -617,7 +617,7 @@ function msTableMount(){
    const frames=[],samples=[],sourceFrames=[];let total=0,previousMesh=null,topology=null,dimensions=null,unit=null,association=null,weightUnit=null;
    for(const time of times){
     if(token!==nativeToken||rev[slot]!==slotRev)return;
-    el('xyzNativeStatus').textContent='Reading original '+view+' · '+info.name+' · t='+time+' s · '+(frames.length+1)+'/'+times.length;
+    el('xyzNativeStatus').textContent='Reading original '+view+' · '+info.name+' · t='+time+' s · '+((summaryOnly?samples.length:frames.length)+1)+'/'+times.length;
     const frame=await fvLoadFrameData(info.caseObj,g,info.region,time,info.component,{includeBoundary:scope!=='internal'});
     if(token!==nativeToken||rev[slot]!==slotRev)return;
     const dims=frame.parsed?.dimensions;if(!dims)throw Error('Native field dimensions unavailable');const d=JSON.stringify(dims),u=typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(dims):null;if(!u||u==='-')throw Error('Native field units unavailable');
