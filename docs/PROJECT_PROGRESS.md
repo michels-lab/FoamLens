@@ -2,7 +2,7 @@
 
 ## 2026-11-24 — Granada CAD 3B: métricas geométricas y Threshold
 - PR #381: código `ecae9ac585e5cb9cdfbb74f1e3479807dbbb1998`, regresiones `badf1b47fda497ebaac42291461a10443164ea77`. Volumen/centroide poliédrico por triangulación orientada, magnitud vector área de cara, ángulo de no ortogonalidad en caras internas; celdas abiertas/orientación inconsistente rechazadas; IDs inválidos y cobertura explícitos. Umbral inclusivo, marcadores de IDs en proyección, export CSV/JSON con unidades y procedencia. No son métricas nativas checkMesh; aproximación por triangulación, sin certificación geométrica completa.
-- V8 directo sobre el código original: sintaxis, cubo volumen/centroide/áreas, celda abierta, rango inclusivo y dos cubos con cara ortogonal PASS. CI/Windows y casos C3D04/C3D05 no verificados. No merge ni release; 7/15 hitos de aceptación permanecen. Siguiente: Gmsh 4.1, CAD nativo STEP y ejecución OpenFOAM aislada.
+- V8 directo sobre el código original: sintaxis, cubo volumen/centroide/áreas, celda abierta, rango inclusivo y dos cubos con cara ortogonal PASS. CI/Windows y casos C3D04/C3D05 no verificados. No merge ni release CAD; registro maestro confirma v1.8.23 estable (audit run 45455714749), 8/15 hitos de aceptación (53%); no avance formal adicional por este cambio. Siguiente: Gmsh 4.1, CAD nativo STEP y ejecución OpenFOAM aislada.
 
 
 **Granada 2026-11-24:** #378 fusionado (orden arrastrable, controles organizados, velocidad legible, perfil sigue reloj A/B/C/D); reintento 1.8.23 con gates intactos. Última estable verificada 1.8.22; aceptación 7/15.
