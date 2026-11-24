@@ -82,7 +82,7 @@ function chPostRunCsv(text='',sourceFile=''){
     throw Error('Native postrun CSV exceeds 4 MiB local-only limit');
   const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/);
   while(lines.length&&lines.at(-1).trim()==='')lines.pop();
-  if(lines.length<3||lines.length>10002)
+  if(lines.length<3||lines.length>10001)
     throw Error('Native postrun requires 2–10000 actual physical samples');
   const header=chCsvCells(lines[0]);
   if(header.length<2||header.length>80||
@@ -335,6 +335,7 @@ function chRun(){
   if(!c.discoveryModel){status.textContent='Imported case discovery model unavailable; rescan the full case before auditing.';return}
   const logs=chSourceLogRows(c),r=chAudit({case:c,logs,runtime:chRuntimeLog,meshReport:chMesh,postrun:chPostrun});
   if(!r.checks.length){status.textContent='No case evidence could be evaluated.';return}
+  r.postrunEvidence=chPostrun?{...chPostrun}:null;
   chLast=r;chBound={case:c,model:c.discoveryModel,logs:logs.slice(),
     meshReport:chMesh,runtimeLog:chRuntimeLog,postrun:chPostrun};
   const counts=r.counts;
@@ -348,7 +349,17 @@ function chRun(){
       chEsc(check.evidence.join(' · '))+'</div>':'')+
       (check.recommendation?'<div class="smallnote">Next: '+chEsc(check.recommendation)+'</div>':'')+
       '</td></tr>').join('')+'</tbody></table></div>'+
-    '<p class="smallnote">'+chEsc(r.limitations.join(' '))+'</p>';
+    '<p class="smallnote">'+chEsc(r.limitations.join(' '))+'</p>'+
+    (chPostrun?'<h4>'+chEsc(chUi('Original reported numeric columns (not physical validation)',
+      'Columnas numéricas reportadas (no validación física)'))+'</h4>'+
+      '<p class="smallnote">'+chEsc(chUi(
+        'Min/max/first/last values are calculated from every saved CSV row. No missing frames are generated and no physical units are inferred from names.',
+        'Mín/máx/primero/último se calculan de todas las filas del CSV. No se generan tiempos faltantes ni se infieren unidades físicas a partir de nombres.'))+'</p>'+
+      '<div class="extTableWrap"><table class="extTable"><thead><tr><th>Source header</th><th>Min</th><th>Max</th><th>First</th><th>Last</th></tr></thead><tbody>'+
+      chPostrun.columns.filter(col=>col.name!=='time_s').map(col=>
+        '<tr><td>'+chEsc(col.name)+'</td><td>'+chEsc(col.min)+'</td><td>'+
+        chEsc(col.max)+'</td><td>'+chEsc(col.first)+'</td><td>'+chEsc(col.last)+
+        '</td></tr>').join('')+'</tbody></table></div>':'');
   chEl('chExport').disabled=false
 }
 function chDownload(data){
