@@ -652,6 +652,28 @@ test('Selected companion clock follows only committed frames from its own visibl
   state.syncTime=true;state.layout='3d';api('C');assert.deepStrictEqual(applied,[0,14]);
 });
 
+
+test('Field comparison boot never accesses later companion layout lexical state before workspace mount',()=>{
+  const a=field.indexOf('function fwSplitSchedule(){'),b=field.indexOf('function fwSplitMount(){',a);
+  assert(a>=0&&b>a);
+  const code=field.slice(a,b);
+  const calls=[];
+  const document={getElementById:()=>null};
+  // Native injection is one shared IIFE. The function declaration is hoisted
+  // but its let binding is in the temporal dead zone until module evaluation.
+  new Function('document','requestAnimationFrame',code+
+    ';fwSplitSchedule();let fwSplitFrame=0;')(document,()=>calls.push('scheduled'));
+  assert.equal(calls.length,0,'No workspace exists yet: do not access its state or schedule a frame');
+  const doc={getElementById:()=>({})};
+  const schedule=new Function('document','requestAnimationFrame','fwSplitApply',
+    'let fwSplitFrame=0;'+code+';return fwSplitSchedule;')(doc,cb=>{calls.push(cb);return 1},()=>{});
+  schedule();schedule();assert.equal(calls.length,1,'Mounted workspace schedules one frame only');
+  calls[0]();schedule();assert.equal(calls.length,2,'Later changes can schedule another frame');
+  const compare=fs.readFileSync(path.join(root,'v14-z-field-compare.js'),'utf8');
+  assert(compare.includes('window.FoamLensFieldWorkspace?.refreshViewCount?.()'),'Cross-module call must use mounted API');
+  assert(!compare.includes("if(typeof fwUpdateViewCount==='function')fwUpdateViewCount()"));
+});
+
 test('Field 3D + Profile reuses original plot surface and restores Data without leaking history controls',()=>{
   const begin=field.indexOf('function fwSyncProfileCompanionButton(){');
   const end=field.indexOf('function fwSetInspector(',begin);

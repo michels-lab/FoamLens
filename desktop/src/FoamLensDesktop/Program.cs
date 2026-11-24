@@ -954,6 +954,21 @@ internal sealed class FoamLensForm : Form
     {
         RunBinaryMeshParserSelfTest();
         await RunFoamLogParserSelfTestAsync();
+        // Smoke-only boot witness installed before navigation. Capture JS parse
+        // and initialization failures rather than misreporting every missing
+        // downstream module as a checkMesh error. Never collect user sessions.
+        var bootWitnessId = await _web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+            """
+            (() => {
+              const errors=[];
+              Object.defineProperty(window,'__foamLensSmokeBootErrors',{value:errors});
+              const add=(message,line,column)=>{if(errors.length<16)errors.push({
+                message:String(message||'Unknown error').slice(0,300),
+                line:Number(line)||0,column:Number(column)||0})};
+              window.addEventListener('error',e=>add(e.message,e.lineno,e.colno));
+              window.addEventListener('unhandledrejection',e=>add(e.reason?.message||e.reason,0,0));
+            })();
+            """);
 
         var smokeUrl = "https://foamlens.local/index.html?desktop=1&smoke=1" +
             (StoreDistributionChannel ? "&store=1" : "");
@@ -1046,6 +1061,9 @@ internal sealed class FoamLensForm : Form
                 throw new InvalidOperationException(
                     $"FoamLens launch surface was not visibly rendered after navigation: {launchStateJson}");
             Log($"FoamLens launch surface smoke passed: {launchStateJson}");
+            var bootErrorsJson = await _web.CoreWebView2.ExecuteScriptAsync(
+                "JSON.stringify(window.__foamLensSmokeBootErrors || [])");
+            Log("FoamLens smoke boot JavaScript evidence: " + bootErrorsJson);
             // The Mesh & Geometry Auditor is a public scientific report
             // inspector, separate from the private Developer software auditor.
             // Confirm that the *packaged* frontend loaded it into WebView2.
@@ -3050,6 +3068,7 @@ internal sealed class FoamLensForm : Form
             _web.CoreWebView2.NavigationStarting -= OnSmokeNavigationStarting;
             _web.CoreWebView2.NavigationCompleted -= OnNavigationCompleted;
             _web.CoreWebView2.WebResourceResponseReceived -= OnWebResourceResponseReceived;
+            _web.CoreWebView2.RemoveScriptToExecuteOnDocumentCreated(bootWitnessId);
         }
     }
 
