@@ -24,7 +24,7 @@
   },
   "finding_counts": {},
   "finding_total": 0,
-  "inventory_fingerprint": "ec00f813aabb29e9144291499c084cf72e1f158619cb74717fa301ef0e1dfd62",
+  "inventory_fingerprint": "6f06aa9849a044e408252437cafc348afc7a77c739cdb04c5283165727de5167",
   "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
@@ -592,7 +592,7 @@
       "role": "config",
       "purpose": "machine-readable configuration",
       "certainty": "rule",
-      "blob": "c23bb41e25d062fb926ddb73100e07eb83da69eb"
+      "blob": "1d083b4d19ff03346ac7c5ccd253c56804b30b8c"
     },
     {
       "path": ".michelslab/project.yml",
@@ -613,7 +613,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "066644b8a33516f1a331f3e3d2935978f89db98a"
+      "blob": "b9341dcecde779af70f0d0a9e5bf92c5e77cf42f"
     },
     {
       "path": "LICENSE",
@@ -648,7 +648,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "433cb7f18e35dd7eeee469f5fa48a372cad6f878"
+      "blob": "50cad28ed16bf7393f4aee87d44b17eed51ccc1c"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -2251,7 +2251,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "f9dc1223d2bf2ed08eb214e17ca408ff17785517"
+      "blob": "d0c08e2d108a9ed3c2ae1a45965318d9a3c7a2b3"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -2790,7 +2790,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "eb5f90530945c5e5a787699fcf504fac303dbcfc"
+      "blob": "ae329079d4d49b7a64b165413340a748037a1f8d"
     },
     {
       "path": "docs/QUICKCUP_RESEARCH_INTEROPERABILITY_2026-10-20.md",
