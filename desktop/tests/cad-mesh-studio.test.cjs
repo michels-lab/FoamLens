@@ -43,3 +43,10 @@ for(const bad of [msh41.replace('4.1 0 8','4.1 1 8'),msh41.replace('2 12 10 120'
 const overlap=mg.parse(msh41.replace('2 1 0 0 2 1 1 1 102 0','2 1 0 0 2 1 1 2 101 102 0'),'mm');assert.throws(()=>mg.contact(overlap,'2:201','3:101','3:102'));
 const noEntities=mg.parse(msh41.replace(/\$Entities[\s\S]*?\$EndEntities\n/,''),'mm');assert.equal(noEntities.groups.get('3:0').count,2);assert.equal(noEntities.groups.get('3:101').count,0);
 console.log('Gmsh 4.1 sparse IDs, multiple physical tags, contact area and invalid cases PASS');
+
+const normalized=mg.canonical(mesh);assert.equal(normalized.volumes,2);assert.equal(normalized.coordinates,'m');assert.equal(normalized.mapping.length,3);assert(normalized.msh.includes('9 0.002 0 0'));assert(normalized.msh.includes('"fl_3_101"'));assert.equal(normalized.nativeIdMappingVerified,false);
+const roundtrip=mg.parse(normalized.msh,'m');assert.deepEqual(roundtrip.points.get(9),mesh.points.get(9));assert.equal(roundtrip.elements.size,3);assert.equal(mg.contact(roundtrip,'2:1','3:2','3:3').paired,1);
+assert.throws(()=>mg.canonical(g41));const single=mg.parse(msh41.replace('2 201 202 0','1 201 0'),'mm');const normalized41=mg.canonical(single);assert.equal(normalized41.volumes,2);assert.equal(normalized41.sourceVersion,'4.1');assert.equal(mg.parse(normalized41.msh,'m').elements.get(1001).type,5);assert.throws(()=>mg.canonical(noEntities));
+const receipt={schema:'foamlens/native-gmsh-mesh/1',originalCaseModified:false,meshGenerated:true,generationExit:0,plannedCells:1,files:Object.fromEntries(Object.entries(cube).map(([k,v])=>['constant/polyMesh/'+k,v]))};assert.equal(ms.fromNativeReport(receipt).cells.length,1);assert.equal(ms.fromNativeReport({...receipt,schema:'foamlens/native-cartesian-mesh/1'}).faces.length,6);
+for(const bad of [{generationExit:1},{plannedCells:2},{exportError:'limit'},{files:{}},{originalCaseModified:true}])assert.throws(()=>ms.fromNativeReport({...receipt,...bad}));
+console.log('Native Gmsh normalization and generated snapshot gates PASS');
