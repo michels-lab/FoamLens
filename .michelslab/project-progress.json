@@ -6,13 +6,13 @@
   "as_of": "2026-11-24",
   "scope": "Ruta integral de aceptación y publicación final estable FoamLens: ciencia OpenFOAM, Field A-D, perfiles, CAD, experiencia transversal y Windows; rendimiento 3008 archivos excluido por decisión del propietario",
   "estimate_method": "equal_weight_verified_milestones",
-  "progress_percent": 47,
-  "verified_milestones": 7,
+  "progress_percent": 53,
+  "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "v1.8.23 retry; owner feedback and selectable profile clock merged",
-  "source_pr": "https://github.com/michels-lab/FoamLens/pull/378",
-  "source_head_sha": "4726f8ef02a0f30f00f707ebb422633f77476060",
-  "latest_verified_stable": "v1.8.22",
+  "phase": "v1.8.23 published and binary audit passed; next Analysis evidence ownership PR #380",
+  "source_pr": "https://github.com/michels-lab/FoamLens/pull/380",
+  "source_head_sha": "b8f41fb2a958badc669afb7d0bc5bb85e9cb5288",
+  "latest_verified_stable": "v1.8.23",
   "release_hold": false,
   "owner_physical_acceptance": false,
   "milestones": [
@@ -133,10 +133,13 @@
     {
       "key": "release_exact_main",
       "description": "Publicación única estable exact-main con Windows Setup+Portable, SHA-256, updater y auditoría real de artefactos; sin RC/Developer",
-      "status": "pending",
+      "status": "verified",
       "evidence": [
         "https://github.com/michels-lab/FoamLens/issues/238",
-        "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.21"
+        "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.21",
+        "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.23",
+        "https://github.com/michels-lab/FoamLens/actions/runs/45453842079",
+        "https://github.com/michels-lab/FoamLens/actions/runs/45455714749"
       ]
     },
     {
@@ -148,20 +151,21 @@
       ]
     }
   ],
-  "next_step": "Verify exact-source release, owner feedback on installed Field, then consolidate Data and CAD.",
-  "limitations": "7/15 verified formal milestones; release milestone remains for final exact-current scope. Published v1.8.22 verified, later owner screenshot defects still require acceptance. No B14 source inventory inspected.",
+  "next_step": "Validate PR #380, owner installed Field B14/C14, continue Data/Analysis scientific workflows.",
+  "limitations": "8/15 milestones verified for currently released v1.8.23. Exact-main binary gate must be reverified for future versions. Owner visual/physical acceptance pending. G37 auxiliary test failed because it pins obsolete version 1.8.10; six-cycle native run did not execute.",
   "last_granada": {
     "as_of": "2026-11-24",
     "progress_before": 47,
-    "progress_after": 47,
-    "verified_milestones": 7,
+    "progress_after": 53,
+    "verified_milestones": 8,
     "total_milestones": 15,
-    "source_code_sha": "4726f8ef02a0f30f00f707ebb422633f77476060",
-    "scope": "Persistent drag ordering, grouped controls, readable playback speed, selectable companion clock and case diagnostics",
+    "source_code_sha": "d21f168061cfad6bbecc201aaef5e50f663f5676",
+    "scope": "Official v1.8.23 release with verified Setup/Portable hashes; new isolated Analysis report ownership PR #380",
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/pull/378",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45353734411"
+      "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.23",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45455714749",
+      "https://github.com/michels-lab/FoamLens/pull/380"
     ],
-    "pending": "Exact-source publication and installed acceptance"
+    "pending": "PR #380 exact CI; owner acceptance; auxiliary G37 version pin"
   }
 }
