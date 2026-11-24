@@ -48,3 +48,10 @@ assert.deepEqual(advancedPlan.layerSettings,{expansionRatio:1.2,finalLayerThickn
 assert.equal(advanced(bg,1,'','','1.2 0.3 0.1').surfaceSettings.length,0);
 for(const [boxes,surfaces,layers] of [['0 -0.04 0 0.04 0 0.01 2','','1.2 .3 .1'],['0 -0.04 0 0 0 .01 2','','1.2 .3 .1'],['','','1.2 .1 .3'],['','1 1 2 9','1.2 .3 .1'],['','1 1 2 1\n1 2 3 0','1.2 .3 .1'],['','2 1 2 1','1.2 .3 .1'],['','1 3 2 1','1.2 .3 .1']])assert.throws(()=>advanced(bg,1,boxes,surfaces,layers));
 console.log('Local box refinement, per-surface levels and relative layer validation PASS');
+
+const sliceStart=src.indexOf('function cmbBoxSlice('),sliceEnd=src.indexOf('function cmbVisibleSurfaces()',sliceStart);
+const boxSlice=new Function('cmbSlice',src.slice(sliceStart,sliceEnd)+';return cmbBoxSlice')(api.slice);
+assert.equal(boxSlice(bg,0,0,advancedPlan.boxes).length,1);
+assert.equal(boxSlice(bg,0,1,advancedPlan.boxes).length,0);
+assert.deepEqual(boxSlice(bg,0,0,advancedPlan.boxes)[0].rect,[-.03,.001,-.01,.009]);
+console.log('Refinement box preview respects physical block slab PASS');
