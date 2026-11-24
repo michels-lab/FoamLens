@@ -87,6 +87,31 @@ internal static class NativeCartesianMesh
         }
     }
 
+
+    // Strict canonical MSH 2.2 subset emitted by our inspector; no arbitrary
+    // sections, strings, directives, paths, binaries or higher-order elements.
+    internal static long ValidateGmsh(string source)
+    {
+        if(source.Length>32*1024*1024 || source.Contains('\0') || source.Contains('\r'))throw new ArgumentException("Invalid canonical MSH transfer.");
+        using var rd=new StringReader(source);
+        string Line()=>rd.ReadLine()??throw new ArgumentException("Unexpected end of MSH.");
+        void Expect(string v){if(Line()!=v)throw new ArgumentException("Unexpected MSH section.");}
+        string[] Row()=>Line().Split(' ',StringSplitOptions.RemoveEmptyEntries);
+        int Id(string v){if(!int.TryParse(v,NumberStyles.None,CultureInfo.InvariantCulture,out var n)||n<=0)throw new ArgumentException("Invalid MSH ID.");return n;}
+        int Count(int cap){int n=Id(Line());if(n>cap)throw new ArgumentException("MSH record limit exceeded.");return n;}
+        Expect("$MeshFormat");Expect("2.2 0 8");Expect("$EndMeshFormat");Expect("$PhysicalNames");
+        var groups=new Dictionary<int,int>();var names=new HashSet<string>(StringComparer.Ordinal);
+        int ng=Count(10000);
+        for(int i=0;i<ng;i++){var t=Row();if(t.Length!=3||t[0] is not ("2" or "3")||!System.Text.RegularExpressions.Regex.IsMatch(t[2],@"\A""fl_[23]_[0-9]+""\z")||!names.Add(t[2])||!groups.TryAdd(Id(t[1]),int.Parse(t[0],CultureInfo.InvariantCulture)))throw new ArgumentException("Invalid canonical physical group.");}
+        Expect("$EndPhysicalNames");Expect("$Nodes");int nn=Count(1000000);var nodes=new HashSet<int>();
+        for(int i=0;i<nn;i++){var t=Row();if(t.Length!=4||!nodes.Add(Id(t[0]))||t.Skip(1).Any(x=>!double.TryParse(x,NumberStyles.Float,CultureInfo.InvariantCulture,out var v)||!double.IsFinite(v)))throw new ArgumentException("Invalid MSH node.");}
+        Expect("$EndNodes");Expect("$Elements");int ne=Count(1500000),volumes=0;var elements=new HashSet<int>();
+        for(int i=0;i<ne;i++){var t=Row();if(t.Length<5||!elements.Add(Id(t[0]))||t[2]!="2"||!groups.TryGetValue(Id(t[3]),out var dim))throw new ArgumentException("Invalid MSH element or group.");
+            int count=t[1]=="5"&&dim==3?8:t[1]=="3"&&dim==2?4:0;if(count==0||t.Length!=5+count)throw new ArgumentException("Only grouped QUAD4 and HEX8 supported.");
+            Id(t[4]);var ids=t.Skip(5).Select(Id).ToArray();if(ids.Distinct().Count()!=count||ids.Any(x=>!nodes.Contains(x)))throw new ArgumentException("Invalid MSH connectivity.");if(dim==3&&++volumes>350000)throw new ArgumentException("Native Gmsh cap: 350000 HEX8 cells.");}
+        Expect("$EndElements");if(rd.ReadLine()!=null||volumes==0)throw new ArgumentException("Trailing MSH data or empty volume.");return volumes;
+    }
+
     // Fixed program; positional args are only the host-owned temp path and an allowlisted version.
     private const string Script = """
         set -e
@@ -98,38 +123,47 @@ internal static class NativeCartesianMesh
           done
         fi
         if [ "${WM_PROJECT:-}" != OpenFOAM ] || [ "${WM_PROJECT_VERSION:-}" != "$version" ]; then echo 'Requested Foundation OpenFOAM environment unavailable' >&2; exit 127; fi
-        command -v blockMesh >/dev/null
+        if [ "$3" = gmshToFoam ]; then command -v gmshToFoam >/dev/null; else command -v blockMesh >/dev/null; fi
         command -v checkMesh >/dev/null
         command -v timeout >/dev/null
         cd "$1"
         printf '%s\n' "$WM_PROJECT_VERSION" > detected-version.txt
         set +e
-        timeout --kill-after=5s 90s blockMesh -case "$1" > blockMesh.log 2>&1
+        if [ "$3" = gmshToFoam ]; then
+          timeout --kill-after=5s 90s gmshToFoam -case "$1" "$1/source.msh" > generation.log 2>&1
+        else
+          timeout --kill-after=5s 90s blockMesh -case "$1" > generation.log 2>&1
+        fi
         code=$?
-        printf '%s\n' "$code" > blockMesh.exit
+        printf '%s\n' "$code" > generation.exit
         if [ "$code" -ne 0 ]; then exit "$code"; fi
         timeout --kill-after=5s 90s checkMesh -case "$1" > checkMesh.log 2>&1
         code=$?
         printf '%s\n' "$code" > checkMesh.exit
         exit "$code"
         """;
-    internal static async Task<object> RunAsync(JsonElement root, CancellationToken token)
+    internal static async Task<object> RunAsync(JsonElement root, CancellationToken token, bool gmsh = false)
     {
         var version=root.GetProperty("version").GetString();
         if(version is not ("13" or "14"))throw new ArgumentException("Select Foundation OpenFOAM 13 or 14.");
-        var (dict,cells)=Build(root);
+        string? msh=gmsh?root.GetProperty("msh").GetString():null;
+        if(gmsh&&msh is null)throw new ArgumentException("Canonical MSH missing.");
+        var (dict,cells)=gmsh?("",ValidateGmsh(msh!)):Build(root);
+        string utility=gmsh?"gmshToFoam":"blockMesh";
+        long exportLimit=gmsh?48*1024*1024:MaxOutput;
         var wsl=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"wsl.exe");
         if(!File.Exists(wsl))throw new NotSupportedException("WSL is unavailable.");
         var dir=Path.Combine(Path.GetTempPath(),"foamlens-blockmesh-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(dir,"system"));Directory.CreateDirectory(Path.Combine(dir,"constant"));
         try
         {
-            await File.WriteAllTextAsync(Path.Combine(dir,"system","blockMeshDict"),dict,token);
+            if(gmsh)await File.WriteAllTextAsync(Path.Combine(dir,"source.msh"),msh!,token);
+            else await File.WriteAllTextAsync(Path.Combine(dir,"system","blockMeshDict"),dict,token);
             await File.WriteAllTextAsync(Path.Combine(dir,"system","controlDict"),"FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }\napplication blockMesh; startFrom startTime; startTime 0; stopAt endTime; endTime 1; deltaT 1; writeControl timeStep; writeInterval 1; writeFormat ascii; writePrecision 12; writeCompression off; timeFormat general; timePrecision 6; runTimeModifiable false;\n",token);
             var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","wslpath","-a",dir},TimeSpan.FromSeconds(15),token);
             var linux=translated.Stdout.Trim();
             if(translated.ExitCode!=0 || !linux.StartsWith("/") || linux.Contains('\n') || linux.Contains('\r'))throw new NotSupportedException("WSL path mapping failed.");
-            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version},TimeSpan.FromSeconds(205),token);
+            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility},TimeSpan.FromSeconds(205),token);
             string Clean(string s)=>s.Replace(linux,"<temporary case>",StringComparison.Ordinal).Replace(dir,"<temporary case>",StringComparison.OrdinalIgnoreCase);
             async Task<string?> Small(string file,int limit)
             {
@@ -139,7 +173,7 @@ internal static class NativeCartesianMesh
                 return Clean(new string(buffer,0,count))+(stream.Peek()!=-1?"\n[truncated]":"");
             }
             int? Exit(string name){var p=Path.Combine(dir,name);return File.Exists(p)&&new FileInfo(p).Length<32&&int.TryParse(File.ReadAllText(p),out var x)?x:null;}
-            var bm=Exit("blockMesh.exit");var cm=Exit("checkMesh.exit");
+            var bm=Exit("generation.exit");var cm=Exit("checkMesh.exit");
             var detected=(await Small("detected-version.txt",128))?.Trim();
             var files=new Dictionary<string,string>();long total=0;string? exportError=null;
             if(bm==0)
@@ -149,7 +183,7 @@ internal static class NativeCartesianMesh
                 {
                     var p=Path.Combine(mesh,name);var info=new FileInfo(p);
                     if(!info.Exists){if(Array.IndexOf(MeshNames,name)<5)exportError="Required native mesh file missing: "+name;continue;}
-                    if((info.Attributes&FileAttributes.ReparsePoint)!=0 || info.Length>MaxOutput-total){exportError="Native mesh exceeds 24 MiB transfer limit or contains a link.";break;}
+                    if((info.Attributes&FileAttributes.ReparsePoint)!=0 || info.Length>exportLimit-total){exportError="Native mesh exceeds bounded transfer limit or contains a link.";break;}
                     total+=info.Length;
                     var data=await File.ReadAllTextAsync(p,token);
                     if(data.Contains('\0') || !System.Text.RegularExpressions.Regex.IsMatch(data.Substring(0,Math.Min(data.Length,2048)),@"\bformat\s+ascii\s*;")){exportError="Only native ASCII mesh export is supported.";break;}
@@ -157,7 +191,7 @@ internal static class NativeCartesianMesh
                 }
                 if(exportError!=null)files.Clear();
             }
-            return new { schema="foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,blockMeshExit=bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=await Small("blockMesh.log",48000),checkMeshLog=await Small("checkMesh.log",48000),files,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small("generation.log",48000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),files,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
