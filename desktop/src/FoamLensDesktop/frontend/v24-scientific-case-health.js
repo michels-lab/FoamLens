@@ -101,7 +101,10 @@ function chPostRunCsv(text='',sourceFile=''){
     const time=values[header.indexOf('time_s')];
     if(lastTime!==null){
       if(!(time>lastTime))throw Error('Original saved physical times must be strictly increasing');
-      const gap=time-lastTime;minGap=Math.min(minGap,gap);maxGap=Math.max(maxGap,gap)
+      const gap=time-lastTime;
+      if(!Number.isFinite(gap)||gap<=0)
+        throw Error('Saved physical time interval is not finite; cannot export misleading timing statistics');
+      minGap=Math.min(minGap,gap);maxGap=Math.max(maxGap,gap)
     }else firstTime=time;
     lastTime=time;savedTimes.push(time);
     for(let col=0;col<values.length;col++){
@@ -122,6 +125,34 @@ function chPostRunCsv(text='',sourceFile=''){
     note:'Imported numeric reductions only; timestamps are saved outputs, not solver deltaT. No source-frame, contact, latent heat, Courant, or experimental verification.'}
 }
 
+// Source CSV timestamps and imported OpenFOAM time directories must never be
+// treated as equivalent solely because they round to a broad decimal window.
+// A relative machine-precision guard prevents one saved frame from matching
+// a physically distinct (small-time) frame at t≈0.
+function chSourceTimeEqual(a,b){
+  return Number.isFinite(a)&&Number.isFinite(b)&&
+    Math.abs(a-b)<=16*Number.EPSILON*Math.max(1e-9,Math.abs(a),Math.abs(b))
+}
+function chSourceTimeCoverage(saved=[],indexed=[]){
+  let csv=0,original=0,matched=0,missingCsv=0,missingOriginal=0;
+  const firstUnmatchedCsvTimes_s=[],firstUnmatchedIndexedTimes_s=[];
+  const noCsv=(t)=>{missingCsv++;if(firstUnmatchedCsvTimes_s.length<12)firstUnmatchedCsvTimes_s.push(t)};
+  const noOriginal=(t)=>{missingOriginal++;if(firstUnmatchedIndexedTimes_s.length<12)firstUnmatchedIndexedTimes_s.push(t)};
+  while(csv<saved.length&&original<indexed.length){
+    if(chSourceTimeEqual(saved[csv],indexed[original])){matched++;csv++;original++}
+    else if(saved[csv]<indexed[original])noCsv(saved[csv++]);
+    else noOriginal(indexed[original++])
+  }
+  while(csv<saved.length)noCsv(saved[csv++]);
+  while(original<indexed.length)noOriginal(indexed[original++]);
+  return{csvSamples:saved.length,indexedOutputTimes:indexed.length,matchedCsvSamples:matched,
+    unmatchedCsvSamples:missingCsv,unmatchedIndexedOutputTimes:missingOriginal,
+    firstUnmatchedCsvTimes_s,firstUnmatchedIndexedTimes_s,
+    coverage:!indexed.length?'original-inventory-unavailable':
+      matched===saved.length?'csv-times-covered':matched?'partial-coverage':'no-overlap',
+    originalCaseBindingVerified:false,physicalModelValidated:false,
+    note:'Numeric timestamp alignment only (16 × machine epsilon relative to physical time). No hash, field, region or case-binding proof.'}
+}
 function chAudit(input={}){
   const c=input.case||{},m=c.discoveryModel||{},d=c.discovery||{},
     rawLogs=(input.logs||[]).filter(s=>String(s.caseId)===String(c.id)&&s.derived!==true),
@@ -268,19 +299,18 @@ function chAudit(input={}){
     'Use Energy Audit and complete physical boundary/storage accounting; no implicit heat-balance proof.');
   // External native reductions are manually selected. Attribute them to the
   // case only as unverified source-file context, never as certified physics.
+  const postrunTimeline=input.postrun?chSourceTimeCoverage(input.postrun.savedTimes_s,distinctTimes):null;
   if(input.postrun){
     const p=input.postrun;
-    const directoryOverlap=p.savedTimes_s.filter(t=>distinctTimes.some(v=>
-      Math.abs(v-t)<=1e-10*Math.max(1,Math.abs(v),Math.abs(t)))).length;
+    const directoryOverlap=postrunTimeline.matchedCsvSamples;
     const checkedEnd=hasControl?strictNumber(config.endTime):null;
-    const endConsistent=checkedEnd!=null&&
-      Math.abs(p.lastTime_s-checkedEnd)<=1e-10*Math.max(1,Math.abs(checkedEnd),Math.abs(p.lastTime_s));
+    const endConsistent=checkedEnd!=null&&chSourceTimeEqual(p.lastTime_s,checkedEnd);
     record('native-postrun','Native postrun CSV timeline','warning',
       p.samples+' explicit output samples from '+p.firstTime_s+' to '+p.lastTime_s+
       ' s; '+(p.headers.length-1)+' numeric reduction column(s). Saved interval: '+
       p.minSavedInterval_s+'–'+p.maxSavedInterval_s+
       ' s. CSV was checked for finite numeric values, strictly increasing source times and complete rows; no CFD was rerun.'+
-      (distinctTimes.length?' '+directoryOverlap+'/'+p.samples+' CSV times appear in the currently indexed original time-directory inventory; incomplete import/restarts may explain missing matches.':' No original output-time directory inventory for cross-check.')+
+      (distinctTimes.length?' '+directoryOverlap+'/'+p.samples+' CSV times align with the indexed original output-time directories; '+postrunTimeline.unmatchedCsvSamples+' CSV times unmatched; '+postrunTimeline.unmatchedIndexedOutputTimes+' original indexed times absent from CSV. Source coverage may be partial; numeric alignment is NOT proof of case ownership.':' No original output-time directory inventory for cross-check.')+
       (checkedEnd!=null?' Configured endTime='+checkedEnd+' s; last CSV time '+
         (endConsistent?'agrees numerically with this setting (NOT proof of solver completion).':'does not agree with this setting (review log and source).'):'')+
       ' This manually selected summary is not bound to original frames, patch fluxes, material parameters or independent experiments.',
@@ -293,6 +323,7 @@ function chAudit(input={}){
     caseId:c.id,caseName:String(c.name||''),rootPath:String(c.rootPath||''),
     checks,counts,coverage:{analyzed:checks.filter(s=>['verified','warning','error'].includes(s.status)).length,
       total:checks.length},overall:'not-certified',
+    postrunTimeline,
     sourceInventory:{timeDirectories:distinctTimes.length,fieldGroups:fields.length,logSeries:rawLogs.length,
       dictionaryEntries:dictionary.length,regions:regions.slice(0,100)},
     limitations:[
