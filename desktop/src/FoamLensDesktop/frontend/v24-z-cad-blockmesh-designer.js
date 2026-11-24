@@ -327,6 +327,74 @@ const msCore=(()=>{
   return {kind,convention,rows,invalid,unknownThreshold,stages,eligible:ids.length,selected:rows.length,selectedWeight,validWeight,fieldCount,coverage:rows.length?fieldCount/rows.length:null,weightCoverage:selectedWeight?validWeight/selectedWeight:null,mean:fieldCount?rawSum/fieldCount:null,weightedMean:weighted&&intensive&&validWeight?weightedSum/validWeight:null,integral:fieldCount?(intensive?(weighted?weightedSum:null):rawSum):null,min:fieldCount?minimum:null,max:fieldCount?maximum:null,weightUnit:kind==='cellSet'?'m³':kind==='faceSet'?'m²':'count',method:'Centroid membership, whole entities only; face area-vector magnitude and triangulated cell volume estimates. No geometric clipping or interpolation.',sourceBindingVerified:false};
  }
 
+
+ // Numeric table, not a mesh: no invented connectivity or weights.
+ function xyzTable(csv,meta){
+  if(typeof csv!=='string'||csv.length>48*1024*1024||csv.includes('\0'))fail('Invalid/oversized numeric CSV');
+  const scale={m:1,mm:.001,cm:.01}[meta.coordinateUnit],kind=meta.association,convention=meta.convention;
+  if(!scale||!['pointSet','cellSet','faceSet'].includes(kind)||!['intensive','perEntity'].includes(convention)||!meta.source?.trim()||!meta.field?.trim()||!meta.unit?.trim())fail('Explicit source, association, field, units and convention required');
+  const lines=csv.replace(/^\uFEFF/,'').trim().split(/\r?\n/);if(lines.length<2||lines.length>350001)fail('Table must contain 1–350000 rows');
+  const header=lines.shift().split(',').map(x=>x.trim()),allowed=['id','x','y','z','value','weight','time'];
+  if(new Set(header).size!==header.length||header.some(x=>!allowed.includes(x))||!['id','x','y','z','value'].every(x=>header.includes(x)))fail('Expected id,x,y,z,value with optional weight,time columns');
+  const pos=Object.fromEntries(header.map((v,i)=>[v,i])),hasWeight=header.includes('weight'),hasTime=header.includes('time'),measureUnit=kind==='faceSet'?'m²':kind==='cellSet'?'m³':'count';
+  const weightScale=kind==='faceSet'?{'m²':1,'cm²':1e-4,'mm²':1e-6}[meta.weightUnit]:kind==='cellSet'?{'m³':1,'cm³':1e-6,'mm³':1e-9}[meta.weightUnit]:null;
+  if(hasWeight&&(!weightScale||kind==='pointSet'))fail('Explicit area/volume units required; point weights unsupported');
+  if(!hasTime&&(typeof meta.time!=='number'||!Number.isFinite(meta.time)))fail('Provide physical time in seconds or a time column');
+  const groups=new Map(),seen=new Map();
+  for(const line of lines){const v=line.split(',').map(x=>x.trim());if(v.length!==header.length)fail('Invalid numeric CSV row');
+   const label=id(v[pos.id]),time=hasTime?num(v[pos.time]):meta.time,xyz=['x','y','z'].map(k=>num(v[pos[k]])*scale);
+   const value=v[pos.value]===''?null:num(v[pos.value]),weight=hasWeight?(v[pos.weight]===''?null:num(v[pos.weight])*weightScale):null;
+   if(xyz.some(x=>!Number.isFinite(x))||weight!==null&&(!(weight>0)||!Number.isFinite(weight)))fail('Nonfinite position or nonpositive measure');
+   if(!groups.has(time)){if(groups.size>=2000)fail('Maximum 2000 physical times');groups.set(time,[]);seen.set(time,new Set())}
+   if(seen.get(time).has(label))fail('Duplicate ID within physical time');seen.get(time).add(label);
+   groups.get(time).push({id:label,x:xyz[0],y:xyz[1],z:xyz[2],value,weight});
+  }
+  return {meta:{...meta,coordinateUnit:'m',weightUnit:hasWeight?measureUnit:null,sourceCoordinateUnit:meta.coordinateUnit,sourceWeightUnit:hasWeight?meta.weightUnit:null},groups,hasWeight,measureUnit,sourceBindingVerified:false};
+ }
+ function xyzSelect(table,filters){
+  const times=[];
+  for(const [time,rows] of [...table.groups].sort((a,b)=>a[0]-b[0])){
+   const selected=[],stages=filters.map(f=>({type:f.type,input:0,passed:0,missing:0}));let missingThreshold=0;
+   for(const r of rows){let ok=true;for(let i=0;i<filters.length;i++){const f=filters[i],stage=stages[i];stage.input++;
+    if(f.type==='threshold'&&r.value===null){stage.missing++;missingThreshold++;ok=false;break}
+    if(f.type==='threshold'?r.value<f.min||r.value>f.max:!spatialContains([r.x,r.y,r.z],f)){ok=false;break}stage.passed++;
+   }if(ok)selected.push(r)}
+   let knownWeight=0,validWeight=0,weighted=0,sum=0,n=0,min=Infinity,max=-Infinity,weightCount=0,weightedCount=0;
+   for(const r of selected){if(r.weight!==null){knownWeight+=r.weight;weightCount++}if(r.value!==null){n++;sum+=r.value;min=Math.min(min,r.value);max=Math.max(max,r.value);if(r.weight!==null){validWeight+=r.weight;weighted+=r.value*r.weight;weightedCount++}}}
+   if([knownWeight,validWeight,weighted,sum].some(v=>!Number.isFinite(v)))fail('Spatial sum overflow');
+   const extensive=table.meta.convention==='perEntity',complete=selected.length>0&&n===selected.length&&!missingThreshold&&(extensive||table.hasWeight&&weightCount===selected.length);
+   times.push({time,eligible:rows.length,selected:selected.length,valid:n,weightCount,weightedCount,missingThreshold,stages,knownWeight:table.hasWeight?knownWeight:null,validWeight:table.hasWeight?validWeight:null,coverage:selected.length?n/selected.length:null,weightCoverage:table.hasWeight&&weightCount===selected.length&&knownWeight?validWeight/knownWeight:null,mean:n?sum/n:null,weightedMean:!extensive&&validWeight?weighted/validWeight:null,integral:extensive?n?sum:null:weightedCount?weighted:null,min:n?min:null,max:n?max:null,complete,rows:selected});
+  }
+  return times;
+ }
+ function timeSummary(samples,key,maxGap){
+  if(!['integral','weightedMean','mean'].includes(key)||!Number.isFinite(maxGap)||maxGap<=0)fail('Choose temporal variable and positive maximum gap in seconds');
+  let duration=0,integral=0,intervals=0,skipped=0,sampleSum=0,count=0;
+  for(let i=0;i<samples.length;i++){const a=samples[i],v=a[key];if(v!==null&&Number.isFinite(v)){sampleSum+=v;count++}
+   if(!i)continue;const b=samples[i-1],dt=a.time-b.time;if(!(dt>0)||!Number.isFinite(dt))fail('Times must be strictly increasing');
+   const valid=q=>q.complete&&q[key]!==null&&Number.isFinite(q[key]);
+   if(dt>maxGap||!valid(a)||!valid(b)){skipped++;continue}integral+=(a[key]+b[key])*.5*dt;duration+=dt;intervals++;
+  }
+  const span=samples.length>1?samples.at(-1).time-samples[0].time:0;
+  if([span,integral,duration,sampleSum].some(x=>!Number.isFinite(x)))fail('Temporal integration overflow');
+  return {key,samples:samples.length,validSamples:count,sampleMean:count?sampleSum/count:null,span_s:span,covered_s:duration,timeCoverage:span?duration/span:null,intervals,skipped,maxGap_s:maxGap,timeIntegral:intervals?integral:null,timeWeightedMean:duration?integral/duration:null,method:'Trapezoids between consecutive complete observed samples; no gap fill or extrapolation'};
+ }
+ function xyzFluxPair(a,b,time,signA,signB,areaTolerance){
+  if(a.meta.association!=='faceSet'||b.meta.association!=='faceSet'||a.meta.unit!==b.meta.unit||a.meta.convention!==b.meta.convention||![1,-1].includes(signA)||![1,-1].includes(signB)||!Number.isFinite(areaTolerance)||areaTolerance<0||areaTolerance>.1)fail('Flux requires matching face conventions, units and explicit outward signs');
+  if(!a.hasWeight||!b.hasWeight)fail('Both sides require measured face areas');
+  const ar=a.groups.get(time),br=b.groups.get(time);if(!ar||!br)fail('No common exact physical time');
+  function map(rows){const m=new Map();for(const r of rows){const k=JSON.stringify([r.x,r.y,r.z]),l=m.get(k)||[];l.push(r);m.set(k,l)}return m}
+  const ma=map(ar),mb=map(br),pairs=[];let pairedA=0,pairedB=0,powerA=0,powerB=0,absResidual=0,missing=0,areaMismatch=0;
+  const area=rows=>rows.reduce((n,r)=>n+(r.weight??0),0),totalA=area(ar),totalB=area(br),knownAreaCountA=ar.filter(r=>r.weight!==null).length,knownAreaCountB=br.filter(r=>r.weight!==null).length;
+  const duplicates=m=>[...m.values()].reduce((n,l)=>n+(l.length>1?l.length:0),0);
+  for(const [k,l] of ma){const q=mb.get(k);if(l.length!==1||q?.length!==1)continue;const x=l[0],y=q[0];if(x.value===null||y.value===null||x.weight===null||y.weight===null){missing++;continue}
+   if(Math.abs(x.weight-y.weight)>areaTolerance*Math.max(x.weight,y.weight)){areaMismatch++;continue}
+   const intensive=a.meta.convention==='intensive',qa=signA*x.value*(intensive?x.weight:1),qb=signB*y.value*(intensive?y.weight:1);pairedA+=x.weight;pairedB+=y.weight;powerA+=qa;powerB+=qb;absResidual+=Math.abs(qa+qb);pairs.push({idA:x.id,idB:y.id,x:x.x,y:x.y,z:x.z,areaA:x.weight,areaB:y.weight,outwardA:qa,outwardB:qb,residual:qa+qb});
+  }
+  if([totalA,totalB,pairedA,pairedB,powerA,powerB,absResidual].some(x=>!Number.isFinite(x)))fail('Interface integration overflow');
+  return {time,signA,signB,areaTolerance,pairs,matched:pairs.length,unmatchedA:ar.length-pairs.length,unmatchedB:br.length-pairs.length,duplicatesA:duplicates(ma),duplicatesB:duplicates(mb),missing,areaMismatch,knownAreaCountA,knownAreaCountB,totalAreaA:totalA,totalAreaB:totalB,pairedAreaA:pairedA,pairedAreaB:pairedB,areaCoverageA:knownAreaCountA===ar.length&&totalA?pairedA/totalA:null,areaCoverageB:knownAreaCountB===br.length&&totalB?pairedB/totalB:null,outwardA:pairs.length?powerA:null,outwardB:pairs.length?powerB:null,residual:pairs.length?powerA+powerB:null,absolutePairResidual:pairs.length?absResidual:null,unit:a.meta.convention==='intensive'?a.meta.unit+'·m²':a.meta.unit,method:'Exact centroid XYZ in meters, one-to-one unique coordinates and area tolerance; no topology or normal certification',interfaceVerified:false};
+ }
+
  function fromNativeReport(r,region){
   if(!r||!['foamlens/native-cartesian-mesh/1','foamlens/native-gmsh-mesh/1','foamlens/native-snappy-mesh/1'].includes(r.schema)||r.originalCaseModified!==false||r.meshGenerated!==true||r.generationExit!==0||r.exportError)fail('No complete generated mesh report');
   const sub=region?r.regions?.[region]:r;
@@ -341,7 +409,7 @@ const msCore=(()=>{
   for(const [name,data] of Object.entries(sub?.sets||{})){try{if(!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(name))fail('Invalid set name');sets.push(readSet(data,name,m))}catch(e){warnings.push(name+': '+e.message)}}
   return {sets,warnings};
  }
- return {blockDict,poly,readSet,locate,patchMatch,qualityCSV,cellGeometry,geometricMetric,metricThreshold,faceGeometry,parseSpatialPipeline,spatialSelect,fromNativeReport,generatedSets,edges,key};
+ return {blockDict,poly,readSet,locate,patchMatch,qualityCSV,cellGeometry,geometricMetric,metricThreshold,faceGeometry,parseSpatialPipeline,spatialSelect,xyzTable,xyzSelect,timeSummary,xyzFluxPair,fromNativeReport,generatedSets,edges,key};
 })();
 /* FOAMLENS_MESH_STUDIO_CORE_END */
 
