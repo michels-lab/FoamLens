@@ -9,9 +9,9 @@
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "v1.8.23 published; roadmap V2 active; priority CAD/Mesh PR #381; Analysis #380 deferred",
+  "phase": "Roadmap V2 G-A/B: Block 3 functional candidate in PR #381; CAD regression green on code/test SHA, Windows pending",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/381",
-  "source_head_sha": "fbece59671f08602edafb81e4bc102b3e968f5e7",
+  "source_head_sha": "c0b5ec5e41f8f199bd2cdcb58d0f59f5eae8b19a",
   "latest_verified_stable": "v1.8.23",
   "release_hold": false,
   "owner_physical_acceptance": false,
@@ -151,7 +151,7 @@
       ]
     }
   ],
-  "next_step": "Roadmap V2 G-A: extend existing CAD PR #381 with curved blockMesh import, native polyMesh selection and checkMesh defect localization; preserve Field baseline, defer #380, owner acceptance still pending.",
+  "next_step": "Validate PR #381 native Windows, owner C3D04/C3D05; complete curved editing/export, direct quality fields and native geometry/contact gates before release. Preserve Field baseline.",
   "limitations": "8/15 milestones verified for currently released v1.8.23. Exact-main binary gate must be reverified for future versions. Owner visual/physical acceptance pending. G37 auxiliary test failed because it pins obsolete version 1.8.10; six-cycle native run did not execute.",
   "last_granada": {
     "as_of": "2026-11-24",
@@ -176,17 +176,33 @@
     "progress_percent": null,
     "verified_deliverables": null,
     "status": "baseline inventory pending; historical 8/15 unchanged",
-    "active_operation": "G-A",
+    "active_operation": "G-A/G-B",
     "active_deliverables": [
       "3.1",
+      "3.2",
       "3.3",
-      "3.4"
+      "3.4",
+      "3.5"
     ],
     "deferred": [
       "2.1–2.3 until G-F",
       "10.1",
       "10.2"
     ],
-    "open_prs_at_planning": 13
+    "open_prs_at_planning": 13,
+    "block3_candidate": {
+      "status": "functional source candidate; not merged/released/owner accepted",
+      "code_test_sha": "3644fcc167a6b00e0081df2c0384ebcbff9d02f2",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/actions/runs/45485606483",
+        "https://github.com/michels-lab/FoamLens/pull/381"
+      ],
+      "pending": [
+        "curved edit/export",
+        "native Windows",
+        "real C3D05 Gmsh/patch and CAD",
+        "direct native quality metrics"
+      ]
+    }
   }
 }
