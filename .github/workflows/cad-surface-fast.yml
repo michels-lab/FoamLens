@@ -8,6 +8,7 @@ on:
       - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
       - 'desktop/tests/cad-occt-native.test.cjs'
       - 'desktop/tests/cad-occt-freecad.test.py'
+      - 'desktop/src/FoamLensDesktop/NativeCartesianMesh.cs'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -27,6 +28,7 @@ on:
       - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
       - 'desktop/tests/cad-occt-native.test.cjs'
       - 'desktop/tests/cad-occt-freecad.test.py'
+      - 'desktop/src/FoamLensDesktop/NativeCartesianMesh.cs'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -68,3 +70,20 @@ jobs:
         run: node desktop/tests/cad-occt-native.test.cjs
       - name: Execute FreeCAD conversion script under controlled mock Part API (NOT actual OCCT)
         run: python3 desktop/tests/cad-occt-freecad.test.py
+
+  cartesian-host:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile native Cartesian host and execute its input/topology self-test (no WSL)
+        shell: bash
+        run: |
+          work="$(mktemp -d)"
+          dotnet new console --framework net8.0 --output "$work" --no-restore
+          cp desktop/src/FoamLensDesktop/NativeCartesianMesh.cs desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs "$work/"
+          printf '%s\n' 'FoamLensDesktop.NativeCartesianMesh.SelfTest();' > "$work/Program.cs"
+          dotnet run --project "$work"
