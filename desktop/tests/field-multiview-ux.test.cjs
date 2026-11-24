@@ -1476,7 +1476,7 @@ console.log('Field multi-view regression PASS: A/B/C/D independent sources/zoom/
     'renderer must continue to read original physical X/Y/Z sources by their existing classes');
   assert(source.includes("readout.textContent=labels.join(' | ')"),
     'metric lengths must remain original mesh values with real units');
-  assert(source.includes("svg.innerHTML=markup"),
+  assert(source.includes("svg.innerHTML=fvPhysicalAxesMarkup(bounds,mvp,w,h"),
     'original projected axes/metric tick SVG must remain functional');
   console.log('Granada 3D A/B/C/D metric captions PASS: original numeric sources below canvas, source axes preserved, narrow CSS and legends');
 }

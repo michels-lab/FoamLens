@@ -2326,9 +2326,27 @@ function fvInvalidateUnavailableSelection(){
   fvSetStats(null,null,null);
   fvRender()
 }
+// Read-only diagnostic from the imported index, not a claim about files on disk.
+function fvCaseSourceDiagnosis(c){
+  const meshes=c?.meshInventory||[],fields=(c?.discoveryModel?.fields||[]).filter(f=>['volume','surface','point'].includes(String(f?.storage||''))&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.length);
+  const names=[...new Set([...meshes,...fields].map(x=>String(x.region||'')))],required=['points','faces','owner','neighbour'];
+  const rows=names.map(region=>{
+    const groups=meshes.filter(m=>String(m.region||'')===region),fg=fields.filter(f=>String(f.region||'')===region),times=[...new Set(fg.flatMap(f=>f.times).filter(t=>typeof t==='number'||typeof t==='string'&&t.trim()).map(Number).filter(Number.isFinite))].sort((a,b)=>a-b);
+    const incomplete=groups.filter(g=>!g.complete).map(g=>{const known=g.baseSourcePaths||g.sourcePaths||g.baseFiles||g.files;return{partition:g.partition||'',missing:known?required.filter(k=>!known[k]):null}});
+    return{region,meshGroups:groups.length,completeGroups:groups.filter(g=>g.complete).length,fields:fg.length,times,incomplete}
+  });
+  const summary=(c?.name||flUi('No selected case','Sin caso seleccionado'))+' · '+flUi('Indexed mesh groups: ','Grupos de malla indexados: ')+meshes.length+' · '+flUi('Compatible fields: ','Campos compatibles: ')+fields.length+' · '+fvAvailability(c).reason;
+  return{summary,rows}
+}
+function fvCaseDiagnosisMarkup(c){
+  const d=fvCaseSourceDiagnosis(c);
+  return '<div class="smallnote" style="overflow-wrap:anywhere">'+fvEsc(d.summary)+'</div>'+
+    (d.rows.length?d.rows.map(row=>'<div style="margin-top:6px;padding:6px;border:1px solid var(--line);border-radius:6px;overflow-wrap:anywhere"><b>'+fvEsc(row.region||flUi('Default region','Región predeterminada'))+'</b> · '+row.completeGroups+'/'+row.meshGroups+' '+flUi('complete mesh groups','grupos de malla completos')+' · '+row.fields+' '+flUi('fields','campos')+' · '+row.times.length+' '+flUi('saved times','tiempos guardados')+(row.times.length?' ('+fvEsc(String(row.times[0]))+' – '+fvEsc(String(row.times.at(-1)))+' s)':'')+row.incomplete.map(g=>'<div class="smallnote">'+fvEsc(g.partition||'constant/polyMesh')+' · '+fvEsc(g.missing?.length?flUi('Not indexed: ','No indexado: ')+g.missing.join(', '):flUi('Incomplete mesh inventory','Inventario de malla incompleto'))+'</div>').join('')+'</div>').join(''):'<div>'+flUi('No mesh or field regions were indexed.','No se indexaron regiones de malla ni campos.')+'</div>')+
+    '<div class="smallnote">'+flUi('Imported index only. Missing index entries do not prove files were deleted. Reimport the case root after external changes.','Solo inventario importado. Una entrada no indexada no demuestra que se borró el archivo. Reimporta la raíz tras cambios externos.')+'</div>'
+}
 async function fvLoadSelection(){
   fvStopPlayback();fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
-  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const detail=availability.reason+(c?' · '+c.name:'')+' · '+flUi('Complete mesh regions: ','Regiones con malla completa: ')+availability.meshRegions.length+' · '+flUi('Field regions: ','Regiones con campos: ')+availability.fieldRegions.length;fvSetStatus(detail,true);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(availability.reason)+'</div><div>'+fvEsc(detail)+'</div><div>'+fvEsc(flUi('Check the case root, constant/<region>/polyMesh and saved time folders. Reimport after external changes; no solver or cleanup is performed.','Revisa la raíz del caso, constant/<región>/polyMesh y las carpetas de tiempos guardados. Reimporta tras cambios externos; no se ejecuta el solver ni se limpia el caso.'))+'</div>';fvRender();return false}
+  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const detail=availability.reason+(c?' · '+c.name:'')+' · '+flUi('Complete mesh regions: ','Regiones con malla completa: ')+availability.meshRegions.length+' · '+flUi('Field regions: ','Regiones con campos: ')+availability.fieldRegions.length;fvSetStatus(detail,true);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(availability.reason)+'</div>'+fvCaseDiagnosisMarkup(c);fvRender();return false}
   let requestSeq=fvState.frameSeq;
   try{
     fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));

@@ -421,6 +421,8 @@ function fcLinkedPhysicalCamera(state,mesh){
   const valid=b=>b&&fcValidFitMesh({boundsMin:b.min,boundsMax:b.max});
   if(!valid(target))return fallback();
   if(!valid(primary)){
+    // A can have an existing mesh with hidden regions; keep B's saved camera.
+    if(fvState.mesh&&state.camera)return fallback();
     const local=fallback(),center=target.min.map((v,i)=>v+(target.max[i]-v)/2),
       canvas=document.getElementById(state===fcState?'fcCanvas':'fcExtra'+state.id+'Canvas'),
       fit=fvFitDistance({...target,center},local,canvas);
@@ -458,7 +460,7 @@ function fcLinkedPhysicalCamera(state,mesh){
 }
 function fcCameraFor(state,mesh){
   if(fcCamerasLinked())return fcLinkedPhysicalCamera(state,mesh);
-  if(!state.camera||state._fcLocalCameraMesh!==mesh&&fcCameraLinkRequested()&&!fcCamerasLinked()){
+  if(!state.camera||!fvState.mesh&&mesh&&state._fcLocalCameraMesh!==mesh&&typeof fcCameraLinkRequested==='function'&&fcCameraLinkRequested()){
     state.camera=fcCloneCamera(fcLinkedPhysicalCamera(state,mesh));state._fcLocalCameraMesh=mesh
   }
   return state.camera
@@ -1457,7 +1459,7 @@ function fcPhysicalOverlayFor(view,state,canvas,mvp,camera){
       fvMetricLabel(bounds.max[i],u)+' '+u.unit+' (Δ'+fvMetricLabel(span[i],u)+' '+u.unit+')'
   });
   readout.textContent=labels.join(' | ')+' · '+(camera?.projection==='perspective'?fcUi('Perspective','Perspectiva'):fcUi('Orthographic · true aspect ratio','Ortográfica · escala real'));readout.hidden=false;
-  svg.innerHTML=fvPhysicalAxesMarkup(bounds,mvp,w,h,canvas.getBoundingClientRect().width)
+  svg.innerHTML=fvPhysicalAxesMarkup(bounds,mvp,w,h,canvas.getBoundingClientRect?.().width||w)
 }
 function fcPhysicalCaption(state,view){
   const viewport=view==='B'?document.getElementById('fcViewport'):fcExtraDom(state.id,'Viewport');
@@ -1794,7 +1796,7 @@ async function fcRefreshFrame(){
   const deltaStatus=document.getElementById('fcDifferenceStatus');
   if(deltaStatus)deltaStatus.textContent=fcUi('Updating A − B from selected OpenFOAM sources…','Actualizando A − B desde las fuentes OpenFOAM seleccionadas…');
   fcUpdateLayout();if(!fcState.enabled){fcClearRenderer();return}
-  const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
+  const selected=fcCase(),region=fcRegion(),field=fcCurrentFieldName(),component=fcCurrentComponent(),target=fcIndependentTimeTarget(fcState);if(!selected||!field||!Number.isFinite(target)){fcClearRenderer();fcSetStatus(selected&&typeof fvCaseSourceDiagnosis==='function'?fvCaseSourceDiagnosis(selected).summary:fcUi('Choose a loaded case/field and an available physical time.','Elige un caso/campo cargado y un tiempo físico disponible.'),true);return}
   const group=fcFieldFor(selected,region,field,typeof fcCurrentFieldStorage==='function'?fcCurrentFieldStorage():'');if(!group){fcClearRenderer();fcSetStatus(fcUi('The selected case/region does not expose this compatible 3D field.','El caso/región seleccionado no expone este campo 3D compatible.'),true);return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcClearRenderer();fcSetStatus(fcUi('No comparison frame can be resolved at t = ','No se puede resolver un frame comparado en t = ')+fcFmt(target)+' s.',true);return}
   const seq=++fcState.seq;fcState._fcFrameHold=seq;try{
@@ -1934,7 +1936,7 @@ async function fcExtraRefreshFrame(state,selectorsReady=false){
   // Direct playback/sync calls still refresh from the real OpenFOAM catalog;
   // handlers that just refreshed selectors must not do the same work twice.
   if(!selectorsReady)fcExtraRefreshSelectors(state,true);const c=fcExtraCase(state),region=fcExtraRegion(state),field=fcExtraField(state),component=fcExtraComponent(state),target=fcIndependentTimeTarget(state),status=fcExtraDom(state.id,'Status');
-  if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
+  if(!c||!field||!Number.isFinite(target)){fcExtraInvalidateFrame(state,c&&typeof fvCaseSourceDiagnosis==='function'?fvCaseSourceDiagnosis(c).summary:fcUi('A measured physical time and compatible field are required.','Se requiere un tiempo físico medido y un campo compatible.'));return}
   const group=fcFieldFor(c,region,field,typeof fcExtraFieldStorage==='function'?fcExtraFieldStorage(state):'');if(!group){fcExtraInvalidateFrame(state,fcUi('Selected field is unavailable in this region.','La variable seleccionada no está disponible en esta región.'));return}
   const syncPreview=fcResolveTime(group.times,target,fcMode());if(!syncPreview.ok){fcExtraInvalidateFrame(state,fcUi('No synchronized frame at this physical time.','No hay frame sincronizado en este tiempo físico.'));return}
   const seq=++state.seq;state._fcFrameHold=seq;try{if(status)status.textContent=fcUi('Loading synchronized view…','Cargando vista sincronizada…');const data=await fcLoadSynchronizedData(c,group,region,target,component,fcMode(),{includeBoundary:false});if(seq!==state.seq)return;

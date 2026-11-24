@@ -40,7 +40,7 @@ const sources={
   fcPhysicalNumber:v=>typeof v==='number'&&Number.isFinite(v)?v:NaN,
   fcUi:(a)=>a,fcFmt:v=>String(v),fcEsc:s=>String(s),
   fvMetricScale:()=>({unit:'m'}),fvMetricLabel:n=>String(n),
-  fvProjectWorld:(p,mvp,w,h)=>({x:w/2+p[0]*20,y:h/2-p[1]*20}),
+  fvProjectWorld:(p,mvp,w,h)=>({x:w/2+p[0]*20+p[2]*10,y:h/2-p[1]*20+p[2]*5,inside:true}),
   document:{getElementById:()=>null},
   fcExtraDom:()=>null,fvState:{},fcState:{},fcExtraViews:[],
   fvRegionChoice:()=>({visible:true}),
@@ -52,7 +52,7 @@ const sources={
   console
 };
 const funcs=Object.keys(sources);
-const factory=new Function(...funcs,compare.slice(start,end)+
+const factory=new Function(...funcs,field.slice(field.indexOf('function fvAxisLabelLayout('),field.indexOf('function fvMeshVertexNearestAt(')).replaceAll('fvEsc(', 'fcEsc(')+compare.slice(start,end)+
   ';return{fcPhysicalFor,fcPhysicalRelease,fcPhysicalChoiceList,fcPhysicalLoad,fcPhysicalBoundsFor,fcPhysicalOverlayFor};');
 const api=factory(...funcs.map(n=>sources[n]));
 const stateB={mesh:metal,region:'metal',fieldName:'T',renderer:{gl:{}}};
@@ -130,7 +130,7 @@ assert.strictEqual(api.fcPhysicalFor(stateC).choices.get('mold').visible,false);
   input.checked=false;api.fcPhysicalOverlayFor('B',stateB,{width:800,height:480},[],{projection:'orthographic'});
   assert.strictEqual(x.innerHTML,'','Dimensions disabled in B should not alter A');
   for(const fragment of ['fcPhysicalMenu(bar.dataset.fcToolbar)','data-fc-regions','data-fc-dimensions',
-    'fcPhysicalRenderLayers(fcState,visual)','fcPhysicalRenderLayers(state,visual)',
+    'fcPhysicalRenderLayers(fcState,visual,fcPrimaryDrawCommands','fcPhysicalRenderLayers(state,visual,fcPrimaryDrawCommands',
     "fcPhysicalMenu('B')","fcPhysicalMenu(String(state.id))",
     "fvRegionBuildLayer(region,mesh,data,choice,time,state.renderer)"])
     assert(compare.includes(fragment),'Missing live multi-region UI or WebGL code: '+fragment);
