@@ -53,6 +53,74 @@ function chRuntime(text='',name=''){
     limitations:['User-selected run log is not cryptographically bound to the selected case.',
       'An End marker in a text file is not independently proof that all configured boundary conditions or physical equations are valid.']}
 }
+// Read user-selected, source-native postrun CSV without rerunning OpenFOAM.
+// A syntactically consistent reduction is NOT proof of original frame values,
+// material properties, mesh completeness, conservation or experiment matching.
+function chCsvCells(line){
+  const cells=[];let value='',quoted=false,closed=false;
+  const finish=()=>{cells.push(value.trim());value='';closed=false};
+  for(let i=0;i<line.length;i++){
+    const char=line[i];
+    if(quoted){
+      if(char==='"'){
+        if(line[i+1]==='"'){value+='"';i++}else{quoted=false;closed=true}
+      }else value+=char
+    }else if(char===','){finish()}
+    else if(char==='"'){
+      if(value.trim()!==''||closed)throw Error('Malformed CSV quote in source row');
+      quoted=true
+    }else{
+      if(closed&&char.trim()!=='')throw Error('Unexpected data after CSV quote');
+      if(!closed)value+=char
+    }
+  }
+  if(quoted)throw Error('Unclosed CSV quote in source row');
+  finish();return cells
+}
+function chPostRunCsv(text='',sourceFile=''){
+  if(typeof text!=='string'||text.length>4*1024*1024)
+    throw Error('Native postrun CSV exceeds 4 MiB local-only limit');
+  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/);
+  while(lines.length&&lines.at(-1).trim()==='')lines.pop();
+  if(lines.length<3||lines.length>10002)
+    throw Error('Native postrun requires 2–10000 actual physical samples');
+  const header=chCsvCells(lines[0]);
+  if(header.length<2||header.length>80||
+     header.some(h=>!/^[A-Za-z_][A-Za-z0-9_.:\/%-]{0,119}$/.test(h))||
+     new Set(header).size!==header.length||!header.includes('time_s'))
+    throw Error('Require unique source numeric column names and explicit time_s header');
+  const columnValues=header.map(()=>({min:Infinity,max:-Infinity,first:null,last:null}));
+  let firstTime=null,lastTime=null,minGap=Infinity,maxGap=0;
+  for(let row=1;row<lines.length;row++){
+    const cells=chCsvCells(lines[row]);
+    if(cells.length!==header.length)
+      throw Error('Incomplete or mismatched source CSV row '+(row+1));
+    const values=cells.map(chNumber);
+    if(values.some(n=>!Number.isFinite(n)))
+      throw Error('Missing/nonfinite/nondecimal source sample at row '+(row+1));
+    const time=values[header.indexOf('time_s')];
+    if(lastTime!==null){
+      if(!(time>lastTime))throw Error('Original saved physical times must be strictly increasing');
+      const gap=time-lastTime;minGap=Math.min(minGap,gap);maxGap=Math.max(maxGap,gap)
+    }else firstTime=time;
+    lastTime=time;
+    for(let col=0;col<values.length;col++){
+      const value=values[col],record=columnValues[col];
+      if(row===1)record.first=value;
+      record.last=value;record.min=Math.min(record.min,value);record.max=Math.max(record.max,value)
+    }
+  }
+  return{schema:'foamlens/native-postrun-csv-evidence/1',
+    sourceFile:String(sourceFile||'').slice(0,180),
+    samples:lines.length-1,firstTime_s:firstTime,lastTime_s:lastTime,
+    minSavedInterval_s:minGap,maxSavedInterval_s:maxGap,
+    headers:header.slice(),
+    columns:header.map((name,i)=>({name,...columnValues[i]})),
+    originalSamplesRevalidated:false,
+    physicalModelValidated:false,originalCaseBindingVerified:false,
+    note:'Imported numeric reductions only; timestamps are saved outputs, not solver deltaT. No source-frame, contact, latent heat, Courant, or experimental verification.'}
+}
+
 function chAudit(input={}){
   const c=input.case||{},m=c.discoveryModel||{},d=c.discovery||{},
     rawLogs=(input.logs||[]).filter(s=>String(s.caseId)===String(c.id)&&s.derived!==true),
@@ -197,6 +265,20 @@ function chAudit(input={}){
     ' related postProcessing group(s) discovered. Conservation of sensible+latent energy remains unverified.',
     paths([...energy,...energyPost.flatMap(p=>p.records||[])]),
     'Use Energy Audit and complete physical boundary/storage accounting; no implicit heat-balance proof.');
+  // External native reductions are manually selected. Attribute them to the
+  // case only as unverified source-file context, never as certified physics.
+  if(input.postrun){
+    const p=input.postrun;
+    record('native-postrun','Native postrun CSV timeline','warning',
+      p.samples+' explicit output samples from '+p.firstTime_s+' to '+p.lastTime_s+
+      ' s; '+(p.headers.length-1)+' numeric reduction column(s). Saved interval: '+
+      p.minSavedInterval_s+'–'+p.maxSavedInterval_s+
+      ' s. CSV was checked for finite numeric values, strictly increasing source times and complete rows; no CFD was rerun.'+
+      ' This manually selected summary is not bound to original frames, patch fluxes, material parameters or QuickCup.',
+      p.sourceFile?[p.sourceFile]:[],
+      'For actual physical acceptance, inspect original metal/mold fields, solver log, energy/phase coupling and independent experimental evidence.');
+  }
+
   const counts=Object.fromEntries(chStatuses.map(s=>[s,checks.filter(v=>v.status===s).length]));
   return{schema:'foamlens/scientific-case-health/1',
     caseId:c.id,caseName:String(c.name||''),rootPath:String(c.rootPath||''),
@@ -216,7 +298,7 @@ function chAudit(input={}){
 
 function chUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function chEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let chLast=null,chBound=null,chMesh=null,chRuntimeLog=null,chSelectionVersion=0;
+let chLast=null,chBound=null,chMesh=null,chRuntimeLog=null,chPostrun=null,chSelectionVersion=0;
 function chEl(id){return document.getElementById(id)}
 function chInvalidate(message=''){
   chLast=null;chBound=null;const b=chEl('chExport');if(b)b.disabled=true;
@@ -241,9 +323,9 @@ function chRefresh(){
   if(options.some(c=>String(c.id)===old))sel.value=old;
   else if(typeof activeContextCaseId!=='undefined'&&activeContextCaseId!=null&&
       options.some(c=>String(c.id)===String(activeContextCaseId)))sel.value=String(activeContextCaseId);
-  if(prior!==chSelectedCase()){chSelectionVersion++;chMesh=null;chRuntimeLog=null;
-    const runtimeInput=chEl('chRuntimeFile'),meshInput=chEl('chMeshFile');
-    if(runtimeInput)runtimeInput.value='';if(meshInput)meshInput.value='';
+  if(prior!==chSelectedCase()){chSelectionVersion++;chMesh=null;chRuntimeLog=null;chPostrun=null;
+    const runtimeInput=chEl('chRuntimeFile'),meshInput=chEl('chMeshFile'),postrunInput=chEl('chPostrunFile');
+    if(runtimeInput)runtimeInput.value='';if(meshInput)meshInput.value='';if(postrunInput)postrunInput.value='';
   }
   chInvalidate(chUi('Choose case, optionally attach original reports, then run evidence audit.',
     'Elige caso, adjunta reportes si existen y ejecuta la auditoría de evidencia.'))
@@ -251,10 +333,10 @@ function chRefresh(){
 function chRun(){
   chInvalidate();const c=chSelectedCase(),status=chEl('chStatus');if(!c){status.textContent='Select an imported case.';return}
   if(!c.discoveryModel){status.textContent='Imported case discovery model unavailable; rescan the full case before auditing.';return}
-  const logs=chSourceLogRows(c),r=chAudit({case:c,logs,runtime:chRuntimeLog,meshReport:chMesh});
+  const logs=chSourceLogRows(c),r=chAudit({case:c,logs,runtime:chRuntimeLog,meshReport:chMesh,postrun:chPostrun});
   if(!r.checks.length){status.textContent='No case evidence could be evaluated.';return}
   chLast=r;chBound={case:c,model:c.discoveryModel,logs:logs.slice(),
-    meshReport:chMesh,runtimeLog:chRuntimeLog};
+    meshReport:chMesh,runtimeLog:chRuntimeLog,postrun:chPostrun};
   const counts=r.counts;
   status.textContent='Evidence coverage: '+r.coverage.analyzed+'/'+r.coverage.total+
     ' checks · errors '+counts.error+' · warnings '+counts.warning+
@@ -282,7 +364,7 @@ function chExport(){
   // A case scan or log catalog refresh after evaluation must not export stale evidence.
   if(c!==chBound.case||c.discoveryModel!==chBound.model||
       now.length!==chBound.logs.length||now.some((v,i)=>v!==chBound.logs[i])||
-      chRuntimeLog!==chBound.runtimeLog||chMesh!==chBound.meshReport){
+      chRuntimeLog!==chBound.runtimeLog||chMesh!==chBound.meshReport||chPostrun!==chBound.postrun){
     chInvalidate('Case catalog, source logs or evidence reports changed. Recalculate before exporting.');return
   }
   chDownload({...chLast,exportedAt:new Date().toISOString(),
@@ -305,6 +387,9 @@ function chInstall(){
     '<input type="file" id="chRuntimeFile" accept=".log,.txt,.out,text/plain"></div>'+
     '<div class="field"><label>Optional original checkMesh report (.log/.txt) — manually attributed to case</label>'+
     '<input type="file" id="chMeshFile" accept=".log,.txt,.out,text/plain"></div></div>'+
+    '<div class="field"><label>Optional read-only native postrun time-series CSV (.csv) — manually attributed to this case</label>'+ 
+    '<input type="file" id="chPostrunFile" accept=".csv,text/csv"></div>'+ 
+    '<p class="smallnote">CSV: explicit time_s and numeric reduction columns. Timeline audit only: no source-frame/experimental validity or automatic case binding. All analysis stays local.</p>'+ 
     '<p class="smallnote">Optional report filenames are user-selected; their provenance is NOT cryptographically bound to the imported case.</p>'+
     '<div class="extActions"><button class="btn soft" type="button" id="chRefresh">Refresh case list</button>'+
     '<button class="btn primary" type="button" id="chAudit">Audit current evidence</button>'+
@@ -312,17 +397,18 @@ function chInstall(){
     '<p id="chStatus" class="extStatus" aria-live="polite"></p><div id="chBody"></div>';
   host.appendChild(panel);
   chEl('chRefresh').onclick=chRefresh;chEl('chAudit').onclick=chRun;chEl('chExport').onclick=chExport;
-  chEl('chCase').addEventListener('change',()=>{chSelectionVersion++;chMesh=null;chRuntimeLog=null;
-    chEl('chRuntimeFile').value='';chEl('chMeshFile').value='';
+  chEl('chCase').addEventListener('change',()=>{chSelectionVersion++;chMesh=null;chRuntimeLog=null;chPostrun=null;
+    chEl('chRuntimeFile').value='';chEl('chMeshFile').value='';chEl('chPostrunFile').value='';
     chInvalidate('Case changed. Optional reports cleared to prevent cross-case misattribution.')});
-  for(const [id,key,bytes] of [['chRuntimeFile','runtime',4*1024*1024],['chMeshFile','mesh',12*1024*1024]]){
+  for(const [id,key,bytes] of [['chRuntimeFile','runtime',4*1024*1024],['chMeshFile','mesh',12*1024*1024],['chPostrunFile','postrun',4*1024*1024]]){
     chEl(id).addEventListener('change',async()=>{
       const seq=++chSelectionVersion;chInvalidate('Reading selected text locally…');
-      if(key==='runtime')chRuntimeLog=null;else chMesh=null;
+      if(key==='runtime')chRuntimeLog=null;else if(key==='mesh')chMesh=null;else chPostrun=null;
       try{
         const data=await chReadFile(chEl(id),bytes);if(seq!==chSelectionVersion)return;
         if(key==='runtime')chRuntimeLog=data?chRuntime(data.text,data.file):null;
-        else chMesh=data?maPureCheckMesh(data.text,data.file):null;
+        else if(key==='mesh')chMesh=data?maPureCheckMesh(data.text,data.file):null;
+        else chPostrun=data?chPostRunCsv(data.text,data.file):null;
         chInvalidate(data?'Report parsed. Re-run the case audit.':'Report cleared. Re-run the case audit.')
       }catch(e){if(seq!==chSelectionVersion)return;chInvalidate(String(e?.message||e))}
     })
@@ -332,4 +418,4 @@ function chInstall(){
   chRefresh()
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',chInstall,{once:true});else chInstall();
-window.FoamLensScientificCaseHealth={audit:chAudit,runtime:chRuntime,states:chStatuses.slice()};
+window.FoamLensScientificCaseHealth={audit:chAudit,runtime:chRuntime,postrunCsv:chPostRunCsv,states:chStatuses.slice()};
