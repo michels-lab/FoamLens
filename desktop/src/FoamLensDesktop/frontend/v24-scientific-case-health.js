@@ -415,6 +415,19 @@ function chPostrunSave(name,content,mime){
   const u=URL.createObjectURL(new Blob([content],{type:mime})),a=document.createElement('a');
   a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)
 }
+// Lower/upper bound over strictly increasing actual saved physical times.
+function chPostrunWindow(ts,start,end){
+  if(!Number.isFinite(start)||!Number.isFinite(end)||start>end)return null;
+  let lo=0,hi=ts.length;while(lo<hi){const mid=(lo+hi)>>1;if(ts[mid]<start)lo=mid+1;else hi=mid}
+  const first=lo;lo=first;hi=ts.length;
+  while(lo<hi){const mid=(lo+hi)>>1;if(ts[mid]<=end)lo=mid+1;else hi=mid}
+  return first<lo?{first,last:lo-1}:null
+}
+function chPostrunExtrema(values,first,last){
+  let min=first,max=first;
+  for(let i=first+1;i<=last;i++){if(values[i]<values[min])min=i;if(values[i]>values[max])max=i}
+  return{min,max}
+}
 function chMountPostrunWorkbench(p){
   const host=chEl('chPostrunWorkbench');if(!host||!p?.valuesByColumn)return;
   const available=p.headers.map((name,i)=>({name,i})).filter(c=>c.name!=='time_s');
@@ -434,11 +447,18 @@ function chMountPostrunWorkbench(p){
     '<button class="btn soft" id="chResetRange" type="button">'+label('Full history','Historial completo')+'</button>'+
     '<button class="btn soft" id="chExportWindow" type="button">'+label('Export visible samples CSV','Exportar muestras visibles CSV')+'</button>'+
     '<button class="btn soft" id="chExportChart" type="button">'+label('Export chart SVG','Exportar gráfica SVG')+'</button></div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:8px">'+
+    '<div class="field"><label for="chPhysicalStart">'+label('Start physical time [s]','Tiempo físico inicial [s]')+'</label><input type="number" step="any" id="chPhysicalStart" value="'+p.firstTime_s+'"></div>'+
+    '<div class="field"><label for="chPhysicalEnd">'+label('End physical time [s]','Tiempo físico final [s]')+'</label><input type="number" step="any" id="chPhysicalEnd" value="'+p.lastTime_s+'"></div>'+
+    '<button class="btn soft" type="button" id="chApplyPhysical">'+label('Find saved times in interval','Buscar tiempos guardados en intervalo')+'</button></div>'+
     '<p id="chRangeMsg" class="smallnote" aria-live="polite" style="margin:0"></p>'+
     '<div id="chNativePlots" style="display:grid;gap:6px;min-width:0"></div>'+
     '<div class="field"><label for="chCursor">'+label('Inspect an actual saved time','Inspeccionar un tiempo guardado real')+'</label>'+
     '<input id="chCursor" type="range" style="width:100%" min="0" max="'+(p.samples-1)+'" value="0" step="1"></div>'+
+    '<div class="extActions"><button class="btn soft" type="button" id="chPreviousSample">'+label('Previous sample','Muestra anterior')+'</button><button class="btn soft" type="button" id="chNextSample">'+label('Next sample','Muestra siguiente')+'</button>'+
+    '<button class="btn soft" type="button" id="chMetricMin">'+label('Go to metric 1 minimum','Ir al mínimo de variable 1')+'</button><button class="btn soft" type="button" id="chMetricMax">'+label('Go to metric 1 maximum','Ir al máximo de variable 1')+'</button></div>'+
     '<div id="chSampleReadout" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(175px,100%),1fr));gap:8px;overflow-wrap:anywhere" aria-live="polite"></div>'+
+    '<div id="chWindowExtrema" style="display:grid;gap:6px;overflow-wrap:anywhere"></div>'+
     '<p class="smallnote" style="margin:0">'+label('Lines connect saved samples for visualization only. No missing states, physical units or validation are inferred. The CSV is manually associated with the selected case.','Las líneas conectan muestras guardadas solo para visualización. No se infieren estados faltantes, unidades ni validación física. El CSV se asocia manualmente al caso seleccionado.')+'</p>';
   const firstInput=chEl('chRangeFirst'),lastInput=chEl('chRangeLast'),m1=chEl('chMetric1'),m2=chEl('chMetric2'),slider=chEl('chCursor'),msg=chEl('chRangeMsg');
   m1.value=String(available[0].i);if(available.length>1)m2.value=String(available[1].i);
@@ -453,15 +473,33 @@ function chMountPostrunWorkbench(p){
     chEl('chNativePlots').innerHTML=charts.join('');
     chEl('chSampleReadout').innerHTML=card('time_s',String(p.savedTimes_s[cursor])+' s',label('Saved sample','Muestra guardada')+' '+(cursor+1)+' / '+p.samples)+
       ix.map(i=>card(p.headers[i],String(p.valuesByColumn[i][cursor]),label('Original numeric value','Valor numérico original'))).join('');
+    const indexed=chLast?.postrunTimeline;
+    const extrema=ix.map(i=>{const e=chPostrunExtrema(p.valuesByColumn[i],first,last),v=p.valuesByColumn[i],ts=p.savedTimes_s;
+      return '<div style="padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)"><b>'+chEsc(p.headers[i])+'</b><div class="smallnote">'+label('Window minimum','Mínimo del intervalo')+': '+chEsc(String(v[e.min]))+' @ '+chEsc(String(ts[e.min]))+' s · '+label('Window maximum','Máximo del intervalo')+': '+chEsc(String(v[e.max]))+' @ '+chEsc(String(ts[e.max]))+' s</div></div>'});
+    if(indexed)extrema.unshift('<p class="smallnote" style="margin:0">'+label('Whole-file indexed time coverage (not case ownership)','Cobertura temporal del archivo completo (no prueba pertenencia al caso)')+': '+indexed.matchedCsvSamples+' / '+indexed.csvSamples+'</p>');
+    chEl('chWindowExtrema').innerHTML=extrema.join('');
+    chEl('chPreviousSample').disabled=cursor<=first;chEl('chNextSample').disabled=cursor>=last;
     msg.textContent=(last-first+1)+' '+chUi('saved samples','muestras guardadas')+' · '+String(p.savedTimes_s[first])+'–'+String(p.savedTimes_s[last])+' s';
   };
   const schedule=()=>{if(!frame)frame=requestAnimationFrame(render)};
   const apply=()=>{
     if(!alive())return;const a=Number(firstInput.value),b=Number(lastInput.value);
     if(!Number.isInteger(a)||!Number.isInteger(b)||a<1||b>p.samples||a>b){msg.textContent=chUi('Choose a valid ordered saved-sample window.','Elige un intervalo válido de muestras guardadas.');return}
-    first=a-1;last=b-1;slider.min=String(first);slider.max=String(last);slider.value=String(Math.max(first,Math.min(last,Number(slider.value))));render()
+    first=a-1;last=b-1;slider.min=String(first);slider.max=String(last);slider.value=String(Math.max(first,Math.min(last,Number(slider.value))));
+    chEl('chPhysicalStart').value=String(p.savedTimes_s[first]);chEl('chPhysicalEnd').value=String(p.savedTimes_s[last]);render()
   };
   chEl('chApplyRange').onclick=apply;chEl('chResetRange').onclick=()=>{firstInput.value='1';lastInput.value=String(p.samples);apply()};
+  chEl('chApplyPhysical').onclick=()=>{
+    if(!alive())return;const a=chEl('chPhysicalStart').value,b=chEl('chPhysicalEnd').value;
+    const window=a.trim()&&b.trim()?chPostrunWindow(p.savedTimes_s,Number(a),Number(b)):null;
+    if(!window){msg.textContent=chUi('No saved samples in this interval, or invalid bounds.','No hay muestras guardadas en ese intervalo, o los límites no son válidos.');return}
+    firstInput.value=String(window.first+1);lastInput.value=String(window.last+1);apply()
+  };
+  const jump=i=>{if(!alive())return;slider.value=String(Math.max(first,Math.min(last,i)));render()};
+  chEl('chPreviousSample').onclick=()=>jump(Number(slider.value)-1);
+  chEl('chNextSample').onclick=()=>jump(Number(slider.value)+1);
+  chEl('chMetricMin').onclick=()=>jump(chPostrunExtrema(p.valuesByColumn[Number(m1.value)],first,last).min);
+  chEl('chMetricMax').onclick=()=>jump(chPostrunExtrema(p.valuesByColumn[Number(m1.value)],first,last).max);
   m1.onchange=render;m2.onchange=render;slider.oninput=schedule;
   chEl('chExportWindow').onclick=()=>{
     if(!alive())return;const ix=indices(),rows=[['time_s',...ix.map(i=>p.headers[i])].join(',')];

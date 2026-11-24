@@ -97,7 +97,7 @@ test('selected case numeric time inventory is compared without inventing or auth
   const observed=api.audit({case:selected,postrun:parsed,logs:[]});
   const check=observed.checks.find(c=>c.id==='native-postrun');
   assert.equal(check.status,'warning');
-  assert.match(check.details,/2\/3 CSV times appear/);
+  assert.match(check.details,/2\/3 CSV times align with the indexed original output-time directories/);
   assert.match(check.details,/Configured endTime=0.2 s/);
   assert.match(check.details,/NOT proof of solver completion/);
   const incorrect=api.audit({case:{...selected,config:{source:{controlDict:'case/system/controlDict'},
@@ -132,7 +132,7 @@ test('cross-case timeline coverage is bounded, two-sided and exportable without 
     'original-inventory-unavailable');
 });
 test('near-zero physical frames are not falsely treated as identical across cases',()=>{
-  const csv=api.csv('time_s,T\\n0,1500\\n0.00000000005,1490\\n','small-times.csv');
+  const csv=api.csv('time_s,T\n0,1500\n0.00000000005,1490\n','small-times.csv');
   const selected={id:32,name:'original near zero',config:{},discoveryModel:{
     fields:[],timeDirectories:[0,0.0000000001],regions:[],dictionaries:[],postProcessing:[]}};
   const audit=api.audit({case:selected,logs:[],postrun:csv});
@@ -147,9 +147,9 @@ test('near-zero physical frames are not falsely treated as identical across case
     'machine precision alone can account for matching time representations');
 });
 test('finite CSV values cannot yield an infinite saved interval in a JSON evidence report',()=>{
-  assert.throws(()=>api.csv('time_s,T\\n-1e308,1500\\n1e308,1400\\n','overflow.csv'),
+  assert.throws(()=>api.csv('time_s,T\n-1e308,1500\n1e308,1400\n','overflow.csv'),
     /time interval is not finite/);
-  assert.equal(api.csv('time_s,T\\n0,1500\\n0.1,1400\\n').minSavedInterval_s,.1);
+  assert.equal(api.csv('time_s,T\n0,1500\n0.1,1400\n').minSavedInterval_s,.1);
 });
 
 test('real panel and export preserve source identity and case invalidation',()=>{

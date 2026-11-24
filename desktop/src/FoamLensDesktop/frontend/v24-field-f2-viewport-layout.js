@@ -374,22 +374,17 @@ function pvApplyDeck(){
   const n=views.filter(x=>x.id!=='fcDifferenceViewport').length;
   const width=panel.getBoundingClientRect?.().width||grid.getBoundingClientRect?.().width||0;
   const cols=pvFocus?1:pvDeckColumns(pvDeckMode,n,width);
+  let changed=false;
+  const attr=(node,key,value)=>{const old=node.getAttribute(key);if(old===value)return;if(value===null)node.removeAttribute(key);else node.setAttribute(key,value);changed=true};
+  const css=(node,key,value)=>{if(node.style.getPropertyValue(key)===(value||''))return;if(value===null)node.style.removeProperty(key);else node.style.setProperty(key,value);changed=true};
   if(pvDeckMode==='auto'||pvFocus||!panel.classList.contains('fcCompareMode')){
-    grid.removeAttribute('data-pv-deck-mode');grid.style.removeProperty('--pvDeckColumns')
+    attr(grid,'data-pv-deck-mode',null);css(grid,'--pvDeckColumns',null)
   }else{
-    if(grid.getAttribute('data-pv-deck-mode')!==pvDeckMode)grid.setAttribute('data-pv-deck-mode',pvDeckMode);
-    const value=String(cols);
-    if(grid.style.getPropertyValue('--pvDeckColumns')!==value)grid.style.setProperty('--pvDeckColumns',value)
+    attr(grid,'data-pv-deck-mode',pvDeckMode);css(grid,'--pvDeckColumns',String(cols))
   }
   const height=pvDeckSceneHeight();
-  if(height!==null){if(grid.getAttribute('data-pv-deck-height')!=='equal')grid.setAttribute('data-pv-deck-height','equal')}
-  else grid.removeAttribute('data-pv-deck-height');
-  for(const v of Array.from(grid.children).filter(x=>pvViews[x.id])){
-    if(height!==null){
-      const px=height+'px';
-      if(v.style.getPropertyValue('--pvDeckHeight')!==px)v.style.setProperty('--pvDeckHeight',px)
-    }else v.style.removeProperty('--pvDeckHeight')
-  }
+  attr(grid,'data-pv-deck-height',height===null?null:'equal');
+  for(const v of Array.from(grid.children).filter(x=>pvViews[x.id]))css(v,'--pvDeckHeight',height===null?null:height+'px');
   const count=pvEl('pvDeckStatus');
   if(count){const msg=pvFocus?pvFocusLabel('Focused view','Vista maximizada'):
     n+' '+pvFocusLabel(n===1?'view':'views',n===1?'vista':'vistas')+' · '+cols+' '+pvFocusLabel(cols===1?'column':'columns',cols===1?'columna':'columnas');
@@ -398,7 +393,7 @@ function pvApplyDeck(){
   const mode=pvEl('pvDeckMode'),heightSelect=pvEl('pvDeckHeight');
   if(mode&&mode.value!==pvDeckMode)mode.value=pvDeckMode;
   if(heightSelect&&heightSelect.value!==pvDeckHeight)heightSelect.value=pvDeckHeight;
-  pvRedraw()
+  if(changed)pvRedraw()
 }
 function pvDeckLabels(){
   const bar=pvEl('pvDeckBar');if(!bar)return;
@@ -413,7 +408,7 @@ function pvDeckLabels(){
   }
 }
 function pvMountDeck(grid){
-  if(pvEl('pvDeckBar'))return;
+  if(!grid?.parentElement||!pvEl('fieldViewPanel')||pvEl('pvDeckBar'))return;
   const bar=document.createElement('section');bar.id='pvDeckBar';bar.className='pvDeckBar';
   bar.innerHTML='<strong id="pvDeckLabel"></strong><label class="pvDeckChoice"><span id="pvDeckModeLabel"></span><select id="pvDeckMode"><option value="auto"></option><option value="two"></option><option value="row"></option></select></label>'+
     '<label class="pvDeckChoice"><span id="pvDeckHeightLabel"></span><select id="pvDeckHeight"><option value="individual"></option><option value="compact"></option><option value="balanced"></option><option value="large"></option></select></label>'+
@@ -499,6 +494,7 @@ function pvDiscover(){
   if(pvObservedGrid!==grid&&typeof MutationObserver!=='undefined'){
     pvObserver?.disconnect?.();
     pvObserver=new MutationObserver(()=>{
+      pvMountDeck(grid);
       for(const child of grid.children)pvMountViewport(child);
       pvReconcileFocus();
       pvSyncFocusButtons();pvApplyDeck()
