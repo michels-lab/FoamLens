@@ -478,7 +478,7 @@ fcExtraViews[0].mesh=savedMesh;
 for(const fragment of [
   "fcAddViewportToolbar(primary,'A')","fcAddViewportToolbar(second,'B')","fcAddViewportToolbar(viewport,id)",
   "fcScheduleToolbarSync()","source.dispatchEvent(new Event('change',{bubbles:true}))",
-  "e.dataTransfer?.setData('text/plain',viewport.id)","fcMoveViewport(viewport.parentElement,fcDraggedView,viewport",
+  "fcBindViewportDrag(handle,viewport)","handle.setPointerCapture(event.pointerId)","fcMoveViewport(grid(),viewport,drop.target,drop.after)",
   "data-fc-zoom=","data-fc-fit=","fcFitViewport(", "fcViewToolbar","fcViewPicker","fcViewZoom",
   "FC_MAX_TOTAL_VIEWS=4","if(oldCase&&loaded.some(c=>String(c.id)===String(oldCase)))"
 ])assert(source.includes(fragment),'Missing production multi-view mechanism: '+fragment);
