@@ -4,6 +4,7 @@
 - **Unavailable case diagnosis:** show detected complete mesh and compatible field-region counts, original case name and source-directory guidance in A; do not run Allclean or the solver. B14's actual disk inventory is not known.
 - **Layout:** equal balanced scenes by default (independent sizes still selectable), align real header heights across visible comparison panes, reclaim hidden companion columns and use theme-compatible scrollbar styling.
 - **Scientific analysis:** integrated interactive 2D/3D curves and difference chart, exact aligned sample cursor and time-weighted error integrals (#375); up to eight spatial profiles with shared coordinate grid, actual-time compatibility, length-weighted errors and bound JSON/CSV (#376).
+- **Visual feedback:** collision-aware XYZ labels and adaptive tick density, compact scientific legends with full-value tooltips, transparent comparison region ordering and camera preservation when primary geometry is unavailable. Source diagnosis now lists indexed meshes, compatible fields, original time ranges and missing mesh components when present in the inventory.
 - **Publication:** exact source Windows build, QuickCup, native visual and integrity gates retained. Owner manual B14/C14 verification after publication; no physical validation or claimed completed UI acceptance.
 
 ## Desktop v1.8.22 — GRANADA integrated comparison and native scientific timeline (2026-11-23)

@@ -9,9 +9,9 @@
   "progress_percent": 47,
   "verified_milestones": 7,
   "total_milestones": 15,
-  "phase": "v1.8.22 published; PR #375/#376 merged; owner Field A–D unavailable-primary recovery integrated for v1.8.23",
-  "source_pr": "https://github.com/michels-lab/FoamLens/pull/376",
-  "source_head_sha": "e880faceea5aa4c9621a8db2712ed691fcd735a2",
+  "phase": "v1.8.23 publication retry after camera regression; #377 merged with axes, legend, composite and source inventory diagnosis",
+  "source_pr": "https://github.com/michels-lab/FoamLens/pull/377",
+  "source_head_sha": "614e3060631a038a19bb75d1e4db09321520ea4e",
   "latest_verified_stable": "v1.8.22",
   "release_hold": false,
   "owner_physical_acceptance": false,
@@ -148,7 +148,7 @@
       ]
     }
   ],
-  "next_step": "Publish v1.8.23 through official workflow and inspect B14 actual source files plus owner installed A–D time/camera/layout feedback; continue axis labels and CAD.",
+  "next_step": "Confirm official retry v1.8.23 and verify real B14/C14; continue independent field/data workflow and CAD.",
   "limitations": "7/15 verified formal milestones; release milestone remains for final exact-current scope. Published v1.8.22 verified, later owner screenshot defects still require acceptance. No B14 source inventory inspected.",
   "last_granada": {
     "as_of": "2026-11-24",
@@ -156,13 +156,12 @@
     "progress_after": 47,
     "verified_milestones": 7,
     "total_milestones": 15,
-    "source_code_sha": "e880faceea5aa4c9621a8db2712ed691fcd735a2",
-    "scope": "Field unavailable-primary isolation, actual timestamp fallback, camera fit, diagnosis, header/scene layout and integrated scientific comparisons",
+    "source_code_sha": "614e3060631a038a19bb75d1e4db09321520ea4e",
+    "scope": "Axis/legend clarity, comparison transparency, camera fallback, indexed source diagnostics; release retry",
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.22",
-      "https://github.com/michels-lab/FoamLens/pull/375",
-      "https://github.com/michels-lab/FoamLens/pull/376"
+      "https://github.com/michels-lab/FoamLens/pull/377",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45345463170"
     ],
-    "pending": "v1.8.23 publication, original B14 files, owner manual acceptance, metric axis collisions, CAD"
+    "pending": "Exact-source publisher and owner B14/C14 verification"
   }
 }
