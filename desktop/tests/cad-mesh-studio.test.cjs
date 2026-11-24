@@ -84,3 +84,22 @@ const pf=ms.qualityCSV('id,value\n0,7','pointSet',m);assert.equal(ms.spatialSele
 assert.throws(()=>ms.spatialSelect(m,'cellSet',box));assert.throws(()=>ms.spatialSelect(m,'cellSet',[],flux));assert.throws(()=>ms.spatialSelect(m,'faceSet',[],flux,{kind:'faceSet',values:[0,0]}));
 for(const bad of ['box 1 0 0 0 1 1','slab 0 0 0 0 0 0 0 1','cylinder 0 0 0 0 0 0 1','threshold 2 1','threshold NaN 3'])assert.throws(()=>ms.parseSpatialPipeline(bad));
 console.log('Spatial ROI geometry, signed integration, partial coverage and association gates PASS');
+
+assert.equal(ms.poly({...cube,owner:head('owner','labelList')+'6{0}'}).cells.length,1);
+assert.throws(()=>ms.poly({...cube,owner:head('owner','labelList')+'6{1}'}));
+const tableMeta={source:'metal/interface',coordinateUnit:'mm',association:'faceSet',field:'q',unit:'W/m²',weightUnit:'mm²',convention:'intensive',time:0};
+const tableA=ms.xyzTable('id,x,y,z,value,weight,time\n0,0,0,0,10,1000000,0\n1,1000,0,0,20,2000000,0\n0,0,0,0,20,1000000,1\n1,1000,0,0,30,2000000,1\n0,0,0,0,40,1000000,3\n1,1000,0,0,,2000000,3\n0,0,0,0,50,1000000,8\n1,1000,0,0,50,2000000,8',tableMeta);
+assert.equal(tableA.groups.size,4);assert.equal(tableA.groups.get(0)[1].x,1);near(tableA.groups.get(0)[1].weight,2);
+const hist=ms.xyzSelect(tableA,[]);near(hist[0].integral,50);near(hist[0].weightedMean,50/3);near(hist[1].integral,80);assert.equal(hist[2].complete,false);near(hist[2].coverage,.5);
+let ts=ms.timeSummary(hist,'integral',3);near(ts.timeIntegral,65);near(ts.covered_s,1);near(ts.timeCoverage,.125);assert.equal(ts.skipped,2);near(ts.sampleMean,280/3);
+const selectedHist=ms.xyzSelect(tableA,ms.parseSpatialPipeline('box 0 0 0 .1 1 1'));ts=ms.timeSummary(selectedHist,'integral',3);near(ts.timeIntegral,75);near(ts.covered_s,3);assert.equal(ts.skipped,1);
+const pointTable=ms.xyzTable('id,x,y,z,value,time\n1,0,0,0,4,0\n1,0,0,0,8,2',{...tableMeta,association:'pointSet'}),pointHist=ms.xyzSelect(pointTable,[]);assert.equal(pointHist[0].integral,null);near(ms.timeSummary(pointHist,'mean',3).timeIntegral,12);
+const faceB=ms.xyzTable('id,x,y,z,value,weight\n91,1,0,0,-20,2\n92,0,0,0,-10,1',{...tableMeta,source:'mold/interface',coordinateUnit:'m',weightUnit:'m²'});
+let pair=ms.xyzFluxPair(tableA,faceB,0,1,1,1e-6);assert.equal(pair.matched,2);near(pair.outwardA,50);near(pair.outwardB,-50);near(pair.residual,0);near(pair.areaCoverageB,1);assert.equal(pair.interfaceVerified,false);
+pair=ms.xyzFluxPair(tableA,faceB,0,1,-1,1e-6);near(pair.residual,100);
+const duplicate=ms.xyzTable('id,x,y,z,value,weight\n91,1,0,0,-20,2\n92,0,0,0,-10,1\n93,0,0,0,-10,1',{...tableMeta,coordinateUnit:'m',weightUnit:'m²'});pair=ms.xyzFluxPair(tableA,duplicate,0,1,1,0);assert.equal(pair.matched,1);assert.equal(pair.duplicatesB,2);near(pair.areaCoverageA,2/3);
+const unequal=ms.xyzTable('id,x,y,z,value,weight\n1,0,0,0,-10,1.1',{...tableMeta,coordinateUnit:'m',weightUnit:'m²'});assert.equal(ms.xyzFluxPair(tableA,unequal,0,1,1,.01).areaMismatch,1);
+const per=ms.xyzTable('id,x,y,z,value,weight\n1,0,0,0,5,1000000',{...tableMeta,convention:'perEntity',unit:'W'});near(ms.xyzSelect(per,[])[0].integral,5);
+for(const bad of ['id,x,y,z,value,weight\n1,0,0,0,1,-1','id,x,y,z,value\n1,0,0,0,1\n1,1,1,1,2','id,x,y,z,value\n1,NaN,0,0,1'])assert.throws(()=>ms.xyzTable(bad,tableMeta));
+assert.throws(()=>ms.xyzFluxPair(tableA,faceB,1,1,1,0));assert.throws(()=>ms.xyzFluxPair(tableA,faceB,0,0,1,0));assert.throws(()=>ms.timeSummary(hist,'integral',0));
+console.log('XYZ SI units, irregular time quadrature, missing coverage and exact signed interface matching PASS');
