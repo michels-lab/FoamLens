@@ -1,4 +1,4 @@
-// CAD-only Cartesian blockMesh designer. No case writes, native runs or invented interfaces.
+// Cartesian blockMesh designer; optional native isolated run; no original case writes.
 /* FOAMLENS_BLOCKMESH_DESIGN_CORE_START */
 function cmbNumber(s){
   if(typeof s!=='string'||!/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(s.trim()))throw Error('Expected a finite decimal number');
@@ -64,6 +64,10 @@ function cmbSlice(p,axis,index){
   const uv=[0,1,2].filter(a=>a!==axis),[u,v]=uv;
   return{u,v,axis,index,blocks:p.blocks.filter(b=>b.ijk[axis]===index).map(b=>({key:b.ijk.join(','),zone:b.zone,rect:[p.axes[u].points[b.ijk[u]],p.axes[v].points[b.ijk[v]],p.axes[u].points[b.ijk[u]+1],p.axes[v].points[b.ijk[v]+1]],cells:b.cells}))}
 }
+function cmbNativePayload(p,version){
+ if(!['13','14'].includes(version)||p.cellCount>200000)throw Error('Native Foundation 13/14 run supports at most 200,000 cells');
+ return {version,axes:p.axes,patches:p.boundary.map(x=>x.name),zones:p.blocks.filter(b=>b.zone).map(b=>({ijk:b.ijk,name:b.zone}))};
+}
 /* FOAMLENS_BLOCKMESH_DESIGN_CORE_END */
 function cmbMount(){
   const anchor=document.getElementById('cgOpenFoamPrepPreview');if(!anchor||document.getElementById('cmbDesigner'))return;
@@ -78,11 +82,31 @@ function cmbMount(){
     '<div class="cgTools"><label>'+tr('Zone name','Nombre de zona')+' <input id="cmbPaint" placeholder="metal / mold"></label><label>'+tr('Slice normal','Normal del corte')+' <select id="cmbNormal"><option value="2">Z (XY)</option><option value="1">Y (XZ)</option><option value="0">X (YZ)</option></select></label><label>'+tr('Layer','Capa')+' <select id="cmbLayer"></select></label></div>'+
     '<textarea id="cmbZones" rows="3" style="width:100%;box-sizing:border-box" placeholder="0 0 0 metal"></textarea>'+
     '<div class="cgTools"><button class="btn primary" id="cmbPreview" type="button">'+tr('Build plan / preview','Crear plan / vista previa')+'</button><button class="btn soft" id="cmbExport" disabled type="button">'+tr('Export blockMeshDict + plan ZIP','Exportar blockMeshDict + plan ZIP')+'</button></div>'+
-    '<p id="cmbStatus" class="cgNotice" aria-live="polite"></p><div id="cmbView"></div>';
+    '<p id="cmbStatus" class="cgNotice" aria-live="polite"></p><div id="cmbView"></div><div class="cgTools"><label>OpenFOAM Foundation <select id="cmbVersion"><option value="14">14</option><option value="13">13</option></select></label><button class="btn primary" id="cmbNativeRun" type="button" disabled>'+tr('Run blockMesh + checkMesh in temporary WSL case','Ejecutar blockMesh + checkMesh en caso temporal WSL')+'</button><button class="btn soft" id="cmbNativeCancel" type="button" disabled>'+tr('Cancel','Cancelar')+'</button><button class="btn soft" id="cmbNativeExport" type="button" disabled>'+tr('Export actual mesh / logs ZIP','Exportar malla real / logs ZIP')+'</button></div><p class="cgNotice">'+tr('Windows + default WSL, selected Foundation version installed. 200,000 cell and 24 MiB mesh transfer limits; no solver, BC or automatic region splitting.','Windows + WSL predeterminado, versión Foundation seleccionada instalada. Límite de 200,000 celdas y 24 MiB de malla; sin solver, BC ni separación automática de regiones.')+'</p><p id="cmbNativeStatus" class="cgNotice" aria-live="polite"></p><pre id="cmbNativeLogs" style="white-space:pre-wrap;max-height:260px;overflow:auto"></pre>';
   anchor.insertAdjacentElement('afterend',panel);
-  const el=id=>document.getElementById(id);let plan=null;
+  const el=id=>document.getElementById(id);let plan=null,nativeReport=null,nativeTask=null,revision=0;
   const input=()=>({axes:['X','Y','Z'].map(a=>el('cmb'+a).value),patches:Array.from({length:6},(_,i)=>el('cmbPatch'+i).value.trim()),zones:el('cmbZones').value});
-  const invalidate=()=>{plan=null;el('cmbExport').disabled=true;el('cmbView').textContent='';el('cmbStatus').textContent=cgUi('Inputs changed; rebuild plan.','Entradas modificadas; vuelve a generar el plan.')};
+  const invalidate=()=>{resetNative();plan=null;el('cmbExport').disabled=true;el('cmbView').textContent='';el('cmbStatus').textContent=cgUi('Inputs changed; rebuild plan.','Entradas modificadas; vuelve a generar el plan.');buttons()};
+  const available=()=>!!window.chrome?.webview?.postMessage;
+  function buttons(){el('cmbNativeRun').disabled=!!nativeTask||!available()||!plan||plan.cellCount>200000;el('cmbNativeCancel').disabled=!nativeTask;el('cmbNativeExport').disabled=!nativeReport||!!nativeTask}
+  function resetNative(){revision++;nativeReport=null;if(nativeTask)nativeTask.cancel();el('cmbNativeStatus').textContent='';el('cmbNativeLogs').textContent='';buttons()}
+  function nativeRequest(payload){
+   const webview=window.chrome.webview,requestId='cmb_native_'+Date.now()+'_'+revision;let finished=false,timer,listener;
+   const cancel=()=>{if(!finished)webview.postMessage({type:'cancelOperation',requestId:requestId+'_cancel',targetRequestId:requestId})};
+   const promise=new Promise((resolve,reject)=>{const finish=(err,data)=>{if(finished)return;finished=true;clearTimeout(timer);webview.removeEventListener('message',listener);err?reject(err):resolve(data)};
+    listener=e=>{const r=e.data;if(r?.type==='nativeReply'&&r.requestId===requestId)finish(r.ok?null:Error(r.error||'Native mesh failed'),r.data)};
+    webview.addEventListener('message',listener);timer=setTimeout(()=>{try{cancel()}finally{finish(Error('Native mesh request timed out'))}},235000);
+    try{webview.postMessage({type:'runCartesianMesh',requestId,...payload})}catch(e){finish(e)}
+   });return{promise,cancel}
+  }
+  el('cmbVersion').onchange=resetNative;
+  el('cmbNativeCancel').onclick=()=>{if(nativeTask){nativeTask.cancel();el('cmbNativeStatus').textContent=cgUi('Cancellation requested; awaiting native response.','Cancelación solicitada; esperando respuesta nativa.')}};
+  el('cmbNativeRun').onclick=async()=>{if(nativeTask||!plan||!available())return;let token;try{const p=cmbPlan(input()),version=el('cmbVersion').value,payload=cmbNativePayload(p,version);resetNative();token=revision;nativeTask=nativeRequest(payload);buttons();el('cmbNativeStatus').textContent=cgUi('Running in isolated WSL temporary case…','Ejecutando en caso temporal WSL aislado…');
+   const r=await nativeTask.promise;if(token!==revision)return;if(r?.schema!=='foamlens/native-cartesian-mesh/1'||r.originalCaseModified!==false||r.plannedCells!==p.cellCount)throw Error('Unexpected native report');
+   nativeReport=r;const count=Object.keys(r.files||{}).length;el('cmbNativeStatus').textContent='Foundation '+(r.version||'—')+' · blockMesh exit '+(r.blockMeshExit??'—')+' · checkMesh exit '+(r.checkMeshExit??'—')+' · '+count+' mesh files · '+(r.exportError||cgUi('Review logs; no quality certification.','Revisa logs; sin certificación de calidad.'));
+   el('cmbNativeLogs').textContent=[r.stderr,r.stdout,r.blockMeshLog,r.checkMeshLog].filter(Boolean).join('\n\n');
+  }catch(e){if(token===undefined||token===revision)el('cmbNativeStatus').textContent=e.message}finally{nativeTask=null;buttons()}};
+  el('cmbNativeExport').onclick=()=>{if(!nativeReport)return;const {files,dictionary,blockMeshLog,checkMeshLog,...meta}=nativeReport;try{const entries=[{name:'system/blockMeshDict',data:dictionary},{name:'report.json',data:JSON.stringify(meta,null,2)}];if(blockMeshLog)entries.push({name:'blockMesh.log',data:blockMeshLog});if(checkMeshLog)entries.push({name:'checkMesh.log',data:checkMeshLog});for(const [name,data] of Object.entries(files||{})){if(!/^constant\/polyMesh\/(points|faces|owner|neighbour|boundary|cellZones|faceZones|pointZones)$/.test(name)||typeof data!=='string')throw Error('Invalid native mesh file');entries.push({name,data})}cgDownloadZip('FoamLens-native-cartesian-mesh.zip',cgStoreZip(entries))}catch(e){el('cmbNativeStatus').textContent=e.message}};
   const draw=()=>{
     if(!plan)return;const axis=Number(el('cmbNormal').value),layers=el('cmbLayer'),old=Number(layers.value)||0;
     layers.innerHTML=Array.from({length:plan.dims[axis]},(_,i)=>'<option value="'+i+'">'+i+'</option>').join('');layers.value=String(Math.min(old,plan.dims[axis]-1));
@@ -101,7 +125,7 @@ function cmbMount(){
       g.onclick=assign;g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();assign()}}
     }
   };
-  const build=()=>{try{plan=cmbPlan(input());el('cmbExport').disabled=false;el('cmbStatus').textContent=cgUi('Cartesian plan ready; no mesh has been generated.','Plan cartesiano listo; no se ha generado malla.');draw()}catch(e){invalidate();el('cmbStatus').textContent=String(e.message)}};
+  const build=()=>{resetNative();try{plan=cmbPlan(input());el('cmbExport').disabled=false;buttons();el('cmbStatus').textContent=cgUi('Cartesian plan ready; no mesh has been generated.','Plan cartesiano listo; no se ha generado malla.');draw()}catch(e){invalidate();el('cmbStatus').textContent=String(e.message)}};
   for(const id of ['cmbX','cmbY','cmbZ','cmbZones',...Array.from({length:6},(_,i)=>'cmbPatch'+i)])el(id).addEventListener('input',invalidate);
   el('cmbPreview').onclick=build;el('cmbNormal').onchange=draw;el('cmbLayer').onchange=draw;
   el('cmbBounds').onclick=()=>{try{
@@ -116,7 +140,7 @@ function cmbMount(){
   el('cmbExport').onclick=()=>{if(!plan)return;try{const current=cmbPlan(input());cgDownloadZip('FoamLens-cartesian-blockMesh-plan.zip',cgStoreZip([{name:'staging/system/blockMeshDict',data:cmbDictionary(current)},{name:'plan.json',data:JSON.stringify(current,null,2)+'\n'},{name:'README.txt',data:'Review installed version and patches. Run blockMesh and checkMesh only in a NEW case. Zones are not split regions or verified interfaces. No curved edges, CAD fit, BC, polyMesh or solver generated.\n'}]))}catch(e){invalidate();el('cmbStatus').textContent=String(e.message)}}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cmbMount,{once:true});else cmbMount();
-window.FoamLensCartesianBlockMesh={plan:cmbPlan,dictionary:cmbDictionary,slice:cmbSlice};
+window.FoamLensCartesianBlockMesh={plan:cmbPlan,dictionary:cmbDictionary,slice:cmbSlice,nativePayload:cmbNativePayload};
 
 
 /* FOAMLENS_MESH_STUDIO_CORE_START */
