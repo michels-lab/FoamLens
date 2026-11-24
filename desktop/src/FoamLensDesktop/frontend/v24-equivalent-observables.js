@@ -125,6 +125,39 @@ function eoSampleGrid(a,b,maxPoints=20000){
   return{valid:true,range:[lo,hi],times:unique,
     sourcePoints:unique.length,maxPoints:limit,notDecimated:true}
 }
+// Time-weighted errors over the piecewise-linear aligned difference curve.
+// Do not conflate unequal time spacing with a uniformly sampled experiment.
+function eoDurationMetrics(rows){
+  const duration=rows.at(-1)?.t-rows[0]?.t;
+  if(!(duration>0)||!Number.isFinite(duration))return null;
+  let scale=0;for(const r of rows)scale=Math.max(scale,Math.abs(r.delta));
+  if(!Number.isFinite(scale))return null;
+  let signed=0,absolute=0,square=0,positive=0,negative=0,zero=0,maxIndex=0;
+  for(let i=0;i<rows.length;i++){
+    if(Math.abs(rows[i].delta)>Math.abs(rows[maxIndex].delta))maxIndex=i;
+    if(!i)continue;
+    const a=rows[i-1],b=rows[i],dt=b.t-a.t,w=dt/duration;
+    if(!(dt>0)||!Number.isFinite(w))return null;
+    const x=scale?a.delta/scale:0,y=scale?b.delta/scale:0;
+    signed+=w*(x+y)/2;square+=w*(x*x+x*y+y*y)/3;
+    if(x===0&&y===0){zero+=w;continue}
+    if(x>=0&&y>=0){positive+=w;absolute+=w*(x+y)/2}
+    else if(x<=0&&y<=0){negative+=w;absolute-=w*(x+y)/2}
+    else{
+      const frac=Math.abs(x)/(Math.abs(x)+Math.abs(y));
+      absolute+=w*(Math.abs(x)*frac+Math.abs(y)*(1-frac))/2;
+      positive+=w*(x>0?frac:1-frac);negative+=w*(x<0?frac:1-frac)
+    }
+  }
+  const bias=signed*scale,mae=absolute*scale,rmse=Math.sqrt(Math.max(0,square))*scale;
+  const finiteOrNull=n=>Number.isFinite(n)?n:null;
+  return{duration_s:duration,bias3dMinus2d:finiteOrNull(bias),mae:finiteOrNull(mae),
+    rmse:finiteOrNull(rmse),signedDifferenceIntegral:finiteOrNull(bias*duration),
+    absoluteDifferenceIntegral:finiteOrNull(mae*duration),
+    aboveDuration_s:positive*duration,belowDuration_s:negative*duration,equalDuration_s:zero*duration,
+    maxAbsTime_s:rows[maxIndex].t,maxAbsSignedDelta:rows[maxIndex].delta,
+    method:'Exact integration of the piecewise-linear aligned difference, not additional measured source frames'}
+}
 function eoCompare(a,b,config={}){
   // Config describes user-provided observational equivalence, NOT 2D/3D certification.
   const reject=(reason)=>({valid:false,reason,rows:[],metrics:null,noExtrapolation:true});
@@ -168,6 +201,7 @@ function eoCompare(a,b,config={}){
     metrics:{n,mae:totalAbs/n,rmse:Math.sqrt(totalSquared/n),bias3dMinus2d:total/n,maxAbs,
       nativePairs:rows.filter(r=>r.source2d==='measured'&&r.source3d==='measured').length,
       interpolationPairs:rows.filter(r=>r.source2d!=='measured'||r.source3d!=='measured').length},
+    durationMetrics:eoDurationMetrics(rows),
     methods:{temporalAlignment:'union of source physical times, linear interpolation only INSIDE shared coverage',
       spatialAlignment:'owner-specified observable/location equivalence; no cell-to-cell interpolation',
       noExtrapolation:true,noFieldSubtraction:true,noCaseMutation:true},
@@ -189,7 +223,7 @@ function eoSourceFingerprint(s){
 
 function eoUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function eoEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let eoLast=null,eoBound=null,eoCatalog=[];
+let eoLast=null,eoBound=null,eoCatalog=[],eoCursor=0,eoFrom=0,eoTo=0,eoPlotMode='curves';
 function eoSelect(id){return document.getElementById(id)}
 function eoCatalogItems(){
   const usable=(Array.isArray(series)?series:[]).map((s,i)=>({s,i})).filter(x=>{
@@ -206,7 +240,7 @@ function eoRefresh(){
   eoCatalog=eoCatalogItems();
   // A refreshed source list must never silently rebind an old selector index
   // to a different physical dataset after imports/retries.
-  eoLast=null;eoBound=null;eoSelect('eoReport').textContent='';
+  eoInvalidate();eoSelect('eoReport').textContent='';
   eoSelect('eoExportJson').disabled=true;eoSelect('eoExportCsv').disabled=true;
   const canvas=eoSelect('eoPlot'),ctx=canvas?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
   const labels=eoCatalog.map((x,i)=>{
@@ -240,7 +274,7 @@ function eoRun(){
     maxPoints:eoNumber(eoSelect('eoPoints').value)};
   const result=eoCompare({...a,datasetType:'timeseries'},{...b,datasetType:'timeseries'},config);
   const area=eoSelect('eoReport'),status=eoSelect('eoStatus');
-  if(!result.valid){area.textContent='';status.textContent=result.reason;eoSelect('eoExportJson').disabled=true;eoSelect('eoExportCsv').disabled=true;return}
+  if(!result.valid){eoInvalidate();area.textContent='';status.textContent=result.reason;return}
   eoLast=result;
   eoBound={
     a,b,
@@ -259,38 +293,108 @@ function eoRun(){
       fmt(result.metrics.maxAbs),result.metrics.nativePairs,result.metrics.interpolationPairs].map(x=>'<td>'+eoEsc(x)+'</td>').join('')+
     '</tr></tbody></table></div>'+
     '<p class="smallnote">'+eoEsc(result.spatialMappingNote)+' · '+eoEsc(result.limitations.join(' '))+'</p>';
-  eoDraw(result);eoSelect('eoExportJson').disabled=false;eoSelect('eoExportCsv').disabled=false
+  eoMountInspector(result);eoDraw(result);eoSelect('eoExportJson').disabled=false;eoSelect('eoExportCsv').disabled=false
 }
 function eoInvalidate(){
   // A prior result is no longer attributable to newly selected source or settings.
   eoLast=null;eoBound=null;const report=eoSelect('eoReport');if(report)report.textContent='';
   for(const id of ['eoExportJson','eoExportCsv']){const button=eoSelect(id);if(button)button.disabled=true}
+  const inspector=eoSelect('eoInspector');if(inspector){inspector.hidden=true;inspector.textContent=''}
   const canvas=eoSelect('eoPlot'),ctx=canvas?.getContext?.('2d');
   if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
   const status=eoSelect('eoStatus');if(status)status.textContent=eoUi(
     'Comparison inputs changed. Recalculate before exporting.',
     'Cambiaste los datos de comparación. Recalcula antes de exportar.')
 }
+function eoFmt(value){return Number.isFinite(value)?Number(value.toPrecision(7)).toString():'—'}
+function eoWindowRows(result){return result.rows.slice(eoFrom,eoTo+1)}
+function eoMountInspector(result){
+  const host=eoSelect('eoInspector');if(!host)return;
+  eoFrom=0;eoTo=result.rows.length-1;eoCursor=0;eoPlotMode='curves';host.hidden=false;
+  const tr=(a,b)=>eoEsc(eoUi(a,b)),n=result.rows.length;
+  host.innerHTML='<div style="display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0">'+
+    '<b>'+tr('Comparison workbench','Comparador interactivo')+'</b>'+
+    '<div class="extGrid2"><div class="field"><label for="eoViewMode">'+tr('Plot','Gráfica')+'</label><select id="eoViewMode"><option value="curves">'+tr('Aligned curves','Curvas alineadas')+'</option><option value="difference">'+tr('Difference (3D − 2D)','Diferencia (3D − 2D)')+'</option></select></div>'+
+    '<div class="field"><label for="eoSampleCursor">'+tr('Aligned sample','Muestra alineada')+'</label><input id="eoSampleCursor" style="width:100%" type="range" min="0" max="'+(n-1)+'" step="1" value="0"></div></div>'+
+    '<div class="extGrid2"><div class="field"><label for="eoWindowStart">'+tr('Start physical time [s]','Tiempo físico inicial [s]')+'</label><input type="number" step="any" id="eoWindowStart" value="'+result.range.start+'"></div>'+
+    '<div class="field"><label for="eoWindowEnd">'+tr('End physical time [s]','Tiempo físico final [s]')+'</label><input type="number" step="any" id="eoWindowEnd" value="'+result.range.end+'"></div></div>'+
+    '<div class="extActions"><button class="btn soft" type="button" id="eoWindowApply">'+tr('Apply window','Aplicar intervalo')+'</button><button class="btn soft" type="button" id="eoWindowReset">'+tr('Full overlap','Solapamiento completo')+'</button>'+
+    '<button class="btn soft" type="button" id="eoJumpPeak">'+tr('Go to maximum |Δ|','Ir al máximo |Δ|')+'</button></div>'+
+    '<div id="eoWindowStatus" class="smallnote" aria-live="polite"></div><div id="eoSampleReadout" style="display:grid;gap:6px;overflow-wrap:anywhere" aria-live="polite"></div>'+
+    '<div id="eoDurationReadout" style="display:grid;gap:6px;overflow-wrap:anywhere"></div>'+
+    '<p class="smallnote" style="margin:0">'+tr('Window metrics integrate the aligned piecewise-linear difference in time. JSON and CSV still export the complete aligned comparison, not just the displayed window.','Las métricas del intervalo integran la diferencia alineada lineal por tramos en el tiempo. JSON y CSV siguen exportando toda la comparación alineada, no solo el intervalo visible.')+'</p></div>';
+  const jump=i=>{if(eoLast!==result)return;eoCursor=Math.max(eoFrom,Math.min(eoTo,i));eoSelect('eoSampleCursor').value=String(eoCursor);eoDraw(result)};
+  const apply=(lo,hi)=>{
+    if(eoLast!==result)return;
+    if(!Number.isFinite(lo)||!Number.isFinite(hi)||lo>=hi){eoSelect('eoWindowStatus').textContent=eoUi('Enter a finite increasing interval.','Introduce un intervalo finito creciente.');return}
+    let a=0,b=n;while(a<b){const m=(a+b)>>1;if(result.rows[m].t<lo)a=m+1;else b=m}
+    const first=a;b=n;while(a<b){const m=(a+b)>>1;if(result.rows[m].t<=hi)a=m+1;else b=m}
+    if(a-first<2){eoSelect('eoWindowStatus').textContent=eoUi('At least two aligned time knots are required.','Se requieren al menos dos tiempos alineados.');return}
+    eoFrom=first;eoTo=a-1;
+    const cursor=eoSelect('eoSampleCursor');cursor.min=String(eoFrom);cursor.max=String(eoTo);
+    eoSelect('eoWindowStart').value=String(result.rows[eoFrom].t);
+    eoSelect('eoWindowEnd').value=String(result.rows[eoTo].t);jump(eoCursor)
+  };
+  eoSelect('eoViewMode').onchange=e=>{eoPlotMode=e.target.value;eoDraw(result)};
+  eoSelect('eoSampleCursor').oninput=e=>jump(Number(e.target.value));
+  eoSelect('eoWindowApply').onclick=()=>apply(eoNumber(eoSelect('eoWindowStart').value),eoNumber(eoSelect('eoWindowEnd').value));
+  eoSelect('eoWindowReset').onclick=()=>apply(result.range.start,result.range.end);
+  eoSelect('eoJumpPeak').onclick=()=>{let k=eoFrom;for(let i=eoFrom+1;i<=eoTo;i++)if(Math.abs(result.rows[i].delta)>Math.abs(result.rows[k].delta))k=i;jump(k)}
+}
+function eoInspectorReadout(result,rows){
+  if(!eoSelect('eoSampleReadout'))return;
+  const row=result.rows[eoCursor],d=eoDurationMetrics(rows),tr=(a,b)=>eoEsc(eoUi(a,b));
+  const box=(label,value,sub='')=>'<div style="padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)"><span class="smallnote">'+eoEsc(label)+'</span><div style="font-size:16px;font-weight:700">'+eoEsc(value)+'</div><span class="smallnote">'+eoEsc(sub)+'</span></div>';
+  const source=(kind,ts)=>eoUi(kind==='measured'?'Measured':'Interpolated',kind==='measured'?'Medido':'Interpolado')+' · '+ts.map(String).join(' / ')+' s';
+  const cards=(items)=>'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(165px,100%),1fr));gap:6px">'+items.join('')+'</div>';
+  eoSelect('eoWindowStatus').textContent=rows.length+' '+eoUi('aligned knots','tiempos alineados')+' · '+rows[0].t+'–'+rows.at(-1).t+' s';
+  eoSelect('eoSampleReadout').innerHTML=cards([
+    box(eoUi('Physical time','Tiempo físico'),String(row.t)+' s'),
+    box('2D',String(row.value2d)+' '+result.unit,source(row.source2d,row.support2d)),
+    box('3D',String(row.value3d)+' '+result.unit,source(row.source3d,row.support3d)),
+    box('Δ 3D−2D',String(row.delta)+' '+result.unit)]);
+  eoSelect('eoDurationReadout').innerHTML=d?'<b>'+tr('Time-weighted errors — selected window','Errores ponderados por tiempo — intervalo seleccionado')+'</b>'+cards([
+    box('RMSE',eoFmt(d.rmse)+' '+result.unit),
+    box('MAE',eoFmt(d.mae)+' '+result.unit),
+    box(eoUi('Bias','Sesgo'),eoFmt(d.bias3dMinus2d)+' '+result.unit),
+    box(eoUi('Peak difference','Diferencia máxima'),eoFmt(d.maxAbsSignedDelta)+' '+result.unit,eoFmt(d.maxAbsTime_s)+' s'),
+    box(eoUi('Absolute difference integral','Integral de diferencia absoluta'),eoFmt(d.absoluteDifferenceIntegral)+' '+result.unit+'·s'),
+    box(eoUi('3D above / below 2D','3D superior / inferior a 2D'),eoFmt(d.aboveDuration_s)+' / '+eoFmt(d.belowDuration_s)+' s',eoUi('Equal: ','Igual: ')+eoFmt(d.equalDuration_s)+' s')]):tr('Duration metrics unavailable.','Métricas temporales no disponibles.')
+}
 function eoDraw(result){
   const canvas=eoSelect('eoPlot');if(!canvas||!result?.rows?.length)return;
-  const width=Math.max(280,canvas.clientWidth||700),height=230,ratio=Math.min(2,window.devicePixelRatio||1);
-  canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
+  const rows=eoWindowRows(result),difference=eoPlotMode==='difference',keys=difference?['delta']:['value2d','value3d'];
+  if(rows.length<2)return;
+  const width=Math.max(280,canvas.clientWidth||700),height=300,ratio=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);canvas.style.height=height+'px';
   const c=canvas.getContext('2d');if(!c)return;c.setTransform(ratio,0,0,ratio,0,0);
-  c.clearRect(0,0,width,height);const pad={l:53,t:24,r:14,b:34};
-  let vMin=Infinity,vMax=-Infinity;
-  for(const row of result.rows){for(const value of [row.value2d,row.value3d]){
-    if(value<vMin)vMin=value;
-    if(value>vMax)vMax=value
-  }}
-  if(vMax===vMin){vMin-=1;vMax+=1}
-  const tMin=result.range.start,tMax=result.range.end,px=t=>pad.l+(t-tMin)/(tMax-tMin)*(width-pad.l-pad.r),
-    py=v=>pad.t+(vMax-v)/(vMax-vMin)*(height-pad.t-pad.b);
+  c.clearRect(0,0,width,height);const pad={l:86,t:26,r:20,b:43},w=width-pad.l-pad.r,h=height-pad.t-pad.b;
+  let vMin=difference?0:Infinity,vMax=difference?0:-Infinity;
+  for(const row of rows)for(const k of keys){vMin=Math.min(vMin,row[k]);vMax=Math.max(vMax,row[k])}
+  const tMin=rows[0].t,tMax=rows.at(-1).t,ys=Math.max(Math.abs(vMin),Math.abs(vMax),Number.MIN_VALUE);
+  const yn0=vMin/ys,yn1=vMax/ys,ts=Math.max(Math.abs(tMin),Math.abs(tMax),Number.MIN_VALUE),tn0=tMin/ts,tn1=tMax/ts;
+  const px=t=>pad.l+(tn0===tn1?.5:(t/ts-tn0)/(tn1-tn0))*w,
+    py=v=>pad.t+(yn0===yn1?.5:(yn1-v/ys)/(yn1-yn0))*h;
+  const blend=(a,b,q)=>a*(1-q)+b*q;
+  c.font='11px system-ui,sans-serif';c.fillStyle='#9daab9';
+  for(let i=0;i<=4;i++){
+    const q=i/4,x=pad.l+q*w,y=pad.t+q*h;
+    c.strokeStyle='rgba(140,155,175,.24)';c.beginPath();c.moveTo(pad.l,y);c.lineTo(width-pad.r,y);c.moveTo(x,pad.t);c.lineTo(x,height-pad.b);c.stroke();
+    c.textAlign='right';c.fillText(eoFmt(blend(vMax,vMin,q)),pad.l-6,y+3);
+    c.textAlign='center';c.fillText(eoFmt(blend(tMin,tMax,q)),x,height-pad.b+16)
+  }
   c.strokeStyle='#8998ac';c.beginPath();c.moveTo(pad.l,pad.t);c.lineTo(pad.l,height-pad.b);c.lineTo(width-pad.r,height-pad.b);c.stroke();
-  const draw=(key,color)=>{c.strokeStyle=color;c.lineWidth=2;c.beginPath();result.rows.forEach((r,i)=>{if(i)c.lineTo(px(r.t),py(r[key]));else c.moveTo(px(r.t),py(r[key]))});c.stroke()};
-  draw('value2d','#48b7e8');draw('value3d','#f0bb61');
-  c.fillStyle='#b7c1cc';c.font='12px sans-serif';c.fillText(tMin.toPrecision(4)+' s',pad.l,height-10);
-  c.fillText(tMax.toPrecision(4)+' s',width-pad.r-65,height-10);
-  c.fillText('2D',pad.l+15,15);c.fillStyle='#f0bb61';c.fillText('3D',pad.l+55,15);
+  if(difference){c.strokeStyle='#9daab9';c.setLineDash([5,4]);c.beginPath();c.moveTo(pad.l,py(0));c.lineTo(width-pad.r,py(0));c.stroke();c.setLineDash([])}
+  const draw=(key,color)=>{c.strokeStyle=color;c.lineWidth=2;c.beginPath();rows.forEach((r,i)=>{if(i)c.lineTo(px(r.t),py(r[key]));else c.moveTo(px(r.t),py(r[key]))});c.stroke()};
+  const colors=difference?['#bd9cf5']:['#48b7e8','#f0bb61'];
+  keys.forEach((k,i)=>draw(k,colors[i]));
+  const cursor=result.rows[eoCursor],x=px(cursor.t);
+  c.strokeStyle='#d1d5db';c.lineWidth=1;c.setLineDash([4,4]);c.beginPath();c.moveTo(x,pad.t);c.lineTo(x,height-pad.b);c.stroke();c.setLineDash([]);
+  keys.forEach((k,i)=>{c.fillStyle=colors[i];c.beginPath();c.arc(x,py(cursor[k]),4,0,Math.PI*2);c.fill()});
+  c.textAlign='left';c.fillStyle=colors[0];c.fillText(difference?'Δ 3D−2D':'2D',pad.l,16);
+  if(!difference){c.fillStyle=colors[1];c.fillText('3D',pad.l+44,16)}
+  c.fillStyle='#9daab9';c.textAlign='right';c.fillText(result.unit,width-pad.r,16);c.textAlign='center';c.fillText('time [s]',pad.l+w/2,height-4);
+  eoInspectorReadout(result,rows)
 }
 function eoDownload(filename,content,type){
   if(typeof downloadText==='function'){downloadText(filename,content,type);return}
@@ -337,7 +441,7 @@ function eoInstall(){
   '<button id="eoExportJson" type="button" class="btn soft" disabled>Export evidence JSON</button>'+
   '<button id="eoExportCsv" type="button" class="btn soft" disabled>Export aligned CSV</button></div>'+
   '<p id="eoStatus" class="smallnote" aria-live="polite"></p><canvas id="eoPlot" style="width:100%;height:230px;max-width:100%" aria-label="Measured source observations over shared physical time"></canvas>'+
-  '<div id="eoReport"></div><p class="smallnote">No extrapolation. Interpolation is temporal only. A comparison does NOT demonstrate 2D/3D geometrical equivalence, solver convergence or solidification mechanisms.</p></div>';
+  '<div id="eoInspector" hidden></div><div id="eoReport"></div><p class="smallnote">No extrapolation. Interpolation is temporal only. A comparison does NOT demonstrate 2D/3D geometrical equivalence, solver convergence or solidification mechanisms.</p></div>';
   host.appendChild(el);
   el.addEventListener('toggle',()=>{if(el.open)eoRefresh()});
   eoSelect('eoRefresh').onclick=eoRefresh;eoSelect('eoCalculate').onclick=eoRun;
