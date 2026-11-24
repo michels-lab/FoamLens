@@ -290,8 +290,8 @@ const msCore=(()=>{
   return rows.map(line=>{
    const [type,...raw]=line.split(/\s+/),v=raw.map(num);
    if(type==='box'&&v.length===6&&v.slice(0,3).every((x,i)=>x<=v[i+3]))return{type,min:v.slice(0,3),max:v.slice(3)};
-   if(type==='cylinder'&&v.length===7&&v[6]>0&&norm(sub(v.slice(3,6),v.slice(0,3)))>0)return{type,a:v.slice(0,3),b:v.slice(3,6),radius:v[6]};
-   if(type==='slab'&&v.length===8&&v[6]<=v[7]&&norm(v.slice(3,6))>0)return{type,origin:v.slice(0,3),normal:mul(v.slice(3,6),1/norm(v.slice(3,6))),min:v[6],max:v[7]};
+   if(type==='cylinder'&&v.length===7&&v[6]>0&&Number.isFinite(dot(sub(v.slice(3,6),v.slice(0,3)),sub(v.slice(3,6),v.slice(0,3))))&&norm(sub(v.slice(3,6),v.slice(0,3)))>0)return{type,a:v.slice(0,3),b:v.slice(3,6),radius:v[6]};
+   if(type==='slab'&&v.length===8&&v[6]<=v[7]&&Number.isFinite(norm(v.slice(3,6)))&&norm(v.slice(3,6))>0)return{type,origin:v.slice(0,3),normal:mul(v.slice(3,6),1/norm(v.slice(3,6))),min:v[6],max:v[7]};
    if(type==='threshold'&&v.length===2&&v[0]<=v[1])return{type,min:v[0],max:v[1]};
    fail('Invalid filter: '+type+' (box / cylinder / slab / threshold)');
   });
@@ -345,9 +345,9 @@ const msCore=(()=>{
 })();
 /* FOAMLENS_MESH_STUDIO_CORE_END */
 
-async function msFingerprint(m){
+async function msFingerprint(m,scope=null){
  if(!globalThis.crypto?.subtle)throw Error('SHA-256 unavailable in this browser');
- const parts=[];for(const [name,value] of [['points',m.points],['faces',m.faces],['owner',m.owner],['neighbour',m.neighbour],['patches',m.patches]]){
+ const parts=[];for(const [name,value] of [['points',m.points],['faces',m.faces],['owner',m.owner],['neighbour',m.neighbour],['patches',m.patches],['scope',scope?{kind:scope.kind,values:[...scope.values].sort((a,b)=>a-b)}:null]]){
   const bytes=new TextEncoder().encode(JSON.stringify(value)),digest=await crypto.subtle.digest('SHA-256',bytes);
   parts.push(name+':'+Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join(''));
  }
@@ -394,7 +394,7 @@ function msMount(){
   }
   const pts=[...lines.flat(),...highlight.flat(),...marks].map(project);if(!pts.length)return;let lo=[Infinity,Infinity],hi=[-Infinity,-Infinity];for(const p of pts)for(let i=0;i<2;i++){lo[i]=Math.min(lo[i],p[i]);hi[i]=Math.max(hi[i],p[i])}const scale=Math.min(580/(hi[0]-lo[0]||1),320/(hi[1]-lo[1]||1)),xy=p=>{const q=project(p);return [320+(q[0]-(lo[0]+hi[0])/2)*scale,180-(q[1]-(lo[1]+hi[1])/2)*scale]};
   const poly=(a,color,width)=>'<polyline points="'+a.map(p=>xy(p).join(',')).join(' ')+'" fill="none" stroke="'+color+'" stroke-width="'+width+'"/>';
-  el('msView').innerHTML='<svg viewBox="0 0 640 360" style="width:100%;max-height:420px;background:#101b2c;border-radius:9px" aria-label="Mesh projection">'+lines.map(a=>poly(a,'#7795ac',.65)).join('')+highlight.map(a=>poly(a,'#ffb74d',2.5)).join('')+marks.map(p=>{const [x,y]=xy(p);return '<circle cx="'+x+'" cy="'+y+'" r="2.8" fill="#ffb74d"/>'}).join('')+'</svg><p class="cgNotice">'+t('Preview: native boundary faces sampled; orange = selected IDs / defect-set markers. Positions use vertex means, not true volume centroids.','Vista: muestreo de caras de borde; naranja = IDs elegidos / marcadores del conjunto. Posiciones por media de vértices, no centroides volumétricos.')+'</p>';
+  el('msView').innerHTML='<svg viewBox="0 0 640 360" style="width:100%;max-height:420px;background:#101b2c;border-radius:9px" aria-label="Mesh projection">'+lines.map(a=>poly(a,'#7795ac',.65)).join('')+highlight.map(a=>poly(a,'#ffb74d',2.5)).join('')+marks.map(p=>{const [x,y]=xy(p);return '<circle cx="'+x+'" cy="'+y+'" r="2.8" fill="#ffb74d"/>'}).join('')+'</svg><p class="cgNotice">'+t('Preview: native boundary faces sampled; orange = selected IDs / defect-set markers. Defect and ID positions use vertex means; spatial selection uses computed centroids.','Vista: muestreo de caras de borde; naranja = IDs elegidos / marcadores del conjunto. IDs y defectos por media de vértices; selección espacial usa centroides calculados.')+'</p>';
  }
  
  for(const id of ['msQualityFile','msQualityKind','msQualityName'])el(id).onchange=()=>{clearQuality();redraw()};
@@ -404,7 +404,7 @@ el('msComputed').onchange=()=>{clearComputed();redraw()};
  for(const id of ['msLow','msHigh'])el(id).oninput=()=>{threshold=null;el('msThresholdStatus').textContent='';redraw()};
  el('msThreshold').onclick=()=>{threshold=null;try{if(!computed||!el('msLow').value.trim()||!el('msHigh').value.trim())throw Error('Compute metric and enter both bounds');threshold=msCore.metricThreshold(computed,Number(el('msLow').value),Number(el('msHigh').value));selected=null;el('msThresholdStatus').textContent=threshold.length+' IDs selected · preview sampled at most 3000';if(threshold.length){el('msKind').value=computed.kind;el('msId').value=String(threshold[0].id)}}catch(e){el('msThresholdStatus').textContent=e.message}redraw()};
  el('msMetricExport').onclick=()=>{if(!computed)return;const {values,...meta}=computed,rows=threshold===null?values:threshold;cgDownloadZip('FoamLens-mesh-geometry.zip',cgStoreZip([{name:'metric.csv',data:'id,value\n'+rows.map(r=>r.id+','+r.value).join('\n')},{name:'provenance.json',data:JSON.stringify({...meta,selectedCount:rows.length,threshold:threshold===null?null:[Number(el('msLow').value),Number(el('msHigh').value)]},null,2)}]))};
- function roiScope(obj,kind){const group=el('msGroup').value;if(group==='all')return null;
+ function roiScope(obj,kind,group=el('msGroup').value){if(group==='all')return null;
   if(group.startsWith('p:')){const p=obj.data.patches.find(x=>'p:'+x.name===group);if(!p||kind!=='faceSet')throw Error('Patch scope requires face association');return{kind,values:Array.from({length:p.count},(_,i)=>p.start+i)}}
   const set=obj.sets.find(x=>'s:'+x.name===group);if(!set||set.kind!==kind)throw Error('Set scope requires matching association');return set;
  }
@@ -417,7 +417,7 @@ el('msComputed').onchange=()=>{clearComputed();redraw()};
   if(file&&(!fieldName||!unit||!timeText||!Number.isFinite(Number(timeText))||file.size>48*1024*1024))throw Error('Scalar CSV requires field, units, physical time and <=48 MiB');
   const filters=msCore.parseSpatialPipeline(pipeline),scope=roiScope(obj,kind);
   el('msRoiStatus').textContent='Reading source and evaluating whole-entity selection…';
-  const field=file?msCore.qualityCSV(await file.text(),kind,obj.data):null,fingerprint=await msFingerprint(obj.data);
+  const field=file?msCore.qualityCSV(await file.text(),kind,obj.data):null,fingerprint=await msFingerprint(obj.data,scope);
   if(token!==roiRevision||models[mode]!==obj||el('msMode').value!==mode)return;
   const result=msCore.spatialSelect(obj.data,kind,filters,field,scope,convention);
   const meta={schema:'foamlens/spatial-pipeline/1',name,source,meshSource:obj.name,fingerprint,association:kind,time_s:timeText?Number(timeText):null,field:file?fieldName:null,unit:file?unit:null,fieldFile:file?.name||null,convention,pipeline,scope:el('msGroup').value,sourceBindingVerified:false};
@@ -431,7 +431,7 @@ el('msComputed').onchange=()=>{clearComputed();redraw()};
  el('msRoiRestore').onchange=async()=>{clearRoi();const token=roiRevision,mode=el('msMode').value,obj=models[mode];try{
   const file=el('msRoiRestore').files[0];if(!obj||mode==='dict'||!file||file.size>65536)throw Error('Select native mesh and pipeline JSON <=64 KiB');
   const p=JSON.parse(await file.text());if(p.schema!=='foamlens/spatial-pipeline/1'||!['cellSet','faceSet','pointSet'].includes(p.association)||!['intensive','perEntity'].includes(p.convention)||typeof p.name!=='string'||typeof p.source!=='string'||typeof p.pipeline!=='string')throw Error('Invalid pipeline JSON');msCore.parseSpatialPipeline(p.pipeline);
-  const fingerprint=await msFingerprint(obj.data);if(token!==roiRevision||models[mode]!==obj||el('msMode').value!==mode)return;if(fingerprint!==p.fingerprint)throw Error('Pipeline belongs to a different mesh fingerprint');
+  const scope=roiScope(obj,p.association,p.scope),fingerprint=await msFingerprint(obj.data,scope);if(token!==roiRevision||models[mode]!==obj||el('msMode').value!==mode)return;if(fingerprint!==p.fingerprint)throw Error('Pipeline belongs to a different mesh or scope fingerprint');
   if(!Array.from(el('msGroup').options).some(o=>o.value===p.scope))throw Error('Original patch/set scope unavailable');
   el('msRoiName').value=p.name;el('msRoiSource').value=p.source;el('msRoiKind').value=p.association;el('msRoiTime').value=p.time_s??'';el('msRoiField').value=p.field??'';el('msRoiUnit').value=p.unit??'';el('msRoiConvention').value=p.convention;el('msRoiPipeline').value=p.pipeline;el('msRoiFile').value='';el('msGroup').value=p.scope;el('msRoiStatus').textContent='Pipeline restored for exact topology fingerprint. Reload original scalar CSV, then Apply.';redraw()
  }catch(e){if(token===roiRevision)el('msRoiStatus').textContent=e.message}};
