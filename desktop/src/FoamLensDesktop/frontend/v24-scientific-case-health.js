@@ -274,7 +274,7 @@ function chAudit(input={}){
       ' s; '+(p.headers.length-1)+' numeric reduction column(s). Saved interval: '+
       p.minSavedInterval_s+'–'+p.maxSavedInterval_s+
       ' s. CSV was checked for finite numeric values, strictly increasing source times and complete rows; no CFD was rerun.'+
-      ' This manually selected summary is not bound to original frames, patch fluxes, material parameters or QuickCup.',
+      ' This manually selected summary is not bound to original frames, patch fluxes, material parameters or independent experiments.',
       p.sourceFile?[p.sourceFile]:[],
       'For actual physical acceptance, inspect original metal/mold fields, solver log, energy/phase coupling and independent experimental evidence.');
   }
