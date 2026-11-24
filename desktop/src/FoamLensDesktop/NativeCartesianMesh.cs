@@ -331,7 +331,11 @@ internal static class NativeCartesianMesh
         printf '%s\n' "$code" > checkMesh.exit
         if [ "$code" -ne 0 ] || [ "$4" != split ]; then exit "$code"; fi
         if ! command -v splitMeshRegions >/dev/null; then echo 'splitMeshRegions unavailable' >&2; exit 127; fi
-        timeout --kill-after=5s 120s splitMeshRegions -case "$1" -cellZonesOnly > splitMeshRegions.log 2>&1
+        if [ "$fl_version" = 14 ]; then
+          timeout --kill-after=5s 120s splitMeshRegions -case "$1" -cellZones all -noFields > splitMeshRegions.log 2>&1
+        else
+          timeout --kill-after=5s 120s splitMeshRegions -case "$1" -cellZonesOnly > splitMeshRegions.log 2>&1
+        fi
         code=$?
         printf '%s\n' "$code" > splitMeshRegions.exit
         if [ "$code" -ne 0 ]; then exit "$code"; fi
