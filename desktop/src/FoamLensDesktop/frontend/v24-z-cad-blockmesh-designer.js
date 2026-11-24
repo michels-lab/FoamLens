@@ -345,6 +345,7 @@ const msCore=(()=>{
 })();
 /* FOAMLENS_MESH_STUDIO_CORE_END */
 
+async function msSha256(bytes){if(!globalThis.crypto?.subtle)throw Error('SHA-256 unavailable in this browser');return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('')}
 async function msFingerprint(m,scope=null){
  if(!globalThis.crypto?.subtle)throw Error('SHA-256 unavailable in this browser');
  const parts=[];for(const [name,value] of [['points',m.points],['faces',m.faces],['owner',m.owner],['neighbour',m.neighbour],['patches',m.patches],['scope',scope?{kind:scope.kind,values:[...scope.values].sort((a,b)=>a-b)}:null]]){
@@ -417,10 +418,10 @@ el('msComputed').onchange=()=>{clearComputed();redraw()};
   if(file&&(!fieldName||!unit||!timeText||!Number.isFinite(Number(timeText))||file.size>48*1024*1024))throw Error('Scalar CSV requires field, units, physical time and <=48 MiB');
   const filters=msCore.parseSpatialPipeline(pipeline),scope=roiScope(obj,kind);
   el('msRoiStatus').textContent='Reading source and evaluating whole-entity selection…';
-  const field=file?msCore.qualityCSV(await file.text(),kind,obj.data):null,fingerprint=await msFingerprint(obj.data,scope);
+  const raw=file?await file.arrayBuffer():null,field=raw?msCore.qualityCSV(new TextDecoder().decode(raw),kind,obj.data):null,fieldFingerprint=raw?await msSha256(raw):null,fingerprint=await msFingerprint(obj.data,scope);
   if(token!==roiRevision||models[mode]!==obj||el('msMode').value!==mode)return;
   const result=msCore.spatialSelect(obj.data,kind,filters,field,scope,convention);
-  const meta={schema:'foamlens/spatial-pipeline/1',name,source,meshSource:obj.name,fingerprint,association:kind,time_s:timeText?Number(timeText):null,field:file?fieldName:null,unit:file?unit:null,fieldFile:file?.name||null,convention,pipeline,scope:el('msGroup').value,sourceBindingVerified:false};
+  const meta={schema:'foamlens/spatial-pipeline/1',name,source,meshSource:obj.name,fingerprint,association:kind,time_s:timeText?Number(timeText):null,field:file?fieldName:null,unit:file?unit:null,fieldFile:file?.name||null,fieldFingerprint,convention,pipeline,scope:el('msGroup').value,sourceBindingVerified:false};
   roi={meta,result};el('msRoiExport').disabled=false;selected=null;
   el('msRoiStatus').textContent=result.selected+'/'+result.eligible+' selected · '+result.invalid.length+' invalid geometry · '+result.unknownThreshold.length+' unknown threshold · preview at most 3000 · scalar source manually associated, not verified';
   const stages=document.createElement('table');for(const row of [['Filter','Input','Passed','Missing'],...result.stages.map(x=>[x.type,x.input,x.passed,x.missing])]){const tr=stages.insertRow();for(const v of row)tr.insertCell().textContent=String(v)}el('msRoiStages').append(stages);
@@ -431,9 +432,9 @@ el('msComputed').onchange=()=>{clearComputed();redraw()};
  el('msRoiRestore').onchange=async()=>{clearRoi();const token=roiRevision,mode=el('msMode').value,obj=models[mode];try{
   const file=el('msRoiRestore').files[0];if(!obj||mode==='dict'||!file||file.size>65536)throw Error('Select native mesh and pipeline JSON <=64 KiB');
   const p=JSON.parse(await file.text());if(p.schema!=='foamlens/spatial-pipeline/1'||!['cellSet','faceSet','pointSet'].includes(p.association)||!['intensive','perEntity'].includes(p.convention)||typeof p.name!=='string'||typeof p.source!=='string'||typeof p.pipeline!=='string')throw Error('Invalid pipeline JSON');msCore.parseSpatialPipeline(p.pipeline);
-  const scope=roiScope(obj,p.association,p.scope),fingerprint=await msFingerprint(obj.data,scope);if(token!==roiRevision||models[mode]!==obj||el('msMode').value!==mode)return;if(fingerprint!==p.fingerprint)throw Error('Pipeline belongs to a different mesh or scope fingerprint');
+  const scope=roiScope(obj,p.association,p.scope),fingerprint=await msFingerprint(obj.data,scope);if(token!==roiRevision||models[mode]!==obj||el('msMode').value!==mode)return;if(fingerprint!==p.fingerprint||p.meshSource!==obj.name)throw Error('Pipeline belongs to a different mesh source or scope fingerprint');
   if(!Array.from(el('msGroup').options).some(o=>o.value===p.scope))throw Error('Original patch/set scope unavailable');
-  el('msRoiName').value=p.name;el('msRoiSource').value=p.source;el('msRoiKind').value=p.association;el('msRoiTime').value=p.time_s??'';el('msRoiField').value=p.field??'';el('msRoiUnit').value=p.unit??'';el('msRoiConvention').value=p.convention;el('msRoiPipeline').value=p.pipeline;el('msRoiFile').value='';el('msGroup').value=p.scope;el('msRoiStatus').textContent='Pipeline restored for exact topology fingerprint. Reload original scalar CSV, then Apply.';redraw()
+  el('msRoiName').value=p.name;el('msRoiSource').value=p.source;el('msRoiKind').value=p.association;el('msRoiTime').value=p.time_s??'';el('msRoiField').value=p.field??'';el('msRoiUnit').value=p.unit??'';el('msRoiConvention').value=p.convention;el('msRoiPipeline').value=p.pipeline;el('msRoiFile').value='';el('msGroup').value=p.scope;el('msRoiStatus').textContent='Pipeline restored for exact topology and scope fingerprint. Reload original scalar CSV or explicitly choose a new time/field, then Apply.';redraw()
  }catch(e){if(token===roiRevision)el('msRoiStatus').textContent=e.message}};
  el('msMode').onchange=()=>redraw(true);el('msGroup').onchange=()=>{clearRoi();selected=null;el('msSelection').textContent='';redraw()};el('msProjection').onchange=()=>redraw();
  el('msLocate').onclick=()=>{try{const obj=models[el('msMode').value],kind=el('msKind').value,raw=el('msId').value;if(!obj||!/^\d+$/.test(raw))throw Error('Select source and integer ID');const id=Number(raw);let detail;if(el('msMode').value==='dict'){if(kind==='faceSet')throw Error('Block face ID is not a native face ID');const b=obj.data.blocks[id],p=obj.data.vertices[id];if(kind==='cellSet'&&!b||kind==='pointSet'&&!p)throw Error('ID out of range');detail=kind==='cellSet'?JSON.stringify(b):'XYZ [m] '+p.join(', ')}else{const a=msCore.locate(obj.data,kind,id);detail='XYZ vertex mean [m]: '+a.point.join(', ')+' · faces: '+a.faces.join(', ')+' · vertices: '+a.vertices.join(', ')}selected={kind,id};el('msSelection').textContent=obj.name+' · '+kind+' '+id+' · '+detail;redraw()}catch(e){selected=null;el('msSelection').textContent=e.message;redraw()}};
