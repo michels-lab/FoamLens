@@ -10,7 +10,7 @@ function pvDeckColumns(mode,count,width){
   if(width<700)return 1;
   if(mode==='two')return Math.min(count,2);
   if(mode==='row')return Math.min(count,Math.max(2,Math.floor(width/310)));
-  return count>=4&&width>=1320?4:count>=3&&width>=1040?3:Math.min(count,2)
+  return count>=4&&width>=1320?4:count===3&&width>=1040?3:Math.min(count,2)
 }
 function pvNumber(n){return typeof n==='number'&&Number.isFinite(n)?n:typeof n==='string'&&n.trim()&&Number.isFinite(Number(n))?Number(n):NaN}
 function pvMaxHeight(vh){return Number.isFinite(pvNumber(vh))&&vh>0?Math.max(340,Math.min(1050,Math.floor(vh*82/100+1e-9))):800}
@@ -105,7 +105,7 @@ function pvGridRowAudit(grid,items,panelWidth,deckMode='auto'){
 /* FOAMLENS_F2_LAYOUT_CORE_END */
 function pvEl(id){return document.getElementById(id)}
 let pvHeights={},pvFocus=null,pvFrame=0,pvObserver=null,pvObservedGrid=null,pvEscapeGrid=null,pvLast=null;
-let pvDeckMode='auto',pvDeckHeight='individual',pvDeckRO=null,pvDeckPanel=null;
+let pvDeckMode='auto',pvDeckHeight='balanced',pvDeckRO=null,pvDeckPanel=null;
 function pvSave(){try{localStorage.setItem(pvKey,JSON.stringify({schema:1,heights:pvHeights}))}catch{}}
 function pvLoad(){
   try{const x=JSON.parse(localStorage.getItem(pvKey)||'{}');
@@ -357,8 +357,8 @@ function pvMountViewport(viewport){
 function pvLoadDeck(){
   try{const p=JSON.parse(localStorage.getItem(pvDeckKey)||'{}');
     pvDeckMode=pvDeckModes.includes(p.mode)?p.mode:'auto';
-    pvDeckHeight=['individual','compact','balanced','large'].includes(p.height)?p.height:'individual'
-  }catch{pvDeckMode='auto';pvDeckHeight='individual'}
+    pvDeckHeight=p.schema===2&&['individual','compact','balanced','large'].includes(p.height)?p.height:'balanced'
+  }catch{pvDeckMode='auto';pvDeckHeight='balanced'}
 }
 function pvSaveDeck(){try{localStorage.setItem(pvDeckKey,JSON.stringify({mode:pvDeckMode,height:pvDeckHeight}))}catch{}}
 function pvDeckSceneHeight(){
@@ -393,7 +393,19 @@ function pvApplyDeck(){
   const mode=pvEl('pvDeckMode'),heightSelect=pvEl('pvDeckHeight');
   if(mode&&mode.value!==pvDeckMode)mode.value=pvDeckMode;
   if(heightSelect&&heightSelect.value!==pvDeckHeight)heightSelect.value=pvDeckHeight;
+  pvAlignToolbars(grid,views,cols);
   if(changed)pvRedraw()
+}
+function pvAlignToolbars(grid,views,cols){
+  if(!grid?.style||!grid.getBoundingClientRect||!views.length)return;
+  const bars=views.map(v=>v.querySelector?.('.fcViewToolbar')).filter(b=>b?.style&&b.getBoundingClientRect);
+  if(!bars.length)return;
+  const before=bars.map(b=>b.style.minHeight);
+  for(const b of bars)b.style.minHeight='';
+  const heights=bars.map(b=>Math.ceil(b.getBoundingClientRect().height));
+  const common=Math.max(0,...heights);
+  for(let i=0;i<bars.length;i++)bars[i].style.minHeight=cols>1&&common>0?common+'px':'';
+  if(bars.some((b,i)=>b.style.minHeight!==before[i]))pvRedraw()
 }
 function pvDeckLabels(){
   const bar=pvEl('pvDeckBar');if(!bar)return;
@@ -417,7 +429,7 @@ function pvMountDeck(grid){
   pvEl('pvDeckMode').onchange=e=>{pvDeckMode=pvDeckModes.includes(e.target.value)?e.target.value:'auto';pvSaveDeck();pvApplyDeck()};
   pvEl('pvDeckHeight').onchange=e=>{pvDeckHeight=e.target.value;pvSaveDeck();pvApplyDeck()};
   pvEl('pvDeckReset').onclick=()=>{
-    pvDeckMode='auto';pvDeckHeight='individual';pvHeights={};pvSave();pvSaveDeck();pvResetFocus();
+    pvDeckMode='auto';pvDeckHeight='balanced';pvHeights={};pvSave();pvSaveDeck();pvResetFocus();
     for(const id of Object.keys(pvViews)){const v=pvEl(id);if(v){v.style.removeProperty('--pvHeight');v.style.removeProperty('--pvDeckHeight')}}
     pvApplyDeck()
   };
@@ -427,7 +439,9 @@ function pvMountDeck(grid){
 function pvStyles(){
   if(pvEl('pvStyles'))return;
   const css=[
-    '#fcViewGrid .pvViewport .fcViewportScene{height:var(--pvDeckHeight,var(--pvHeight,clamp(340px,36vw,500px)))!important;min-height:0!important}',
+    '#fcViewGrid .pvViewport .fcViewportScene{height:var(--pvDeckHeight,var(--pvHeight,clamp(340px,36vw,500px)))!important;min-height:0!important;flex:0 0 auto!important}',
+    '#fcViewGrid .pvViewport .fcViewToolbar{box-sizing:border-box;flex:0 0 auto;align-content:start;justify-content:flex-start}',
+    'body.appMode-field .sidebar,body.appMode-field .main,body.appMode-field #fwGrid{scrollbar-width:thin;scrollbar-color:var(--muted) var(--panel)}',
     '#fieldViewPanel.fcCompareMode #fcViewGrid[data-pv-deck-mode]:not(.pvFocus){grid-template-columns:repeat(var(--pvDeckColumns,2),minmax(0,1fr))!important;overflow-x:clip}',
     '#fcViewGrid[data-pv-deck-height=equal] .pvSizeMenu,#fcViewGrid[data-pv-deck-height=equal] .pvGrip{display:none!important}',
     '.pvDeckBar{display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:10px 12px;margin:0 0 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}',

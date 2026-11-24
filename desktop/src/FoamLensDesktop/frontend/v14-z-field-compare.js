@@ -148,7 +148,10 @@ const fcState={
   spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceSource:null,differenceRenderer:null,seq:0,lastError:'',camera:null,visual:null,sync:null
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
-function fcPrimaryPhysicalTime(){return fcPhysicalNumber(fvState?.time)}
+function fcPrimaryPhysicalTime(){
+  if(!fvState?.mesh||!fvState?.fieldValues)return NaN;
+  return fcPhysicalNumber(fvState.time)
+}
 function fcEsc(v){
   // Original OpenFOAM case/field labels are external inputs. A missing host
   // escaper must not turn the independent view toolbar into HTML injection.
@@ -164,9 +167,18 @@ function fcCloneCamera(camera){
     target:Array.isArray(c.target)?c.target.map(Number):[0,0,0],
     projection:c.projection==='perspective'?'perspective':'orthographic'}
 }
-function fcCamerasLinked(){return document.getElementById('fcLinkCameras')?.checked!==false}
+function fcCameraLinkRequested(){return document.getElementById('fcLinkCameras')?.checked!==false}
+function fcCamerasLinked(){return fcCameraLinkRequested()&&!!fvState?.mesh&&fcValidFitMesh(fvState.mesh)}
 function fcVisualsSynced(){return document.getElementById('fcSyncVisuals')?.checked!==false}
-function fcTimesLinked(){return document.getElementById('fcLinkTimes')?.checked!==false}
+function fcTimeLinkRequested(){return document.getElementById('fcLinkTimes')?.checked!==false}
+function fcTimesLinked(){return fcTimeLinkRequested()&&Number.isFinite(fcPrimaryPhysicalTime())}
+function fcLinkFallbackNotice(){
+  const node=document.getElementById('fcLinkFallbackNotice');if(!node)return;
+  const time=fcTimeLinkRequested()&&!fcTimesLinked(),camera=fcCameraLinkRequested()&&!fcCamerasLinked();
+  node.hidden=!fcState.enabled||!(time||camera);
+  const message=[time?fcUi('A has no valid physical time; B–D use their own saved times.','A no tiene tiempo físico válido; B–D usan sus propios tiempos guardados.'):'',camera?fcUi('A has no valid mesh; B–D use their own fitted cameras.','A no tiene malla válida; B–D usan sus propias cámaras ajustadas.'):''].filter(Boolean).join(' ');
+  if(node.textContent!==message)node.textContent=message
+}
 // Independent time targets are always actual timestamps in the selected
 // OpenFOAM case/region/field catalog, never synthetic frame indices.
 function fcIndependentTimeSource(state){
@@ -410,7 +422,13 @@ function fcLinkedPhysicalCamera(state,mesh){
   const target=state._fcPhysical?fcPhysicalBoundsFor(state):
     fcValidFitMesh(mesh)?{min:mesh.boundsMin,max:mesh.boundsMax}:null;
   const valid=b=>b&&fcValidFitMesh({boundsMin:b.min,boundsMax:b.max});
-  if(!valid(primary)||!valid(target))return fallback();
+  if(!valid(target))return fallback();
+  if(!valid(primary)){
+    const local=fallback(),center=target.min.map((v,i)=>v+(target.max[i]-v)/2),
+      canvas=document.getElementById(state===fcState?'fcCanvas':'fcExtra'+state.id+'Canvas'),
+      fit=fvFitDistance({...target,center},local,canvas);
+    local.target=center;if(Number.isFinite(fit)&&fit>0)local.distance=fit;return local
+  }
   const center=b=>b.min.map((v,i)=>v+(b.max[i]-v)/2);
   const primaryCenter=center(primary),targetCenter=center(target),
     primaryMesh={boundsMin:primary.min,boundsMax:primary.max},
@@ -443,7 +461,9 @@ function fcLinkedPhysicalCamera(state,mesh){
 }
 function fcCameraFor(state,mesh){
   if(fcCamerasLinked())return fcLinkedPhysicalCamera(state,mesh);
-  if(!state.camera)state.camera=fcCloneCamera(fcLinkedPhysicalCamera(state,mesh));
+  if(!state.camera||state._fcLocalCameraMesh!==mesh&&fcCameraLinkRequested()&&!fcCamerasLinked()){
+    state.camera=fcCloneCamera(fcLinkedPhysicalCamera(state,mesh));state._fcLocalCameraMesh=mesh
+  }
   return state.camera
 }
 function fcMvpForCamera(camera,canvas){
@@ -1564,6 +1584,7 @@ function fcUpdateLabels(){
   if(pb)pb.textContent=Number.isFinite(fvState.time)?'A · t='+fcFmt(fvState.time)+' s':'A · —';
   if(cb)cb.textContent=fcTimesLinked()?'B · '+fcSyncText(fcState.sync):
     'B · '+(Number.isFinite(fcState.time)?'t='+fcFmt(fcState.time)+' s': '—')+' · '+fcUi('Independent','Independiente');
+  fcLinkFallbackNotice();
   if(primary)primary.title=primary.textContent;
   if(compare)compare.title=compare.textContent
 }
@@ -1801,7 +1822,7 @@ async function fcRefreshFrame(){
   }
 }
 function fcRefreshVisuals(){
-  if(!fcState.enabled||!fcState.fieldValues)return;const shared=fcApplySharedRange(fcState.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',fcState.fieldName,fcState.component,fcState.fieldParsed,shared);fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);fcUpdateVectors(fcTimesLinked()?fvState.time:fcIndependentTimeTarget(fcState),fcState.seq).catch(e=>fcSetStatus(String(e?.message||e),true))
+  if(!fcState.enabled||!fcState.fieldValues)return;const shared=fcApplySharedRange(fcState.range);fcUpdateDerived(shared);fcUpdateViewportLegend('fcLegend',fcState.fieldName,fcState.component,fcState.fieldParsed,shared);fcUpdateDifference(fvState.mesh,fcState.mesh,fvState.fieldValues,fcState.fieldValues);fcUpdateVectors(fcIndependentTimeTarget(fcState),fcState.seq).catch(e=>fcSetStatus(String(e?.message||e),true))
 }
 
 const fcExtraViews=[];
@@ -2174,6 +2195,7 @@ function fcInstallUi(){
     '<div class="row2"><div class="field"><label data-fl-en="View 2 field" data-fl-es="Variable de vista 2">View 2 field</label><select id="fcField"></select></div><div class="field"><label data-fl-en="Component" data-fl-es="Componente">Component</label><select id="fcComponent"></select></div></div>'+
     '<div class="field"><label data-fl-en="Physical-time synchronization" data-fl-es="Sincronización por tiempo físico">Physical-time synchronization</label><select id="fcSync"><option value="nearest" data-fl-en="Nearest available (show Δt)" data-fl-es="Más cercano disponible (mostrar Δt)">Nearest available (show Δt)</option><option value="exact" data-fl-en="Exact time only" data-fl-es="Solo tiempo exacto">Exact time only</option><option value="interpolate" data-fl-en="Interpolated between frames" data-fl-es="Interpolado entre frames">Interpolated between frames</option></select></div>'+
     '<div class="row2"><div class="field"><label data-fl-en="3D difference" data-fl-es="Diferencia 3D">3D difference</label><select id="fcDifferenceMode"><option value="signed">Signed A − B</option><option value="absolute">Absolute |A − B|</option><option value="percent">Percent of A</option></select></div><div class="field"><label data-fl-en="Percent ε" data-fl-es="ε porcentual">Percent ε</label><input id="fcPercentEpsilon" type="number" min="0" step="any" value="1e-12"></div></div>'+
+    '<p class="smallnote" id="fcLinkFallbackNotice" role="status" hidden></p>'+
     '<div class="fcExtraActions"><button class="btn soft" id="fcSwapCases" type="button" data-fl-en="⇄ Swap A / B" data-fl-es="⇄ Intercambiar A / B">⇄ Swap A / B</button><button class="btn" id="fcCopyAToB" type="button" data-fl-en="Copy A → B settings" data-fl-es="Copiar ajustes A → B">Copy A → B settings</button></div>'+
     '<div class="fvChecks fcLinkRow"><label class="inlineCheck"><input id="fcLinkTimes" type="checkbox" checked> <span data-fl-en="Sync physical time across views" data-fl-es="Sincronizar tiempo físico de las vistas">Sync physical time across views</span></label><label class="inlineCheck"><input id="fcLinkCameras" type="checkbox" checked> <span data-fl-en="Link cameras" data-fl-es="Enlazar cámaras">Link cameras</span></label><button class="btn tiny" id="fcResyncCameras" type="button" data-fl-en="Re-sync" data-fl-es="Re-sincronizar">Re-sync</button><button class="btn tiny" id="fcFitAll" type="button" data-fl-en="Fit all" data-fl-es="Ajustar todas">Fit all</button><label class="inlineCheck"><input id="fcSyncVisuals" type="checkbox" checked> <span data-fl-en="Sync visual settings" data-fl-es="Sincronizar ajustes visuales">Sync visual settings</span></label></div>'+
     '<div class="fcExtraCard hidden" id="fcView2Visuals"><div class="row2"><div class="field"><label data-fl-en="View 2 colormap" data-fl-es="Mapa de color Vista 2">View 2 colormap</label><select id="fcView2Palette"><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="coolwarm">Cool–warm</option></select></div><div class="field"><label data-fl-en="View 2 opacity" data-fl-es="Opacidad Vista 2">View 2 opacity</label><input id="fcView2Opacity" type="range" min=".05" max="1" step=".05" value=".92"></div></div><div class="fvChecks"><label class="inlineCheck"><input id="fcView2Surface" type="checkbox" checked> Surface</label><label class="inlineCheck"><input id="fcView2Edges" type="checkbox" checked> Edges</label><label class="inlineCheck"><input id="fcView2Slice" type="checkbox"> Slice</label><label class="inlineCheck"><input id="fcView2Iso" type="checkbox"> Iso</label><label class="inlineCheck"><input id="fcView2Vectors" type="checkbox"> Vectors</label><label class="inlineCheck"><input id="fcView2Streamlines" type="checkbox"> Streamlines</label></div></div>'+
@@ -2296,7 +2318,7 @@ function fcInstall(){
       const reading=previous.apply(this,args),owner=fvState.frameSeq,
         result=await reading;
       if(owner!==fvState.frameSeq||epoch!==fcLinkedPlaybackSeq)return result;
-      if(linked&&fcState.enabled&&fcTimesLinked()){
+      if(fcState.enabled&&fcTimesLinked()){
         // Each viewport retains its own case/region/field and GPU data.
         // Only their presentation is synchronized; no field is invented.
         await Promise.all([fcRefreshFrame(),fcRefreshExtras()])
