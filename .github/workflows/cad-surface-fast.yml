@@ -9,6 +9,7 @@ on:
       - 'desktop/tests/cad-occt-native.test.cjs'
       - 'desktop/tests/cad-occt-freecad.test.py'
       - 'desktop/src/FoamLensDesktop/NativeCartesianMesh.cs'
+      - 'tools/cad_native_openfoam_smoke.cs'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -29,6 +30,7 @@ on:
       - 'desktop/tests/cad-occt-native.test.cjs'
       - 'desktop/tests/cad-occt-freecad.test.py'
       - 'desktop/src/FoamLensDesktop/NativeCartesianMesh.cs'
+      - 'tools/cad_native_openfoam_smoke.cs'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -87,3 +89,44 @@ jobs:
           cp desktop/src/FoamLensDesktop/NativeCartesianMesh.cs desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs "$work/"
           printf '%s\n' 'FoamLensDesktop.NativeCartesianMesh.SelfTest();' > "$work/Program.cs"
           dotnet run --project "$work"
+
+  actual-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['13', '14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install official Foundation package on ephemeral runner
+        shell: bash
+        env:
+          FOAM_VERSION: ${{ matrix.version }}
+        run: |
+          set -euo pipefail
+          curl -fsSL https://dl.openfoam.org/gpg.key | sudo tee /etc/apt/trusted.gpg.d/openfoam.asc >/dev/null
+          echo 'deb [arch=amd64] http://dl.openfoam.org/ubuntu noble main' | sudo tee /etc/apt/sources.list.d/foamlens-openfoam.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "openfoam$FOAM_VERSION"
+      - name: Execute actual native meshing, splitting and quality checks
+        shell: bash
+        env:
+          FOAM_VERSION: ${{ matrix.version }}
+        run: |
+          set -e
+          work="$(mktemp -d)"
+          dotnet new console --framework net8.0 --output "$work" --no-restore
+          cp desktop/src/FoamLensDesktop/NativeCartesianMesh.cs desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs "$work/"
+          cp tools/cad_native_openfoam_smoke.cs "$work/Program.cs"
+          dotnet run --project "$work" -- "$GITHUB_WORKSPACE/cad-native-evidence" "$FOAM_VERSION"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CAD-actual-Foundation-${{ matrix.version }}
+          path: cad-native-evidence/
+          if-no-files-found: warn
+          retention-days: 7
