@@ -22,12 +22,10 @@
     "web_ui": 2,
     "workflow": 67
   },
-  "finding_counts": {
-    "POTENTIAL_UNLOGGED_CHANGES": 1
-  },
-  "finding_total": 1,
-  "inventory_fingerprint": "2fa00f2e010d6a3474c77171736c2c1038429e8b4b2e73371ae90ce3a96dea9d",
-  "evidence_fingerprint": "3e46562e14223a05b2dc3a36a654c3f89dc17b8f1365d942a4a331d109df6665",
+  "finding_counts": {},
+  "finding_total": 0,
+  "inventory_fingerprint": "c41f06dc7255a52ad26cb5f96808dd1335f812ba49c96261547c350cb7260640",
+  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -594,7 +592,7 @@
       "role": "config",
       "purpose": "machine-readable configuration",
       "certainty": "rule",
-      "blob": "7171c97b0b7a012683dd63fa5b9113903b20b8eb"
+      "blob": "cb782344c62d4fe36722ddfa34e81f10fed7edad"
     },
     {
       "path": ".michelslab/project.yml",
@@ -615,7 +613,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "85f915cc05dc6a8d84824398eea507b219b2b048"
+      "blob": "736023f226a9fa6f2e99d1e82e334b201a85c9ee"
     },
     {
       "path": "LICENSE",
@@ -650,7 +648,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "44135f9ea8c2e8f043193bc1fbc84f74fd22ea07"
+      "blob": "07094d60c743bc9bf9b9a4068fa70dbe822a2a6d"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -2253,7 +2251,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "49822e2ec25ca0f9d9dea73de507ad4226fac20d"
+      "blob": "06928ebab78c3954228e437fb31a3d83864f9863"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -2792,7 +2790,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "5dd791e96a01e5f77cacde096d05c2d85ea27276"
+      "blob": "f9a976bb94a9b01f78a341b06cb9d9ce3bc0f6cd"
     },
     {
       "path": "docs/QUICKCUP_RESEARCH_INTEROPERABILITY_2026-10-20.md",
@@ -3656,17 +3654,7 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [
-    {
-      "id": "de0c956b2084feaf",
-      "code": "POTENTIAL_UNLOGGED_CHANGES",
-      "severity": "review",
-      "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "6 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-field-view.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js, desktop/tests/field-multiregion-views.test.cjs, desktop/tests/field-multiview-ux.test.cjs, desktop/tests/field-view.test.cjs",
-      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
-      "state": "REVIEW_REQUIRED"
-    }
-  ],
+  "findings": [],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
