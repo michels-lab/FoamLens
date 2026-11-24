@@ -17,6 +17,7 @@ on:
       - 'desktop/tests/cad-openfoam-staging.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v24-z-cad-blockmesh-designer.js'
       - 'desktop/tests/cad-blockmesh-designer.test.cjs'
+      - 'desktop/tests/cad-mesh-studio.test.cjs'
       - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
   pull_request:
@@ -35,6 +36,7 @@ on:
       - 'desktop/tests/cad-openfoam-staging.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v24-z-cad-blockmesh-designer.js'
       - 'desktop/tests/cad-blockmesh-designer.test.cjs'
+      - 'desktop/tests/cad-mesh-studio.test.cjs'
       - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
   workflow_dispatch:
@@ -56,6 +58,8 @@ jobs:
         run: node desktop/tests/cad-openfoam-staging.test.cjs
       - name: Cartesian blockMesh topology plan and reject paths
         run: node desktop/tests/cad-blockmesh-designer.test.cjs
+      - name: Curved geometry, native topology, quality and Gmsh HEX8
+        run: node desktop/tests/cad-mesh-studio.test.cjs
       - name: CAD OpenFOAM staging UI with edition gate and explicit per-part role mapping
         run: node desktop/tests/cad-openfoam-staging-ui.test.cjs
       - name: Native WSL surfaceCheck browser request and fail-closed tests
