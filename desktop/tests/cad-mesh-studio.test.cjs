@@ -1,0 +1,21 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'../src/FoamLensDesktop/frontend/v24-z-cad-blockmesh-designer.js'),'utf8');
+new Function(src);
+function core(name,variable){const a=src.indexOf('/* FOAMLENS_'+name+'_CORE_START */'),b=src.indexOf('/* FOAMLENS_'+name+'_CORE_END */');assert(a>=0&&b>a);return new Function(src.slice(a,b)+';return '+variable)()}
+const ms=core('MESH_STUDIO','msCore'),mg=core('GMSH_INSPECTOR','mgCore');
+const head=(object,cls)=>'FoamFile { format ascii; class '+cls+'; object '+object+'; }\n';
+const verts='((0 0 0)(1 0 0)(1 1 0)(0 1 0)(0 0 1)(1 0 1)(1 1 1)(0 1 1))';
+const d=head('blockMeshDict','dictionary')+'units [mm]; vertices '+verts+'; blocks (hex (0 1 2 3 4 5 6 7) metal (2 3 4) simpleGrading (1 ((1 1 2)(1 1 1)) 1)); edges (arc 0 1 (0.5 -0.5 0)); boundary (wall {type wall; faces ((0 3 2 1));}); mergePatchPairs ();';
+const plan=ms.blockDict(d);assert.equal(plan.cells,24);assert.equal(plan.arcs.size,1);assert.equal(plan.vertices[1][0],.001);assert.equal(plan.zones.metal,24);assert.equal(plan.meshGenerated,false);const p=plan.arcs.values().next().value.points;assert(Math.abs(p[12][1]+.0005)<1e-12);assert.deepEqual(p[0],[0,0,0]);assert.deepEqual(p[24],[.001,0,0]);
+for(const s of [d.replace('units [mm]','units [inch]'),d.replace('arc 0 1','spline 0 1'),d.replace('0.5 -0.5 0','0.5 0 0'),d.replace('0 1 2 3 4 5 6 7','0 1 2 3 4 5 6 9'),d+' #include "other"'])assert.throws(()=>ms.blockDict(s));
+const cube={points:head('points','vectorField')+'8'+verts,faces:head('faces','faceList')+'6(4(0 3 2 1)4(4 5 6 7)4(0 1 5 4)4(1 2 6 5)4(2 3 7 6)4(3 0 4 7))',owner:head('owner','labelList')+'6(0 0 0 0 0 0)',neighbour:head('neighbour','labelList')+'0()',boundary:head('boundary','polyBoundaryMesh')+'1(wall { type wall; nFaces 6; startFace 0; })'};
+const m=ms.poly(cube);assert.equal(m.cells.length,1);assert.deepEqual(ms.locate(m,'cellSet',0).point,[.5,.5,.5]);assert.equal(ms.readSet(head('badFaces','faceSet')+'1(3)','badFaces',m).values[0],3);
+for(const s of ['1(6)','2(1 1)','2(1)'])assert.throws(()=>ms.readSet(head('badFaces','faceSet')+s,'badFaces',m));
+assert.throws(()=>ms.poly({...cube,boundary:cube.boundary.replace('nFaces 6','nFaces 5')}));assert.throws(()=>ms.poly({...cube,points:cube.points.replace('format ascii','format binary')}));assert.throws(()=>ms.locate(m,'cellSet',1));
+const reverse=ms.poly({...cube,faces:cube.faces.replace('4(0 3 2 1)','4(1 2 3 0)')});const match=ms.patchMatch(m,'wall',reverse,'wall');assert.equal(match.matched,6);assert.equal(match.opposite,1);assert.equal(match.interfaceVerified,false);assert.equal(ms.patchMatch(m,'wall',{...m,points:m.points.map(p=>[p[0]+2,p[1],p[2]])},'wall').matched,0);
+const msh=['$MeshFormat','2.2 0 8','$EndMeshFormat','$PhysicalNames','3','3 101 "metal"','3 102 "mold"','2 201 "contact"','$EndPhysicalNames','$Nodes','12','1 0 0 0','2 1 0 0','3 1 1 0','4 0 1 0','5 0 0 1','6 1 0 1','7 1 1 1','8 0 1 1','9 2 0 0','10 2 1 0','11 2 0 1','12 2 1 1','$EndNodes','$Elements','3','1 5 2 101 1 1 2 3 4 5 6 7 8','2 5 2 102 2 2 9 10 3 6 11 12 7','3 3 2 201 3 2 3 7 6','$EndElements'].join('\n');
+const mesh=mg.parse(msh,'mm');assert.equal(mesh.groups.get('3:101').types.HEX8,1);assert.equal(mesh.points.get(9)[0],.002);assert.equal(mesh.elements.get(2).entity,2);const contact=mg.contact(mesh,'2:201','3:101','3:102');assert.equal(contact.paired,1);assert.deepEqual(contact.rows[0],{surface:3,a:[1],b:[2]});assert.equal(contact.interfaceVerified,false);
+for(const bad of [msh.replace('2.2 0 8','4.1 0 8'),msh.replace('2.2 0 8','2.2 1 8'),msh.replace('7 8\n2 5','7 99\n2 5'),msh.replace('1 5 2 101','1 17 2 101')])assert.throws(()=>mg.parse(bad,'mm'));
+assert.throws(()=>mg.parse(msh,''));assert.throws(()=>mg.contact(mesh,'2:201','3:101','3:101'));const unmatched=mg.parse(msh.replace('3 3 2 201 3 2 3 7 6','3 3 2 201 3 1 4 8 5'),'mm');assert.equal(mg.contact(unmatched,'2:201','3:101','3:102').missingB,1);
+console.log('Mesh Studio: curved plan, native topology/sets, patch identity and MSH2.2 HEX8 contact PASS');
