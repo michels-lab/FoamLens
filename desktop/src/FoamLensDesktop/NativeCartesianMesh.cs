@@ -209,17 +209,41 @@ internal static class NativeCartesianMesh
             }
             surfaces.Add("surface_"+(i+1).ToString("D3",CultureInfo.InvariantCulture)+".stl",data);
         }
-        var geometry=new StringBuilder();var refine=new StringBuilder();
+        var geometry=new StringBuilder();var refine=new StringBuilder();var boxes=new StringBuilder();var layerPatches=new StringBuilder();
+        var overrides=new Dictionary<int,(int Min,int Max,int Layers)>();
+        if(settings.TryGetProperty("surfaceSettings",out var configs))
+        foreach(var cfg in configs.EnumerateArray()){
+            int id=cfg.GetProperty("id").GetInt32(),lo=cfg.GetProperty("minLevel").GetInt32(),hi=cfg.GetProperty("maxLevel").GetInt32(),n=cfg.GetProperty("layers").GetInt32();
+            if(id<1||id>surfaces.Count||lo<0||hi<lo||hi>4||n<0||n>8||!overrides.TryAdd(id,(lo,hi,n)))throw new ArgumentException("Invalid or duplicate surface refinement/layers.");
+        }
+        double expansion=1.2,final=0.3,minThickness=0.1;
+        if(settings.TryGetProperty("layerSettings",out var layer)){
+            expansion=layer.GetProperty("expansionRatio").GetDouble();final=layer.GetProperty("finalLayerThickness").GetDouble();minThickness=layer.GetProperty("minThickness").GetDouble();
+            if(!double.IsFinite(expansion)||!double.IsFinite(final)||!double.IsFinite(minThickness)||expansion<1||expansion>2||final<=0||final>0.9||minThickness<=0||minThickness>final)throw new ArgumentException("Invalid relative layer thickness or expansion ratio.");
+        }
+        if(settings.TryGetProperty("boxes",out var boxList)){
+            if(boxList.GetArrayLength()>12)throw new ArgumentException("At most 12 refinement boxes.");
+            int boxIndex=0;
+            foreach(var box in boxList.EnumerateArray()){
+                var lo=box.GetProperty("min").EnumerateArray().Select(x=>x.GetDouble()).ToArray();var hi=box.GetProperty("max").EnumerateArray().Select(x=>x.GetDouble()).ToArray();int level=box.GetProperty("level").GetInt32();
+                if(lo.Length!=3||hi.Length!=3||level<1||level>4||lo.Where((x,i)=>!double.IsFinite(x)||!double.IsFinite(hi[i])||x>=hi[i]||x<axes[i][0]||hi[i]>axes[i][^1]).Any())throw new ArgumentException("Refinement box must have positive extent inside background domain and level 1–4.");
+                string key="flBox_"+(++boxIndex).ToString("D3",CultureInfo.InvariantCulture);
+                geometry.AppendLine(key+" { type box; min "+FoamList(lo.Select(Num))+"; max "+FoamList(hi.Select(Num))+"; }");
+                boxes.AppendLine(key+" { mode inside; level "+level+"; }");
+            }
+        }
         int index=0;foreach(var file in surfaces.Keys){
             string key="flSurface_"+(++index).ToString("D3",CultureInfo.InvariantCulture);
             geometry.AppendLine(key+" { type triSurface; file \""+file+"\"; }");
-            refine.AppendLine(key+" { level ("+min+" "+max+"); patchInfo { type wall; } }");
+            var cfg=overrides.GetValueOrDefault(index,(min,max,0));
+            refine.AppendLine(key+" { level ("+cfg.Item1+" "+cfg.Item2+"); patchInfo { type wall; } }");
+            if(cfg.Item3>0)layerPatches.AppendLine("\""+key+"(_.*)?\" { nSurfaceLayers "+cfg.Item3+"; }");
         }
         string dict=$$"""
             FoamFile { version 2.0; format ascii; class dictionary; object snappyHexMeshDict; }
             castellatedMesh true;
             snap true;
-            addLayers false;
+            addLayers {{(layerPatches.Length>0?"true":"false")}};
             geometry { {{geometry.ToString()}} }
             castellatedMeshControls
             {
@@ -227,13 +251,14 @@ internal static class NativeCartesianMesh
                 features ();
                 refinementSurfaces { {{refine.ToString()}} }
                 resolveFeatureAngle 30;
-                refinementRegions {}
+                refinementRegions { {{boxes.ToString()}} }
                 insidePoint {{FoamList(inside.Select(Num))}};
                 allowFreeStandingZoneFaces false;
             }
             snapControls { nSmoothPatch 3; tolerance 2; nSolveIter 30; nRelaxIter 5; nFeatureSnapIter 10; implicitFeatureSnap true; explicitFeatureSnap false; multiRegionFeatureSnap false; }
-            addLayersControls { relativeSizes true; layers {} expansionRatio 1.2; finalLayerThickness 0.3; minThickness 0.1; nGrow 0; featureAngle 60; nRelaxIter 5; nSmoothSurfaceNormals 1; nSmoothNormals 3; nSmoothThickness 10; maxFaceThicknessRatio 0.5; maxThicknessToMedialRatio 0.3; minMedialAxisAngle 90; nBufferCellsNoExtrude 0; nLayerIter 50; }
+            addLayersControls { relativeSizes true; layers { {{layerPatches.ToString()}} } expansionRatio {{Num(expansion)}}; finalLayerThickness {{Num(final)}}; minThickness {{Num(minThickness)}}; nGrow 0; featureAngle 60; nRelaxIter 5; nSmoothSurfaceNormals 1; nSmoothNormals 3; nSmoothThickness 10; maxFaceThicknessRatio 0.5; maxThicknessToMedialRatio 0.3; minMedialAxisAngle 90; nBufferCellsNoExtrude 0; nLayerIter 50; }
             meshQualityControls { maxNonOrtho 65; maxBoundarySkewness 20; maxInternalSkewness 4; maxConcave 80; minVol 1e-20; minTetQuality 1e-15; minArea -1; minTwist 0.02; minDeterminant 0.001; minFaceWeight 0.02; minVolRatio 0.01; minTriangleTwist -1; nSmoothScale 4; errorReduction 0.75; }
+            singleRegionName true;
             debug 0;
             mergeTolerance 1e-6;
             """;
