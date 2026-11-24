@@ -4191,6 +4191,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "convertCadBrep":
                     await HandleConvertCadBrepAsync(root, requestId);
                     break;
+                case "runCartesianMesh":
+                    await HandleRunCartesianMeshAsync(root, requestId);
+                    break;
                 case "runCadSurfaceCheck":
                     await HandleRunCadSurfaceCheckAsync(root, requestId);
                     break;
@@ -4443,6 +4446,27 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         {
             EndOperation(requestId, operation);
         }
+    }
+
+    private async Task HandleRunCartesianMeshAsync(JsonElement root, string requestId)
+    {
+        var operation = BeginOperation(requestId);
+        try
+        {
+            if (root.GetRawText().Length > 200000) throw new ArgumentException("Cartesian request too large.");
+            var report = await NativeCartesianMesh.RunAsync(root, operation.Token);
+            Reply(requestId, true, report, null);
+        }
+        catch (OperationCanceledException) { Reply(requestId, false, null, "Native mesh operation cancelled."); }
+        catch (ArgumentException ex) { Reply(requestId, false, null, ex.Message); }
+        catch (NotSupportedException ex) { Reply(requestId, false, null, ex.Message); }
+        catch (TimeoutException ex) { Reply(requestId, false, null, ex.Message); }
+        catch (Exception ex)
+        {
+            Log("Native Cartesian mesh failed: " + ex.GetType().Name);
+            Reply(requestId, false, null, "Invalid mesh plan or native WSL execution failed. Original case untouched.");
+        }
+        finally { EndOperation(requestId, operation); }
     }
 
     private async Task HandleRunCadSurfaceCheckAsync(JsonElement root, string requestId)
