@@ -85,6 +85,36 @@ internal static class NativeCartesianMesh
             try{Build(test.RootElement);}catch(ArgumentException){continue;}
             throw new InvalidOperationException("Unsafe Cartesian plan accepted.");
         }
+        const string msh = """
+            $MeshFormat
+            2.2 0 8
+            $EndMeshFormat
+            $PhysicalNames
+            1
+            3 1 "fl_3_101"
+            $EndPhysicalNames
+            $Nodes
+            8
+            1 0 0 0
+            2 1 0 0
+            3 1 1 0
+            4 0 1 0
+            5 0 0 1
+            6 1 0 1
+            7 1 1 1
+            8 0 1 1
+            $EndNodes
+            $Elements
+            1
+            1 5 2 1 1 1 2 3 4 5 6 7 8
+            $EndElements
+            """;
+        if(ValidateGmsh(msh.Replace("\r\n","\n"))!=1)throw new InvalidOperationException("Canonical MSH self-test failed.");
+        foreach(var bad in new[]{msh.Replace("fl_3_101","../escape"),msh.Replace("6 7 8","6 7 9"),msh.Replace("1 5 2","1 17 2"),msh.Replace("2.2 0 8","4.1 0 8")})
+        {
+            try{ValidateGmsh(bad.Replace("\r\n","\n"));}catch(ArgumentException){continue;}
+            throw new InvalidOperationException("Invalid canonical MSH accepted.");
+        }
     }
 
 
