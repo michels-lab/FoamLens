@@ -1,3 +1,7 @@
+## 2026-11-24 — Scientific Case Health source ownership and concurrent report intake
+
+v1.8.23 exact-main Windows release succeeded, tag d21f1680; new work isolated from Field. Existing native CSV charts already in main (do not merge stale PR #373 over them). Fix independent async report ownership so log/checkMesh/CSV reads do not cancel each other, replacement and case/model changes cannot commit stale evidence, failed/reading states prevent audit, visible source cards expose filenames/errors, re-opening unchanged panel preserves results, and chart/CSV/JSON export share binding checks. Direct executable async regression passed. Native package CI remains pending. G37 auxiliary six-cycle test failed on obsolete hardcoded version 1.8.10, not a measured playback failure; unchanged here.
+
 ## 2026-11-24 — native smoke verifies actual Field pointer/keyboard controls
 
 Replace obsolete native smoke checks for HTML draggable=true and permanently expanded Property with actual reachability and the real pointer/keyboard reorder handle. Execute Home/End on the real B viewport when visible, require changed order with identical connected GPU canvas, then restore node order and saved preference. Correct the difference view's Δ move-handle label instead of a NUL character. No gate removed; Windows validation pending.

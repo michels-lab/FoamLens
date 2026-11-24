@@ -343,7 +343,8 @@ function chAudit(input={}){
 
 function chUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function chEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let chLast=null,chBound=null,chMesh=null,chRuntimeLog=null,chPostrun=null,chSelectionVersion=0;
+let chLast=null,chBound=null,chMesh=null,chRuntimeLog=null,chPostrun=null,chSelectionVersion=0,chEvidenceOwner=null,chEvidenceModel=null;
+const chReportStates=new Map();
 function chEl(id){return document.getElementById(id)}
 function chInvalidate(message=''){
   chLast=null;chBound=null;const b=chEl('chExport');if(b)b.disabled=true;
@@ -360,6 +361,57 @@ function chSelectedCase(){
   const x=chEl('chCase')?.value;
   return x===''?null:(Array.isArray(cases)?cases.find(c=>String(c.id)===String(x)):null)
 }
+function chRenderReportStates(){
+  const host=chEl('chReportStates'),button=chEl('chAudit');
+  if(button)button.disabled=!chSelectedCase()?.discoveryModel||[...chReportStates.values()].some(v=>v.status==='reading'||v.status==='error');
+  if(!host)return;
+  const labels={runtime:chUi('Solver log','Log del solver'),mesh:'checkMesh',postrun:chUi('Postrun CSV','CSV postrun')};
+  const states={reading:chUi('Reading…','Leyendo…'),ready:chUi('Parsed','Leído'),error:chUi('Cannot read','No se pudo leer'),empty:chUi('Not attached','Sin adjuntar')};
+  host.innerHTML=Object.keys(labels).map(key=>{
+    const item=chReportStates.get(key)||{status:'empty',file:''};
+    return '<div style="padding:8px;border:1px solid var(--line);border-radius:8px;min-width:0;overflow-wrap:anywhere"><b>'+chEsc(labels[key])+'</b> · '+chEsc(states[item.status])+(item.file?'<div class="smallnote">'+chEsc(item.file)+'</div>':'')+(item.error?'<div class="smallnote" role="alert">'+chEsc(item.error)+'</div>':'')+'</div>'
+  }).join('')
+}
+function chResetReports(){
+  chSelectionVersion++;chEvidenceOwner=chSelectedCase();chEvidenceModel=chEvidenceOwner?.discoveryModel||null;
+  chMesh=null;chRuntimeLog=null;chPostrun=null;chReportStates.clear();
+  for(const id of ['chRuntimeFile','chMeshFile','chPostrunFile']){const input=chEl(id);if(input)input.value=''}
+  chRenderReportStates()
+}
+function chReportsCurrent(){
+  const c=chSelectedCase();
+  return !!c&&c===chEvidenceOwner&&c.discoveryModel===chEvidenceModel
+}
+function chBoundCurrent(){
+  const c=chSelectedCase(),now=c?chSourceLogRows(c):[];
+  return !!chLast&&!!chBound&&chReportsCurrent()&&c===chBound.case&&c.discoveryModel===chBound.model&&
+    now.length===chBound.logs.length&&now.every((v,i)=>v===chBound.logs[i])&&
+    chRuntimeLog===chBound.runtimeLog&&chMesh===chBound.meshReport&&chPostrun===chBound.postrun
+}
+async function chLoadReport(id,key,bytes){
+  if(!chReportsCurrent()){chResetReports();chInvalidate(chUi('Choose a case and attach the reports again.','Elige un caso y vuelve a adjuntar los reportes.'));return}
+  const seq=chSelectionVersion,input=chEl(id),file=input.files?.[0];
+  const request={status:file?'reading':'empty',file:file?.name||''};
+  chReportStates.set(key,request);
+  if(key==='runtime')chRuntimeLog=null;else if(key==='mesh')chMesh=null;else chPostrun=null;
+  chInvalidate(chUi('Source evidence changed.','Cambió la evidencia fuente.'));chRenderReportStates();
+  const current=()=>seq===chSelectionVersion&&chReportsCurrent()&&chReportStates.get(key)===request;
+  try{
+    const data=await chReadFile(input,bytes);if(!current())return;
+    if(key==='runtime')chRuntimeLog=data?chRuntime(data.text,data.file):null;
+    else if(key==='mesh')chMesh=data?maPureCheckMesh(data.text,data.file):null;
+    else chPostrun=data?chPostRunCsv(data.text,data.file):null;
+    request.status=data?'ready':'empty';
+  }catch(e){if(!current())return;request.status='error';request.error=String(e?.message||e)}
+  if(!current())return;
+  chRenderReportStates();
+  if([...chReportStates.values()].some(v=>v.status==='reading'))return;
+  if([...chReportStates.values()].some(v=>v.status==='error')){
+    chInvalidate(chUi('A report could not be read. Replace or clear it before auditing.','No se pudo leer un reporte. Sustitúyelo o quítalo antes de auditar.'));return
+  }
+  if(chPostrun&&chSelectedCase()?.discoveryModel){chRun();return}
+  chInvalidate(chUi('Reports ready. Run the case audit.','Reportes listos. Ejecuta la auditoría.'))
+}
 function chRefresh(){
   const sel=chEl('chCase');if(!sel)return;
   const old=sel.value,options=Array.isArray(cases)?cases:[],prior=chSelectedCase();
@@ -368,12 +420,9 @@ function chRefresh(){
   if(options.some(c=>String(c.id)===old))sel.value=old;
   else if(typeof activeContextCaseId!=='undefined'&&activeContextCaseId!=null&&
       options.some(c=>String(c.id)===String(activeContextCaseId)))sel.value=String(activeContextCaseId);
-  if(prior!==chSelectedCase()){chSelectionVersion++;chMesh=null;chRuntimeLog=null;chPostrun=null;
-    const runtimeInput=chEl('chRuntimeFile'),meshInput=chEl('chMeshFile'),postrunInput=chEl('chPostrunFile');
-    if(runtimeInput)runtimeInput.value='';if(meshInput)meshInput.value='';if(postrunInput)postrunInput.value='';
-  }
-  chInvalidate(chUi('Choose case, optionally attach original reports, then run evidence audit.',
-    'Elige caso, adjunta reportes si existen y ejecuta la auditoría de evidencia.'))
+  if(prior!==chSelectedCase()||!chReportsCurrent()){chResetReports();chInvalidate(chUi('Choose case, optionally attach original reports, then run evidence audit.','Elige caso, adjunta reportes si existen y ejecuta la auditoría de evidencia.'));return}
+  chRenderReportStates();
+  if(chLast&&!chBoundCurrent())chInvalidate(chUi('Case evidence changed. Re-run the audit.','Cambió la evidencia del caso. Ejecuta la auditoría nuevamente.'))
 }
 // Original postrun workbench: linked physical-time plots and exact stored-sample inspection.
 function chPostrunFmt(n){
@@ -463,7 +512,7 @@ function chMountPostrunWorkbench(p){
   const firstInput=chEl('chRangeFirst'),lastInput=chEl('chRangeLast'),m1=chEl('chMetric1'),m2=chEl('chMetric2'),slider=chEl('chCursor'),msg=chEl('chRangeMsg');
   m1.value=String(available[0].i);if(available.length>1)m2.value=String(available[1].i);
   let first=0,last=p.samples-1,charts=[],frame=0;
-  const alive=()=>chPostrun===p&&host.isConnected&&chBound?.postrun===p;
+  const alive=()=>chPostrun===p&&host.isConnected&&chBound?.postrun===p&&chBoundCurrent();
   const indices=()=>[...new Set([m1.value,m2.value].filter(v=>v!=='').map(Number))];
   const card=(title,value,sub='')=>'<div style="padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel)"><div class="smallnote">'+chEsc(title)+'</div><b style="font-size:17px">'+chEsc(value)+'</b><div class="smallnote">'+chEsc(sub)+'</div></div>';
   const render=()=>{
@@ -516,6 +565,8 @@ function chMountPostrunWorkbench(p){
 
 function chRun(){
   chInvalidate();const c=chSelectedCase(),status=chEl('chStatus');if(!c){status.textContent='Select an imported case.';return}
+  if(!chReportsCurrent()){chResetReports();status.textContent=chUi('Case source changed. Attach the original reports again.','Cambió la fuente del caso. Adjunta los reportes originales nuevamente.');return}
+  if([...chReportStates.values()].some(v=>v.status==='reading'||v.status==='error')){status.textContent=chUi('Finish reading all reports and replace or clear failed files.','Termina la lectura de todos los reportes y sustituye o quita los archivos con error.');return}
   if(!c.discoveryModel){status.textContent='Imported case discovery model unavailable; rescan the full case before auditing.';return}
   const logs=chSourceLogRows(c),r=chAudit({case:c,logs,runtime:chRuntimeLog,meshReport:chMesh,postrun:chPostrun});
   if(!r.checks.length){status.textContent='No case evidence could be evaluated.';return}
@@ -556,11 +607,8 @@ function chDownload(data){
 }
 function chExport(){
   if(!chLast||!chBound)return;
-  const c=chSelectedCase(),now=c?chSourceLogRows(c):[];
-  // A case scan or log catalog refresh after evaluation must not export stale evidence.
-  if(c!==chBound.case||c.discoveryModel!==chBound.model||
-      now.length!==chBound.logs.length||now.some((v,i)=>v!==chBound.logs[i])||
-      chRuntimeLog!==chBound.runtimeLog||chMesh!==chBound.meshReport||chPostrun!==chBound.postrun){
+  // All evidence exports share the same original case and log binding.
+  if(!chBoundCurrent()){
     chInvalidate('Case catalog, source logs or evidence reports changed. Recalculate before exporting.');return
   }
   chDownload({...chLast,exportedAt:new Date().toISOString(),
@@ -587,28 +635,17 @@ function chInstall(){
     '<input type="file" id="chPostrunFile" accept=".csv,text/csv"></div>'+ 
     '<p class="smallnote">CSV: explicit time_s and numeric reduction columns. Timeline audit only: no source-frame/experimental validity or automatic case binding. All analysis stays local.</p>'+ 
     '<p class="smallnote">Optional report filenames are user-selected; their provenance is NOT cryptographically bound to the imported case.</p>'+
+    '<div id="chReportStates" aria-live="polite" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:8px"></div>'+
     '<div class="extActions"><button class="btn soft" type="button" id="chRefresh">Refresh case list</button>'+
     '<button class="btn primary" type="button" id="chAudit">Audit current evidence</button>'+
     '<button class="btn soft" type="button" id="chExport" disabled>Export JSON evidence</button></div>'+
     '<p id="chStatus" class="extStatus" aria-live="polite"></p><div id="chBody"></div>';
   host.appendChild(panel);
   chEl('chRefresh').onclick=chRefresh;chEl('chAudit').onclick=chRun;chEl('chExport').onclick=chExport;
-  chEl('chCase').addEventListener('change',()=>{chSelectionVersion++;chMesh=null;chRuntimeLog=null;chPostrun=null;
-    chEl('chRuntimeFile').value='';chEl('chMeshFile').value='';chEl('chPostrunFile').value='';
-    chInvalidate('Case changed. Optional reports cleared to prevent cross-case misattribution.')});
+  chEl('chCase').addEventListener('change',()=>{chResetReports();
+    chInvalidate(chUi('Case changed. Optional reports cleared to prevent cross-case misattribution.','Cambió el caso. Se quitaron los reportes para evitar atribución cruzada.'))});
   for(const [id,key,bytes] of [['chRuntimeFile','runtime',4*1024*1024],['chMeshFile','mesh',12*1024*1024],['chPostrunFile','postrun',4*1024*1024]]){
-    chEl(id).addEventListener('change',async()=>{
-      const seq=++chSelectionVersion;chInvalidate('Reading selected text locally…');
-      if(key==='runtime')chRuntimeLog=null;else if(key==='mesh')chMesh=null;else chPostrun=null;
-      try{
-        const data=await chReadFile(chEl(id),bytes);if(seq!==chSelectionVersion)return;
-        if(key==='runtime')chRuntimeLog=data?chRuntime(data.text,data.file):null;
-        else if(key==='mesh')chMesh=data?maPureCheckMesh(data.text,data.file):null;
-        else chPostrun=data?chPostRunCsv(data.text,data.file):null;
-        if(key==='postrun'&&chPostrun&&chSelectedCase()?.discoveryModel){chRun();return}
-        chInvalidate(data?'Report parsed. Re-run the case audit.':'Report cleared. Re-run the case audit.')
-      }catch(e){if(seq!==chSelectionVersion)return;chInvalidate(String(e?.message||e))}
-    })
+    chEl(id).addEventListener('change',()=>chLoadReport(id,key,bytes))
   }
   panel.addEventListener('toggle',()=>{if(panel.open)chRefresh()});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(panel)}catch{}
