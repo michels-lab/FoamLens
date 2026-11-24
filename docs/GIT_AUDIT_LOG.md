@@ -1,3 +1,7 @@
+## 2026-11-24 — CAD block 3 priority, first multi-block designer
+
+Owner explicitly moved CAD/meshing ahead of Analysis. Read C3D04 A rounded multiblock and C3D05 B STEP/Gmsh evidence from MasterProject; no research case changes. New independent CAD module generates a Cartesian structured plan and explicit cellZones with orthogonal slice assignment, original CAD SI bounds as optional editable starting point, conformal shared vertices, planned inter-zone face counts and safe ZIP blockMeshDict+manifest. Direct core tests passed; native OpenFOAM and Windows exact-head tests pending. Curved arbitrary geometry, quality overlays, Gmsh native import and snappyHexMesh remain pending. No volume mesh or physical interfaces claimed.
+
 ## 2026-11-24 — native smoke verifies actual Field pointer/keyboard controls
 
 Replace obsolete native smoke checks for HTML draggable=true and permanently expanded Property with actual reachability and the real pointer/keyboard reorder handle. Execute Home/End on the real B viewport when visible, require changed order with identical connected GPU canvas, then restore node order and saved preference. Correct the difference view's Δ move-handle label instead of a NUL character. No gate removed; Windows validation pending.

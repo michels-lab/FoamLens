@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'../src/FoamLensDesktop/frontend/v24-z-cad-blockmesh-designer.js'),'utf8');
+new Function(src);
+const a=src.indexOf('/* FOAMLENS_BLOCKMESH_DESIGN_CORE_START */'),b=src.indexOf('/* FOAMLENS_BLOCKMESH_DESIGN_CORE_END */');
+const api=new Function(src.slice(a,b)+';return{plan:cmbPlan,dict:cmbDictionary,slice:cmbSlice}')();
+const input={axes:['0\n0.01 4 2\n0.03 6 1','-0.04\n0 8 1','0\n0.01 3 1'],patches:['xMin','xMax','yMin','yMax','zMin','zMax'],zones:'0 0 0 metal\n1 0 0 mold'};
+const p=api.plan(input),d=api.dict(p);
+assert.equal(p.cellCount,240);assert.equal(p.vertices.length,12);assert.equal(p.blocks.length,2);assert.deepEqual(p.zoneCells,{metal:96,mold:144});assert.equal(p.unassignedCells,0);
+assert.equal(p.interfaces.length,1);assert.equal(p.interfaces[0].plannedFaces,24);assert(Math.abs(p.interfaces[0].area_m2-.0004)<1e-15);
+assert.equal(p.boundary.flatMap(x=>x.faces).length,10);assert.equal(p.blocks[0].vertices.filter(v=>p.blocks[1].vertices.includes(v)).length,4);
+assert(d.includes('simpleGrading (2 1 1)'));assert(d.includes(' metal (4 8 3)'));assert(d.includes('scale 1;'));assert(d.includes('type patch;'));assert.equal(p.meshGenerated,false);assert.equal(p.interfaceVerified,false);
+assert.equal(api.slice(p,2,0).blocks.length,2);assert.equal(api.slice(p,0,1).blocks[0].zone,'mold');
+for(const bad of [{axes:['0\n0 4 1',...input.axes.slice(1)]},{axes:['0\n1 1 2',...input.axes.slice(1)]},{axes:['0\n1 10000 1','0\n1 10000 1','0\n1 10000 1']},{zones:'2 0 0 metal'},{zones:'0 0 0 metal\n0 0 0 mold'},{zones:'0 0 0 x;include'},{patches:['x','x','y','z','a','b']}])assert.throws(()=>api.plan({...input,...bad}));
+assert.equal(api.plan({...input,zones:''}).unassignedCells,240);assert.throws(()=>api.slice(p,2,1));
+console.log('Cartesian blockMesh plan: conformity, counts, zones, exterior faces, slices and reject paths PASS');
