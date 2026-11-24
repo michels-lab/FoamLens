@@ -107,6 +107,51 @@ test('selected case numeric time inventory is compared without inventing or auth
   assert.equal(incorrect.overall,'not-certified');
 });
 
+test('cross-case timeline coverage is bounded, two-sided and exportable without case-certification',()=>{
+  const csv=api.csv(aCsv,'source_summary.csv');
+  const selected={id:12,name:'A',config:{},discoveryModel:{
+    fields:[],timeDirectories:[0,.2,.3],regions:[],dictionaries:[],postProcessing:[]},discovery:{}};
+  const audit=api.audit({case:selected,logs:[],postrun:csv});
+  const t=audit.postrunTimeline;
+  assert.equal(t.coverage,'partial-coverage');
+  assert.equal(t.matchedCsvSamples,2);
+  assert.equal(t.csvSamples,3);
+  assert.equal(t.indexedOutputTimes,3);
+  assert.equal(t.unmatchedCsvSamples,1);
+  assert.equal(t.unmatchedIndexedOutputTimes,1);
+  assert.deepEqual(t.firstUnmatchedCsvTimes_s,[.1]);
+  assert.deepEqual(t.firstUnmatchedIndexedTimes_s,[.3]);
+  assert.equal(t.originalCaseBindingVerified,false);
+  assert.equal(t.physicalModelValidated,false);
+  assert.equal(audit.overall,'not-certified');
+  const detail=audit.checks.find(x=>x.id==='native-postrun').details;
+  assert.match(detail,/1 CSV times unmatched/);
+  assert.match(detail,/numeric alignment is NOT proof of case ownership/);
+  assert.equal(api.audit({case:{...selected,discoveryModel:{...selected.discoveryModel,
+    timeDirectories:[]}},logs:[],postrun:csv}).postrunTimeline.coverage,
+    'original-inventory-unavailable');
+});
+test('near-zero physical frames are not falsely treated as identical across cases',()=>{
+  const csv=api.csv('time_s,T\\n0,1500\\n0.00000000005,1490\\n','small-times.csv');
+  const selected={id:32,name:'original near zero',config:{},discoveryModel:{
+    fields:[],timeDirectories:[0,0.0000000001],regions:[],dictionaries:[],postProcessing:[]}};
+  const audit=api.audit({case:selected,logs:[],postrun:csv});
+  assert.equal(audit.postrunTimeline.matchedCsvSamples,1,
+    'time 5e-11 is not interchangeable with time 1e-10');
+  assert.equal(audit.postrunTimeline.unmatchedCsvSamples,1);
+  assert.equal(audit.postrunTimeline.unmatchedIndexedOutputTimes,1);
+  const nearly=api.audit({case:{...selected,discoveryModel:{...selected.discoveryModel,
+    timeDirectories:[0,0.00000000005+Number.EPSILON*0.00000000005]}},
+    logs:[],postrun:csv});
+  assert.equal(nearly.postrunTimeline.matchedCsvSamples,2,
+    'machine precision alone can account for matching time representations');
+});
+test('finite CSV values cannot yield an infinite saved interval in a JSON evidence report',()=>{
+  assert.throws(()=>api.csv('time_s,T\\n-1e308,1500\\n1e308,1400\\n','overflow.csv'),
+    /time interval is not finite/);
+  assert.equal(api.csv('time_s,T\\n0,1500\\n0.1,1400\\n').minSavedInterval_s,.1);
+});
+
 test('real panel and export preserve source identity and case invalidation',()=>{
   for(const token of ["id=\"chPostrunFile\"",
     "for(const [id,key,bytes] of [['chRuntimeFile'",
