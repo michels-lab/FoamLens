@@ -19,3 +19,11 @@ const mesh=mg.parse(msh,'mm');assert.equal(mesh.groups.get('3:101').types.HEX8,1
 for(const bad of [msh.replace('2.2 0 8','4.1 0 8'),msh.replace('2.2 0 8','2.2 1 8'),msh.replace('7 8\n2 5','7 99\n2 5'),msh.replace('1 5 2 101','1 17 2 101')])assert.throws(()=>mg.parse(bad,'mm'));
 assert.throws(()=>mg.parse(msh,''));assert.throws(()=>mg.contact(mesh,'2:201','3:101','3:101'));const unmatched=mg.parse(msh.replace('3 3 2 201 3 2 3 7 6','3 3 2 201 3 1 4 8 5'),'mm');assert.equal(mg.contact(unmatched,'2:201','3:101','3:102').missingB,1);
 console.log('Mesh Studio: curved plan, native topology/sets, patch identity and MSH2.2 HEX8 contact PASS');
+
+const quality=ms.qualityCSV('id,value\n0,10\n2,35\n4,80','faceSet',m,4);
+assert.equal(quality.coverage,.5);assert.equal(quality.histogram.flatMap(x=>x.ids).length,3);assert.deepEqual(quality.histogram.at(-1).ids,[4]);assert.equal(quality.sourceBindingVerified,false);
+for(const bad of ['id,value\n6,1','id,value\n0,1\n0,2','id,value\n1,NaN','id,value\n1,Infinity'])assert.throws(()=>ms.qualityCSV(bad,'faceSet',m));
+const flat=ms.qualityCSV('id,value\n0,10\n1,10','faceSet',m);assert.equal(flat.histogram.length,1);assert.deepEqual(flat.histogram[0].ids,[0,1]);
+const start=src.indexOf('/* FOAMLENS_CAD_MEASURE_CORE_START */'),end=src.indexOf('/* FOAMLENS_CAD_MEASURE_CORE_END */');
+const distance=new Function(src.slice(start,end)+';return cmDistance')();assert.equal(distance([0,0,0],[.003,.004,0]).distance_m,.005);assert.throws(()=>distance([0,0,NaN],[1,2,3]));
+console.log('Quality histogram and CAD measurement PASS');
