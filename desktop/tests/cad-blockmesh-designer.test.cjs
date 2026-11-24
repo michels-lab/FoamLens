@@ -19,3 +19,17 @@ const native=api.nativePayload(p,'14');
 assert.equal(native.version,'14');assert.deepEqual(native.zones,[{ijk:[0,0,0],name:'metal'},{ijk:[1,0,0],name:'mold'}]);assert.deepEqual(native.patches,input.patches);assert(!Object.hasOwn(native,'dictionary'));
 assert.throws(()=>api.nativePayload(p,'2312'));assert.throws(()=>api.nativePayload({...p,cellCount:200001},'14'));
 console.log('Native structured request and caps PASS');
+
+assert.equal(api.nativePayload(p,'14',true).splitRegions,true);
+assert.throws(()=>api.nativePayload(api.plan({...input,zones:'0 0 0 metal'}),'14',true));
+const sa=src.indexOf('function cmbSnappySettings('),sb=src.indexOf('function cmbMount()',sa);
+const num=src.indexOf('function cmbNumber('),numEnd=src.indexOf('function cmbAxis(',num);
+const settings=new Function(src.slice(num,numEnd)+src.slice(sa,sb)+';return cmbSnappySettings')();
+const bg=api.plan({...input,zones:''});
+assert.deepEqual(settings(bg,'0.005 -0.02 0.005','1 2',200000),{inside:[.005,-.02,.005],minLevel:1,maxLevel:2,maxCells:200000});
+assert.throws(()=>settings(p,'0.005 -0.02 0.005','1 2',200000));
+assert.throws(()=>settings(bg,'0 -0.02 0.005','1 2',200000));
+assert.throws(()=>settings(bg,'0.005 -0.02 0.005','2 1',200000));
+assert.throws(()=>settings(bg,'0.005 -0.02 0.005','1 5',200000));
+assert.throws(()=>settings(bg,'0.005 -0.02 0.005','1 2',350001));
+console.log('Explicit region splitting and single-surface snappy settings PASS');
