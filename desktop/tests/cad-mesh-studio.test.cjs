@@ -60,3 +60,10 @@ assert.throws(()=>ms.fromNativeReport({...splitReceipt,splitError:'incomplete'},
 assert.throws(()=>ms.fromNativeReport({...splitReceipt,regions:{metal:{expectedCells:2,files:receipt.files}}},'metal'));
 assert.equal(ms.fromNativeReport({...receipt,schema:'foamlens/native-snappy-mesh/1',plannedCells:100}).cells.length,1);
 console.log('Split region identity, count gates and adaptive mesh count PASS');
+
+const nativeSet={...receipt,sets:{badFaces:'FoamFile { version 2.0; format ascii; class faceSet; object badFaces; }\n2\n(0 1)\n',badCells:'FoamFile { version 2.0; format ascii; class cellSet; object badCells; }\n1\n(9)\n'},setWarnings:['other omitted']};
+const parsedSets=ms.generatedSets(nativeSet,null,ms.fromNativeReport(nativeSet));
+assert.equal(parsedSets.sets.length,1);assert.equal(parsedSets.sets[0].kind,'faceSet');assert.deepEqual(parsedSets.sets[0].values,[0,1]);assert.equal(parsedSets.warnings.length,2);
+const splitSets={...splitReceipt,regions:{...splitReceipt.regions,metal:{...splitReceipt.regions.metal,sets:nativeSet.sets}}};
+assert.equal(ms.generatedSets(splitSets,'metal',ms.fromNativeReport(splitSets,'metal')).sets.length,1);assert.equal(ms.generatedSets(splitSets,'mold',ms.fromNativeReport(splitSets,'mold')).sets.length,0);
+console.log('Native defect sets stay bound to exact region and IDs PASS');
