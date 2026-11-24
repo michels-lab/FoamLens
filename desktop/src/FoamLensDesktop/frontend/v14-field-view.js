@@ -692,7 +692,7 @@ function fvRegionLegendMarkup(layer,choice){
   const palette=fvRegionPalette(choice),unit=layer.parsed?.dimensions&&typeof pmUnitFromDimensions==='function'
     ?pmUnitFromDimensions(layer.parsed.dimensions):'';
   const prefix=fvEsc((layer.field||'')+' · t='+fvFmt(sourceTime)+' s · '+fvAssociationLabel(layer.storage));
-  const lo=fvEsc(fvFmtRange(range.min,range)),hi=fvEsc(fvFmtRange(range.max,range)),suffix=unit?' '+fvEsc(unit):'';
+  const lo=fvEsc(fvLegendNumber(range.min,range)),hi=fvEsc(fvLegendNumber(range.max,range)),suffix=unit?' '+fvEsc(unit):'';
   if(range.min===range.max){
     const rgb=fvColorMap(range.min,range.min,range.max,palette).map(v=>Math.round(255*v));
     return '<div class="fvRegionLegendLabel">'+prefix+'</div>'+
@@ -1455,6 +1455,15 @@ function fvFmtRange(v,range){
   if(!Number.isFinite(span)||span===0)return fvFmt(v);if(span/mag<1e-7)return v.toPrecision(Math.min(12,Math.max(7,Math.ceil(-Math.log10(span/mag))+3)));
   const step=span/5,dec=Math.max(0,Math.min(9,Math.ceil(-Math.log10(Math.max(step,1e-15)))+1));return v.toLocaleString(undefined,{minimumFractionDigits:Math.min(dec,6),maximumFractionDigits:dec})
 }
+function fvLegendNumber(value,range){
+  if(value===null||value===undefined||!Number.isFinite(Number(value)))return '—';
+  const v=Number(value),a=Math.abs(v),lo=Number(range?.min),hi=Number(range?.max),span=Math.abs(hi-lo),mag=Math.max(Math.abs(lo),Math.abs(hi),a);
+  if(v===0)return '0';
+  const sig=span>0&&Number.isFinite(span)&&mag>0?Math.min(12,Math.max(5,Math.ceil(Math.log10(mag/span))+3)):5;
+  if(a<1e-3||a>=1e5)return v.toExponential(sig-1).replace(/(\.\d*?[1-9])0+e/,'$1e').replace(/\.0+e/,'e');
+  return Number(v.toPrecision(sig)).toString()
+}
+function fvLegendTick(value,range){return '<span title="'+fvEsc(String(value))+'">'+fvEsc(fvLegendNumber(value,range))+'</span>'}
 function fvRangeUniform(range){const min=Number(range?.min),max=Number(range?.max),scale=Math.max(Math.abs(min),Math.abs(max),1);return Number.isFinite(min)&&Number.isFinite(max)&&Math.abs(max-min)<=scale*1e-12}
 function fvFieldCacheKey(caseId,name,time,region){return[String(caseId??''),String(region||''),String(name||''),Number(time)].join('|')}
 function fvUpdateCacheReadout(extra=''){
@@ -1630,6 +1639,44 @@ function fvMetricScale(span){
 }
 function fvMetricLabel(value,scale){
   const n=value*scale.factor;return Number.isFinite(n)?Number(n.toPrecision(15)).toLocaleString('en-US',{maximumFractionDigits:10}):'—'
+}
+// Shared projected-axis label packing, using CSS-pixel-scaled glyphs.
+function fvAxisLabelLayout(candidates,width,height,scale=1){
+  const used=[],out=[],font=11*scale,pad=4*scale;
+  const overlap=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+  for(const c of candidates.slice().sort((a,b)=>b.priority-a.priority||a.axis-b.axis||a.tick-b.tick)){
+    if(!c.p?.inside||!Number.isFinite(c.p.x)||!Number.isFinite(c.p.y))continue;
+    const w=Math.max(font*2,c.label.length*font*.68)+pad*2,h=font*1.45+pad,g=8*scale;
+    const offsets=[[g,-h-g],[-w-g,-h-g],[g,g],[-w-g,g],[g,-h/2],[-w-g,-h/2],[0,-h-3*g],[0,3*g]];
+    for(const [dx,dy] of offsets.slice(0,c.priority>=2?8:4)){
+      const box={x:c.p.x+dx,y:c.p.y+dy,w,h};
+      if(box.x<pad||box.y<pad||box.x+w>width-pad||box.y+h>height-pad||used.some(b=>overlap(box,b)))continue;
+      used.push(box);out.push({...c,box,font,pad});break
+    }
+  }return out
+}
+function fvPhysicalAxesMarkup(bounds,mvp,w,h,cssWidth=w){
+  if(!bounds||!(w>0&&h>0))return '';
+  const scale=Math.max(1,Math.min(2,w/Math.max(1,cssWidth))),span=bounds.max.map((v,i)=>v-bounds.min[i]),project=p=>fvProjectWorld(p,mvp,w,h);
+  const line=(a,b,color,opacity=1,width=1)=>a&&b?'<line x1="'+a.x.toFixed(2)+'" y1="'+a.y.toFixed(2)+'" x2="'+b.x.toFixed(2)+'" y2="'+b.y.toFixed(2)+'" stroke="'+color+'" stroke-opacity="'+opacity+'" stroke-width="'+(width*scale)+'"/>':'';
+  const corners=Array.from({length:8},(_,i)=>[0,1,2].map(a=>(i&(1<<a))?bounds.max[a]:bounds.min[a])),screen=corners.map(project),candidates=[];
+  let markup='';for(const [a,b] of [[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]])markup+=line(screen[a],screen[b],'#9cb4c9',.3,.8);
+  for(let axis=0;axis<3;axis++){
+    const color=['#ef5350','#66bb6a','#42a5f5'][axis],u=fvMetricScale(span[axis]),end=bounds.min.map((v,i)=>i===axis?bounds.max[i]:v),a=project(bounds.min),b=project(end);
+    markup+=line(a,b,color,1,2);if(!(span[axis]>0)||!a||!b)continue;
+    const length=Math.hypot(b.x-a.x,b.y-a.y)/scale,ticks=length>=145?4:length>=78?2:1;
+    for(let j=1;j<=ticks;j++){
+      const world=bounds.min.map((v,i)=>i===axis?v+span[i]*j/ticks:v),p=project(world);if(!p?.inside)continue;
+      markup+='<circle cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+'" r="'+(2.6*scale)+'" fill="'+color+'"/>';
+      const label=(j===ticks?['X','Y','Z'][axis]+' ':'')+fvMetricLabel(world[axis],u)+(j===ticks?' '+u.unit:'');
+      candidates.push({axis,tick:j,priority:j===ticks?3:1,p,label,color})
+    }
+  }
+  for(const c of fvAxisLabelLayout(candidates,w,h,scale)){
+    const b=c.box,x=b.x+c.pad,y=b.y+c.pad+c.font;
+    markup+=line(c.p,{x:Math.max(b.x,Math.min(c.p.x,b.x+b.w)),y:Math.max(b.y,Math.min(c.p.y,b.y+b.h))},c.color,.65,.8);
+    markup+='<text x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" fill="#f7fbff" stroke="#08131f" stroke-width="'+(2.5*scale)+'" paint-order="stroke" font-size="'+c.font+'">'+fvEsc(c.label)+'</text>'
+  }return markup
 }
 function fvMeshVertexNearestAt(meshes,x,y,mvp,width,height,radius=18){
   let best=null,bestD=radius*radius;
@@ -1876,27 +1923,7 @@ function fvPhysicalOverlayRender(canvas){
       '" x2="'+b.x.toFixed(2)+'" y2="'+b.y.toFixed(2)+
       '" stroke="'+stroke+'" stroke-opacity="'+alpha+'" stroke-width="'+width+'"/>'
   };
-  if(axes){
-    const edgePairs=[[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]],
-      corners=Array.from({length:8},(_,i)=>[0,1,2].map(a=>(i&(1<<a))?bounds.max[a]:bounds.min[a])),
-      screen=corners.map(project);
-    for(const [a,b] of edgePairs)markup+=line(screen[a],screen[b],'#9cb4c9',.3,.8);
-    for(let axis=0;axis<3;axis++){
-      const color=['#ef5350','#66bb6a','#42a5f5'][axis],u=fvMetricScale(span[axis]),
-        end=bounds.min.map((v,i)=>axis===i?bounds.max[i]:v);
-      markup+=line(project(bounds.min),project(end),color,1,2);
-      if(!(span[axis]>0))continue;
-      for(let j=0;j<=4;j++){
-        const world=bounds.min.map((v,i)=>i===axis?v+span[i]*j/4:v),p=project(world);
-        if(!p)continue;
-        const t=fvMetricLabel(world[axis],u)+(j===4?' '+u.unit:'');
-        markup+='<circle cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+
-          '" r="2.7" fill="'+color+'"/><text x="'+(p.x+6).toFixed(2)+
-          '" y="'+(p.y-7).toFixed(2)+'" fill="#f7fbff" stroke="#08131f" stroke-width="2.5" paint-order="stroke" font-size="11">'+
-          fvEsc((j===4?['X','Y','Z'][axis]+' ':'')+t)+'</text>'
-      }
-    }
-  }
+  if(axes)markup+=fvPhysicalAxesMarkup(bounds,mvp,w,h,canvas.getBoundingClientRect().width);
   if(fvPhysicalMeasure.points.length){
     const a=project(fvPhysicalMeasure.points[0]),b=fvPhysicalMeasure.points[1]?project(fvPhysicalMeasure.points[1]):null;
     markup+=line(a,b,'#ffd166',1,2.4);
@@ -2032,7 +2059,7 @@ function fvSetStats(mesh,range,parsed){
 function fvLegend(range,parsed){
   const e=document.getElementById('fvLegend');if(!e)return;const unit=parsed?.dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(parsed.dimensions):'',palette=document.getElementById('fvPalette')?.value||'viridis',uniform=fvRangeUniform(range),mode=fvCurrentRangeMode(),title=fvEsc(parsed?.object||fvState.fieldName||'Field');
   if(uniform){const rgb=fvColorMap(range?.min,range?.min,range?.max,palette).map(v=>Math.round(v*255));e.innerHTML=`<div class="fvLegendTitle">${title}${unit?` <span>[${fvEsc(unit)}]</span>`:''}</div><div class="fvUniformRange"><span class="fvUniformSwatch" style="background:rgb(${rgb.join(',')})"></span><b>${flUi('Uniform field','Campo uniforme')}: ${fvFmtRange(range?.min,range)}</b></div><div class="fvLegendMode">${fvEsc(mode)}</div>`;return}
-  e.innerHTML=`<div class="fvLegendTitle">${title}${unit?` <span>[${fvEsc(unit)}]</span>`:''}</div><div class="fvLegendBar" style="background:${fvEsc(fvLegendGradient(palette))}"></div><div class="fvLegendTicks"><span>${fvFmtRange(range?.min,range)}</span><span>${fvFmtRange((range?.min+range?.max)/2,range)}</span><span>${fvFmtRange(range?.max,range)}</span></div><div class="fvLegendMode">${fvEsc(mode)} · Δ ${fvFmtRange(Number(range?.max)-Number(range?.min),{min:0,max:Math.abs(Number(range?.max)-Number(range?.min))})}</div>`
+  e.innerHTML=`<div class="fvLegendTitle">${title}${unit?` <span>[${fvEsc(unit)}]</span>`:''}</div><div class="fvLegendBar" style="background:${fvEsc(fvLegendGradient(palette))}"></div><div class="fvLegendTicks">${fvLegendTick(range?.min,range)}${fvLegendTick(Number(range?.min)/2+Number(range?.max)/2,range)}${fvLegendTick(range?.max,range)}</div><div class="fvLegendMode">${fvEsc(mode)} · Δ ${fvFmtRange(Number(range?.max)-Number(range?.min),{min:0,max:Math.abs(Number(range?.max)-Number(range?.min))})}</div>`
 }
 function fvPickFieldPart(set){const exact=(set||[]).find(x=>!x.partition);if(exact)return exact;return (set||[]).length===1?set[0]:null}
 function fvFieldComponents(group){return group?.kind==='vector'?[{v:'magnitude',t:flUi('Magnitude','Magnitud')},{v:'x',t:'X'},{v:'y',t:'Y'},{v:'z',t:'Z'}]:[{v:'value',t:flUi('Value','Valor')}]}
@@ -2299,9 +2326,27 @@ function fvInvalidateUnavailableSelection(){
   fvSetStats(null,null,null);
   fvRender()
 }
+// Read-only diagnostic from the imported index, not a claim about files on disk.
+function fvCaseSourceDiagnosis(c){
+  const meshes=c?.meshInventory||[],fields=(c?.discoveryModel?.fields||[]).filter(f=>['volume','surface','point'].includes(String(f?.storage||''))&&['scalar','vector'].includes(String(f?.kind||''))&&Array.isArray(f?.times)&&f.times.length);
+  const names=[...new Set([...meshes,...fields].map(x=>String(x.region||'')))],required=['points','faces','owner','neighbour'];
+  const rows=names.map(region=>{
+    const groups=meshes.filter(m=>String(m.region||'')===region),fg=fields.filter(f=>String(f.region||'')===region),times=[...new Set(fg.flatMap(f=>f.times).filter(t=>typeof t==='number'||typeof t==='string'&&t.trim()).map(Number).filter(Number.isFinite))].sort((a,b)=>a-b);
+    const incomplete=groups.filter(g=>!g.complete).map(g=>{const known=g.baseSourcePaths||g.sourcePaths||g.baseFiles||g.files;return{partition:g.partition||'',missing:known?required.filter(k=>!known[k]):null}});
+    return{region,meshGroups:groups.length,completeGroups:groups.filter(g=>g.complete).length,fields:fg.length,times,incomplete}
+  });
+  const summary=(c?.name||flUi('No selected case','Sin caso seleccionado'))+' · '+flUi('Indexed mesh groups: ','Grupos de malla indexados: ')+meshes.length+' · '+flUi('Compatible fields: ','Campos compatibles: ')+fields.length+' · '+fvAvailability(c).reason;
+  return{summary,rows}
+}
+function fvCaseDiagnosisMarkup(c){
+  const d=fvCaseSourceDiagnosis(c);
+  return '<div class="smallnote" style="overflow-wrap:anywhere">'+fvEsc(d.summary)+'</div>'+
+    (d.rows.length?d.rows.map(row=>'<div style="margin-top:6px;padding:6px;border:1px solid var(--line);border-radius:6px;overflow-wrap:anywhere"><b>'+fvEsc(row.region||flUi('Default region','Región predeterminada'))+'</b> · '+row.completeGroups+'/'+row.meshGroups+' '+flUi('complete mesh groups','grupos de malla completos')+' · '+row.fields+' '+flUi('fields','campos')+' · '+row.times.length+' '+flUi('saved times','tiempos guardados')+(row.times.length?' ('+fvEsc(String(row.times[0]))+' – '+fvEsc(String(row.times.at(-1)))+' s)':'')+row.incomplete.map(g=>'<div class="smallnote">'+fvEsc(g.partition||'constant/polyMesh')+' · '+fvEsc(g.missing?.length?flUi('Not indexed: ','No indexado: ')+g.missing.join(', '):flUi('Incomplete mesh inventory','Inventario de malla incompleto'))+'</div>').join('')+'</div>').join(''):'<div>'+flUi('No mesh or field regions were indexed.','No se indexaron regiones de malla ni campos.')+'</div>')+
+    '<div class="smallnote">'+flUi('Imported index only. Missing index entries do not prove files were deleted. Reimport the case root after external changes.','Solo inventario importado. Una entrada no indexada no demuestra que se borró el archivo. Reimporta la raíz tras cambios externos.')+'</div>'
+}
 async function fvLoadSelection(){
   fvStopPlayback();fvRefreshSelectors(true);const c=fvCase(),availability=fvAvailability(c),region=document.getElementById('fvRegion')?.value||'',fg=fvCurrentFieldGroup();
-  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const detail=availability.reason+(c?' · '+c.name:'')+' · '+flUi('Complete mesh regions: ','Regiones con malla completa: ')+availability.meshRegions.length+' · '+flUi('Field regions: ','Regiones con campos: ')+availability.fieldRegions.length;fvSetStatus(detail,true);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(availability.reason)+'</div><div>'+fvEsc(detail)+'</div><div>'+fvEsc(flUi('Check the case root, constant/<region>/polyMesh and saved time folders. Reimport after external changes; no solver or cleanup is performed.','Revisa la raíz del caso, constant/<región>/polyMesh y las carpetas de tiempos guardados. Reimporta tras cambios externos; no se ejecuta el solver ni se limpia el caso.'))+'</div>';fvRender();return false}
+  if(!availability.ready||!c||!fg){fvInvalidateUnavailableSelection();const detail=availability.reason+(c?' · '+c.name:'')+' · '+flUi('Complete mesh regions: ','Regiones con malla completa: ')+availability.meshRegions.length+' · '+flUi('Field regions: ','Regiones con campos: ')+availability.fieldRegions.length;fvSetStatus(detail,true);const legend=document.getElementById('fvLegend');if(legend)legend.innerHTML='<div class="fvLegendTitle">'+fvEsc(availability.reason)+'</div>'+fvCaseDiagnosisMarkup(c);fvRender();return false}
   let requestSeq=fvState.frameSeq;
   try{
     fvSetStatus(flUi('Loading mesh and field…','Cargando malla y campo…'));

@@ -1161,7 +1161,7 @@ test('physical OpenFOAM region colormaps use independent measured field legends 
   const palette='coolwarm';
   const helpers=new Function('flUi','fvEsc','fvFmt','fvFmtRange','fvAssociationLabel',
     'fvLegendGradient','pmUnitFromDimensions','fvSurfaceColors','fvPointSurfaceColors','fvInternalFaceColors',
-    'fvRegionMeasuredRange',regionCode.slice(begin,end)+
+    'fvRegionMeasuredRange',source.slice(source.indexOf('function fvLegendNumber('),source.indexOf('function fvRangeUniform('))+regionCode.slice(begin,end)+
     ';return {fvRegionPalette,fvRegionLegendMarkup,fvRegionRecolorLayer}')(
       english=>english,s=>String(s).replace(/</g,'&lt;'),String,String,s=>s,
       name=>'linear-gradient(90deg, '+name+', #fff)',
