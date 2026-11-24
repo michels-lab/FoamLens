@@ -180,7 +180,7 @@ internal static class NativeCartesianMesh
             float x=System.Buffers.Binary.BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(84+50*t+12+12*p+4*d,4));
             if(x<=axes[d][0]||x>=axes[d][^1])throw new ArgumentException("Surface must lie strictly inside the background mesh; expand its bounds first.");
         }
-        string dict=$"""
+        string dict=$$"""
             FoamFile { version 2.0; format ascii; class dictionary; object snappyHexMeshDict; }
             castellatedMesh true;
             snap true;
