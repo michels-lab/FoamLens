@@ -4461,7 +4461,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         var operation = BeginOperation(requestId);
         try
         {
-            if (root.GetRawText().Length > (gmsh ? 36 * 1024 * 1024 : 200000)) throw new ArgumentException("Cartesian request too large.");
+            if (root.GetRawText().Length > (gmsh ? 36 * 1024 * 1024 : root.TryGetProperty("snappy",out _) ? 6 * 1024 * 1024 : 200000)) throw new ArgumentException("Cartesian request too large.");
             var report = await NativeCartesianMesh.RunAsync(root, operation.Token, gmsh);
             Reply(requestId, true, report, null);
         }
