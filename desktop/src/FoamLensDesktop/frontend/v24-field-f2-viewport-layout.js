@@ -360,7 +360,7 @@ function pvLoadDeck(){
     pvDeckHeight=p.schema===2&&['individual','compact','balanced','large'].includes(p.height)?p.height:'balanced'
   }catch{pvDeckMode='auto';pvDeckHeight='balanced'}
 }
-function pvSaveDeck(){try{localStorage.setItem(pvDeckKey,JSON.stringify({mode:pvDeckMode,height:pvDeckHeight}))}catch{}}
+function pvSaveDeck(){try{localStorage.setItem(pvDeckKey,JSON.stringify({schema:2,mode:pvDeckMode,height:pvDeckHeight}))}catch{}}
 function pvDeckSceneHeight(){
   const h=window.innerHeight;
   if(pvDeckHeight==='compact')return pvHeight(Math.round(h*.42),h);

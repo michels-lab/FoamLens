@@ -1,5 +1,7 @@
 # FoamLens — avance global verificable
 
+**Actualización 2026-11-24:** v1.8.22 publicada ([release](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.22)); PR #375 y #376 fusionados; recuperación Field A–D y ajuste visual en fuente v1.8.23. Los datos B14 reales, cotas y revisión instalada siguen pendientes. 7/15 hitos formales; el registro histórico de abajo no describe la publicación actual.
+
 **Corte:** 2026-11-20. **Ruta integral:** aceptación de Field A–D, Time Series y perfiles, CAD por pieza/multirregión, ciencia térmica, interfaz transversal, Windows y release final. **Rendimiento (#117) pospuesto** por solicitud del propietario, sin marcarlo como resuelto.
 
 ## 47% estimado — 7/15 hitos

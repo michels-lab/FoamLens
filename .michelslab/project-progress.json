@@ -3,17 +3,17 @@
   "project": "FoamLens",
   "repository": "michels-lab/FoamLens",
   "role": "application",
-  "as_of": "2026-11-20",
+  "as_of": "2026-11-24",
   "scope": "Ruta integral de aceptación y publicación final estable FoamLens: ciencia OpenFOAM, Field A-D, perfiles, CAD, experiencia transversal y Windows; rendimiento 3008 archivos excluido por decisión del propietario",
   "estimate_method": "equal_weight_verified_milestones",
   "progress_percent": 47,
   "verified_milestones": 7,
   "total_milestones": 15,
-  "phase": "PR #371 Granada #153 reconstruction: original polyMesh liquid-alpha 3D marching tetrahedra iso geometry + orbit preview + verified OBJ; 156 direct core checks PASS; Ubuntu/Windows CI of exact HEAD running, no merge/release",
-  "source_pr": "https://github.com/michels-lab/FoamLens/pull/371",
-  "source_head_sha": "125950543d6d0a5a47d0fb1c4dfc3c6a6ca7145d",
-  "latest_verified_stable": "v1.8.21",
-  "release_hold": true,
+  "phase": "v1.8.22 published; PR #375/#376 merged; owner Field A–D unavailable-primary recovery integrated for v1.8.23",
+  "source_pr": "https://github.com/michels-lab/FoamLens/pull/376",
+  "source_head_sha": "e880faceea5aa4c9621a8db2712ed691fcd735a2",
+  "latest_verified_stable": "v1.8.22",
+  "release_hold": false,
   "owner_physical_acceptance": false,
   "milestones": [
     {
@@ -148,32 +148,21 @@
       ]
     }
   ],
-  "next_step": "Confirm 15/15 exact HEAD workflow CI; then original owner B14/C14 on installed Windows, quantitative front-vs-experiment/normal velocity and Field A–D UI, final stable setup+portable and acceptance",
-  "limitations": "47% (7/15) unchanged, because triangular interpolated reconstruction with tests is not the complete #13 physical validation. PR remains draft; no stable release or owner QA on actual specimens.",
+  "next_step": "Publish v1.8.23 through official workflow and inspect B14 actual source files plus owner installed A–D time/camera/layout feedback; continue axis labels and CAD.",
+  "limitations": "7/15 verified formal milestones; release milestone remains for final exact-current scope. Published v1.8.22 verified, later owner screenshot defects still require acceptance. No B14 source inventory inspected.",
   "last_granada": {
-    "as_of": "2026-11-20",
+    "as_of": "2026-11-24",
     "progress_before": 47,
     "progress_after": 47,
     "verified_milestones": 7,
     "total_milestones": 15,
-    "source_code_sha": "125950543d6d0a5a47d0fb1c4dfc3c6a6ca7145d",
-    "scope": "Actual triangulated 3D geometric reconstruction of an approximate alpha isosurface from original cell-centered OpenFOAM volScalarField + closed native polyMesh",
-    "features": [
-      "Original cell-centered alpha to reconstructed nodal alpha via inverse distance to adjacent original cell centers, then oriented star-shaped face-fan tetrahedra and marching tetrahedra",
-      "Real indexed XYZ triangle geometry, oriented towards increasing alpha, geometric area m2, centroid, open-boundary/nonmanifold/degenerate counts and explicit no-exact-solver-iso flags",
-      "Interactive draggable orbit preview inside Analysis for selected actual physical-written frame; full non-decimated source-backed OBJ export with meters",
-      "OBJ gate rereads original mesh/time/field and verifies full geometry+cell-value fingerprints before download, changes block stale export",
-      "No fabricated 3D cells or front normal speed, no falsely measured subcell phase volumes",
-      "Regression of valid single-cell original polyMesh with empty neighbour[]; source fingerprint remains valid with zero internal faces rather than refusing a physical one-cell mesh"
-    ],
+    "source_code_sha": "e880faceea5aa4c9621a8db2712ed691fcd735a2",
+    "scope": "Field unavailable-primary isolation, actual timestamp fallback, camera fit, diagnosis, header/scene layout and integrated scientific comparisons",
     "evidence": [
-      "Original front source tests 85 assertions PASS in direct original JS",
-      "New iso geometry/OBJ source tests 76 assertions PASS in direct original JS",
-      "https://github.com/michels-lab/FoamLens/pull/371/checks"
+      "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.22",
+      "https://github.com/michels-lab/FoamLens/pull/375",
+      "https://github.com/michels-lab/FoamLens/pull/376"
     ],
-    "ci_status": "All 15 exact-head workflows (including Windows, new 3D scientific dual-OS) are running/queued; do not claim success on latest SHA before completed.",
-    "limitations": "Approximate interpolated reconstruction from original cell-centered alpha, NOT exact solver-native isosurface, experimental solidification front or local normal velocity. Source mathematical 2-cube geometry is synthetic test fixture, not owner B14/C14 original physics.",
-    "pending": "B14/C14 actual installed Windows physics and DPI A-D acceptance, full phase/momentum and 2D/3D field equivalence, original validated molten iron case, normal front speed, stable release exact-main setup+portable and owner acceptance",
-    "previous_source_code_sha": "93bc960a38cda615f42a94d0956326b7336773e8"
+    "pending": "v1.8.23 publication, original B14 files, owner manual acceptance, metric axis collisions, CAD"
   }
 }

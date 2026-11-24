@@ -148,10 +148,7 @@ const fcState={
   spatialHash:null,vectorValues:null,streamlines:[],probe:null,differenceValues:null,differenceRange:null,differenceSource:null,differenceRenderer:null,seq:0,lastError:'',camera:null,visual:null,sync:null
 };
 function fcUi(en,es){try{return flUi(en,es)}catch{return en}}
-function fcPrimaryPhysicalTime(){
-  if(!fvState?.mesh||!fvState?.fieldValues)return NaN;
-  return fcPhysicalNumber(fvState.time)
-}
+function fcPrimaryPhysicalTime(){return fcPhysicalNumber(fvState?.time)}
 function fcEsc(v){
   // Original OpenFOAM case/field labels are external inputs. A missing host
   // escaper must not turn the independent view toolbar into HTML injection.
@@ -171,7 +168,7 @@ function fcCameraLinkRequested(){return document.getElementById('fcLinkCameras')
 function fcCamerasLinked(){return fcCameraLinkRequested()&&!!fvState?.mesh&&fcValidFitMesh(fvState.mesh)}
 function fcVisualsSynced(){return document.getElementById('fcSyncVisuals')?.checked!==false}
 function fcTimeLinkRequested(){return document.getElementById('fcLinkTimes')?.checked!==false}
-function fcTimesLinked(){return fcTimeLinkRequested()&&Number.isFinite(fcPrimaryPhysicalTime())}
+function fcTimesLinked(){return fcTimeLinkRequested()&&!!fvState?.mesh&&!!fvState?.fieldValues&&Number.isFinite(fcPrimaryPhysicalTime())}
 function fcLinkFallbackNotice(){
   const node=document.getElementById('fcLinkFallbackNotice');if(!node)return;
   const time=fcTimeLinkRequested()&&!fcTimesLinked(),camera=fcCameraLinkRequested()&&!fcCamerasLinked();
@@ -1584,7 +1581,7 @@ function fcUpdateLabels(){
   if(pb)pb.textContent=Number.isFinite(fvState.time)?'A · t='+fcFmt(fvState.time)+' s':'A · —';
   if(cb)cb.textContent=fcTimesLinked()?'B · '+fcSyncText(fcState.sync):
     'B · '+(Number.isFinite(fcState.time)?'t='+fcFmt(fcState.time)+' s': '—')+' · '+fcUi('Independent','Independiente');
-  fcLinkFallbackNotice();
+  if(typeof fcLinkFallbackNotice==='function')fcLinkFallbackNotice();
   if(primary)primary.title=primary.textContent;
   if(compare)compare.title=compare.textContent
 }

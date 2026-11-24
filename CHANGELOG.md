@@ -1,3 +1,11 @@
+## Desktop v1.8.23 — GRANADA Field recovery and scientific comparisons (2026-11-24)
+
+- **Field A–D recovery:** linked time/camera preferences remain saved, but the effective linkage suspends when A lacks a valid mesh or loaded physical field/time. Other panes use their actual stored timestamps and locally fitted cameras, with a visible reason; valid A restores effective linkage. No synthetic t=0 or fake mesh.
+- **Unavailable case diagnosis:** show detected complete mesh and compatible field-region counts, original case name and source-directory guidance in A; do not run Allclean or the solver. B14's actual disk inventory is not known.
+- **Layout:** equal balanced scenes by default (independent sizes still selectable), align real header heights across visible comparison panes, reclaim hidden companion columns and use theme-compatible scrollbar styling.
+- **Scientific analysis:** integrated interactive 2D/3D curves and difference chart, exact aligned sample cursor and time-weighted error integrals (#375); up to eight spatial profiles with shared coordinate grid, actual-time compatibility, length-weighted errors and bound JSON/CSV (#376).
+- **Publication:** exact source Windows build, QuickCup, native visual and integrity gates retained. Owner manual B14/C14 verification after publication; no physical validation or claimed completed UI acceptance.
+
 ## Desktop v1.8.22 — GRANADA integrated comparison and native scientific timeline (2026-11-23)
 
 - **Field comparison deck:** persistent Automatic, Two columns and Widest safe row arrangements; independent scene sizes or shared compact, balanced and large scene-height presets, responsive to the actual panel width, one-click layout reset. No new horizontal scrollbars or changes to individual source, camera, region or physical time.

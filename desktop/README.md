@@ -1,6 +1,10 @@
-# FoamLens Desktop v1.8.22
+# FoamLens Desktop v1.8.23
 
-**FoamLens Desktop v1.8.22 with frontend v51** is the release source pending publication: integrated comparison layout presets, linked native postrun timelines with real saved samples, scientific Field/Data/Analysis/CAD source corrections. Owner manual validation follows official release. The latest published version must be verified at [GitHub Releases/latest](https://github.com/michels-lab/FoamLens/releases/latest).
+**FoamLens Desktop v1.8.23 with frontend v51** is the release source pending publication. Field A–D fall back to their own saved physical time and fitted cameras when A is unavailable; aligned scenes, clearer unavailable-case evidence, multicase spatial profiles and interactive 2D/3D comparison. Owner manual validation follows publication.
+
+## Previous published stable: v1.8.22
+
+[v1.8.22](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.22) published with Setup, Portable and SHA256 sidecars after [exact source release workflow](https://github.com/michels-lab/FoamLens/actions/runs/45338202552) SUCCESS. Real B14/C14 feedback remains unresolved until owner rechecks the new version.
 
 ## Previous published stable: v1.8.21
 
