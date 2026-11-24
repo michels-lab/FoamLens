@@ -103,3 +103,17 @@ const per=ms.xyzTable('id,x,y,z,value,weight\n1,0,0,0,5,1000000',{...tableMeta,c
 for(const bad of ['id,x,y,z,value,weight\n1,0,0,0,1,-1','id,x,y,z,value\n1,0,0,0,1\n1,1,1,1,2','id,x,y,z,value\n1,NaN,0,0,1'])assert.throws(()=>ms.xyzTable(bad,tableMeta));
 assert.throws(()=>ms.xyzFluxPair(tableA,faceB,1,1,1,0));assert.throws(()=>ms.xyzFluxPair(tableA,faceB,0,0,1,0));assert.throws(()=>ms.timeSummary(hist,'integral',0));
 console.log('XYZ SI units, irregular time quadrature, missing coverage and exact signed interface matching PASS');
+
+const flatMesh={supported:true,format:'ascii',pointCount:8,faceCount:6,cellCount:1,internalFaceCount:0,points:m.points.flat(),faceOffsets:[0,4,8,12,16,20,24],facePoints:m.faces.flat(),owners:m.owner,neighbours:m.neighbour,boundaryPatches:[{name:'wall',type:'wall',startFace:0,nFaces:6}]};
+const nativeTopology=ms.fieldTopology(flatMesh);assert.deepEqual(nativeTopology.cells,m.cells);
+const nativeCell=ms.fieldRows({mesh:flatMesh,storage:'volume',fieldValues:[700]},'internal',nativeTopology);
+assert.equal(nativeCell.rows.length,1);near(nativeCell.rows[0].weight,1);near(nativeCell.rows[0].value,700);near(nativeCell.rows[0].x,.5);
+const nativeFace=ms.fieldRows({mesh:flatMesh,storage:'surface',fieldValues:[],surfaceBoundary:{values:new Map([[0,10],[1,-5]])}},'wall',nativeTopology);
+assert.equal(nativeFace.rows.length,6);near(nativeFace.rows[0].weight,1);assert.equal(nativeFace.rows[2].value,null);
+const nativePoints=ms.fieldRows({mesh:flatMesh,storage:'point',fieldValues:[0,1,2,3,4,5,6,7]});assert.equal(nativePoints.rows.length,8);assert.equal(nativePoints.rows[0].weight,null);
+const nativeSeries=ms.nativeTable({source:'C3D04/metal',association:'cellSet',convention:'intensive',unit:'K'},[{...nativeCell,time:0,meshKey:'constant'},{...nativeCell,time:2,meshKey:'constant'}]);
+assert.equal(nativeSeries.sourceBindingVerified,true);near(ms.xyzSelect(nativeSeries,[])[0].integral,700);near(ms.timeSummary(ms.xyzSelect(nativeSeries,[]),'integral',3).timeIntegral,1400);
+const badGeometry=ms.nativeTable({association:'cellSet',convention:'intensive'},[{...nativeCell,time:0,invalid:[99],eligible:2}]);assert.equal(ms.xyzSelect(badGeometry,[])[0].complete,false);assert.equal(ms.xyzSelect(badGeometry,[])[0].invalidGeometry,1);
+assert.throws(()=>ms.fieldTopology({...flatMesh,format:'decomposed'}));assert.throws(()=>ms.fieldTopology({...flatMesh,owners:[9,0,0,0,0,0]}));assert.throws(()=>ms.fieldRows({mesh:flatMesh,storage:'volume',fieldValues:[1,2]}));assert.throws(()=>ms.fieldRows({mesh:flatMesh,storage:'surface',fieldValues:[]},'wrong'));
+assert.throws(()=>ms.nativeTable({association:'cellSet',convention:'intensive'},[{...nativeCell,time:0},{...nativeCell,time:0}]));
+console.log('Original Field geometry, association, boundary missing data and native time integration PASS');
