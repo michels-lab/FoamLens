@@ -12,7 +12,7 @@ internal static class NativeCartesianMesh
     private const long MaxOutput = 24 * 1024 * 1024;
     private static readonly string[] MeshNames = { "points", "faces", "owner", "neighbour", "boundary", "cellZones", "faceZones", "pointZones" };
     private static string Num(double x) => x.ToString("G17", CultureInfo.InvariantCulture);
-    private static string List<T>(IEnumerable<T> v) => "(" + string.Join(" ", v) + ")";
+    private static string FoamList<T>(IEnumerable<T> v) => "(" + string.Join(" ", v) + ")";
     private static string Name(JsonElement e)
     {
         var s = e.GetString() ?? "";
@@ -51,7 +51,7 @@ internal static class NativeCartesianMesh
         int Id(int i,int j,int k)=>(k*(ny+1)+j)*(nx+1)+i;
         var b=new StringBuilder("FoamFile { version 2.0; format ascii; class dictionary; object blockMeshDict; }\nscale 1;\nvertices\n(\n");
         for(int k=0;k<=nz;k++)for(int j=0;j<=ny;j++)for(int i=0;i<=nx;i++)
-            b.AppendLine(List(new[]{Num(axes[0].Points[i]),Num(axes[1].Points[j]),Num(axes[2].Points[k])}));
+            b.AppendLine(FoamList(new[]{Num(axes[0].Points[i]),Num(axes[1].Points[j]),Num(axes[2].Points[k])}));
         b.AppendLine(");\nblocks\n(");
         var faces=Enumerable.Range(0,6).Select(_=>new List<string>()).ToArray();
         int[][] sides={new[]{0,4,7,3},new[]{1,2,6,5},new[]{0,1,5,4},new[]{3,7,6,2},new[]{0,3,2,1},new[]{4,5,6,7}};
@@ -61,14 +61,30 @@ internal static class NativeCartesianMesh
             int[] q={i,j,k};var size=axes.Select((a,d)=>a.Points[q[d]+1]-a.Points[q[d]]).Aggregate(1.0,(a,c)=>a*c);
             if (!(size>0) || !double.IsFinite(size)) throw new ArgumentException("Invalid block volume.");
             zones.TryGetValue((i,j,k),out var zone);
-            b.AppendLine("hex "+List(v)+(zone is null?"":" "+zone)+" "+List(axes.Select((a,d)=>a.Counts[q[d]]))+" simpleGrading "+List(axes.Select((a,d)=>Num(a.Grading[q[d]]))));
+            b.AppendLine("hex "+FoamList(v)+(zone is null?"":" "+zone)+" "+FoamList(axes.Select((a,d)=>a.Counts[q[d]]))+" simpleGrading "+FoamList(axes.Select((a,d)=>Num(a.Grading[q[d]]))));
             bool[] exterior={i==0,i==nx-1,j==0,j==ny-1,k==0,k==nz-1};
-            for(int d=0;d<6;d++)if(exterior[d])faces[d].Add(List(sides[d].Select(x=>v[x])));
+            for(int d=0;d<6;d++)if(exterior[d])faces[d].Add(FoamList(sides[d].Select(x=>v[x])));
         }
         b.AppendLine(");\nedges ();\nboundary\n(");
         for(int i=0;i<6;i++)b.AppendLine(patches[i]+" { type patch; faces (\n"+string.Join("\n",faces[i])+"\n); }");
         b.AppendLine(");\nmergePatchPairs ();");
         return (b.ToString(),cells);
+    }
+
+    internal static void SelfTest()
+    {
+        const string valid = """
+            {"axes":[{"points":[0,1,2],"counts":[2,3],"grading":[1,1]},{"points":[0,1],"counts":[4],"grading":[1]},{"points":[0,1],"counts":[5],"grading":[1]}],"patches":["xMin","xMax","yMin","yMax","zMin","zMax"],"zones":[{"ijk":[0,0,0],"name":"metal"},{"ijk":[1,0,0],"name":"mold"}]}
+            """;
+        using var doc=JsonDocument.Parse(valid);
+        var (dict,cells)=Build(doc.RootElement);
+        if(cells!=100 || !dict.Contains(" metal (2 4 5)") || !dict.Contains(" mold (3 4 5)") || !dict.Contains("type patch;"))throw new InvalidOperationException("Cartesian host topology self-test failed.");
+        foreach(var bad in new[]{valid.Replace("metal","metal;include"),valid.Replace("[0,1,2]","[0,0,2]"),valid.Replace("[1,0,0]","[0,0,0]"),valid.Replace("[4]","[10001]")})
+        {
+            using var test=JsonDocument.Parse(bad);
+            try{Build(test.RootElement);}catch(ArgumentException){continue;}
+            throw new InvalidOperationException("Unsafe Cartesian plan accepted.");
+        }
     }
 
     // Fixed program; positional args are only the host-owned temp path and an allowlisted version.
