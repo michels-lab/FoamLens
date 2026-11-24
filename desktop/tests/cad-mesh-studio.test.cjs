@@ -67,3 +67,20 @@ assert.equal(parsedSets.sets.length,1);assert.equal(parsedSets.sets[0].kind,'fac
 const splitSets={...splitReceipt,regions:{...splitReceipt.regions,metal:{...splitReceipt.regions.metal,sets:nativeSet.sets}}};
 assert.equal(ms.generatedSets(splitSets,'metal',ms.fromNativeReport(splitSets,'metal')).sets.length,1);assert.equal(ms.generatedSets(splitSets,'mold',ms.fromNativeReport(splitSets,'mold')).sets.length,0);
 console.log('Native defect sets stay bound to exact region and IDs PASS');
+
+const near=(x,y)=>assert(Math.abs(x-y)<1e-10);
+const cellField=ms.qualityCSV('id,value\n0,300','cellSet',m);
+const box=ms.parseSpatialPipeline('# inactive\nbox 0 0 0 1 1 1\nthreshold 299 301');
+let roi=ms.spatialSelect(m,'cellSet',box,cellField);assert.equal(roi.selected,1);near(roi.selectedWeight,1);near(roi.integral,300);near(roi.weightedMean,300);assert.equal(roi.coverage,1);assert.deepEqual(roi.stages.map(x=>x.passed),[1,1]);
+assert.equal(ms.spatialSelect(m,'cellSet',ms.parseSpatialPipeline('box 0 0 0 .4 1 1'),cellField).selected,0);
+assert.equal(ms.spatialSelect(m,'cellSet',ms.parseSpatialPipeline('cylinder 0 .5 .5 1 .5 .5 .1'),cellField).selected,1);
+assert.equal(ms.spatialSelect(m,'cellSet',ms.parseSpatialPipeline('slab 0 0 0 0 2 0 .4 .6'),cellField).selected,1);
+assert.equal(ms.spatialSelect(m,'cellSet',ms.parseSpatialPipeline('slab 0 0 0 0 2 0 .7 .9'),cellField).selected,0);
+const flux=ms.qualityCSV('id,value\n0,10\n1,-4','faceSet',m),scope={kind:'faceSet',values:[0,1,2]};
+roi=ms.spatialSelect(m,'faceSet',[],flux,scope);near(roi.selectedWeight,3);near(roi.validWeight,2);near(roi.weightCoverage,2/3);near(roi.integral,6);near(roi.weightedMean,3);assert.equal(roi.fieldCount,2);
+roi=ms.spatialSelect(m,'faceSet',ms.parseSpatialPipeline('threshold -5 11'),flux,scope);assert.equal(roi.unknownThreshold.length,1);assert.equal(roi.stages[0].missing,1);assert.equal(roi.selected,2);
+const wide={...m,points:m.points.map(p=>[p[0]*2,p[1],p[2]])};const wf=ms.qualityCSV('id,value\n0,10','faceSet',wide);near(ms.spatialSelect(wide,'faceSet',[],wf,{kind:'faceSet',values:[0]}).integral,20);near(ms.spatialSelect(wide,'faceSet',[],wf,{kind:'faceSet',values:[0]},'perEntity').integral,10);
+const pf=ms.qualityCSV('id,value\n0,7','pointSet',m);assert.equal(ms.spatialSelect(m,'pointSet',[],pf).integral,null);assert.equal(ms.spatialSelect(m,'pointSet',[],pf,null,'perEntity').integral,7);
+assert.throws(()=>ms.spatialSelect(m,'cellSet',box));assert.throws(()=>ms.spatialSelect(m,'cellSet',[],flux));assert.throws(()=>ms.spatialSelect(m,'faceSet',[],flux,{kind:'faceSet',values:[0,0]}));
+for(const bad of ['box 1 0 0 0 1 1','slab 0 0 0 0 0 0 0 1','cylinder 0 0 0 0 0 0 1','threshold 2 1','threshold NaN 3'])assert.throws(()=>ms.parseSpatialPipeline(bad));
+console.log('Spatial ROI geometry, signed integration, partial coverage and association gates PASS');
