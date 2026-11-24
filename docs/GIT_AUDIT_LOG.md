@@ -1,3 +1,7 @@
+## 2026-11-24 — owner feedback: reorganized Field controls and visible playback rate
+
+Organize original per-view controls into source identity, source options/copy, full-width independent transport, camera/zoom and material rows. Native playback rate has dedicated 86px selector, global speed labeled and 90px wide; global timeline flexes across full workspace and wraps safely. Header no longer duplicates Add view, original permanent 3D card command remains. Spatial profile controls now grouped in one expandable section, no extra plot canvas or copies of source controls. Existing actual source handlers retained. Product branch includes persistent viewport drag reorder; direct JS syntax checked, real Windows visual verification pending.
+
 ## 2026-11-24 — persistent viewport order and pointer drag
 
 Owner requested changing left/right order of real views. Replace native HTML drag with pointer capture on existing viewport handle, 6px threshold, visible actual target slot and insertion highlight; cancellation, keyboard navigation (arrows/Home/End), reset and persisted order by stable viewport IDs. Move original DOM nodes (state-preserving moveBefore where supported, insertBefore fallback), not cloned canvases or swapped OpenFOAM sources. Restore after initial mount and adding extra views, skip hidden views for drop selection. Independent of active v1.8.23 publisher. Direct syntax and two target slot checks passed; native manual acceptance pending. No CFD changes.

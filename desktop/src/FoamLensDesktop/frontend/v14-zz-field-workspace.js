@@ -62,7 +62,6 @@ function fwFieldReady(){return typeof fvInstallUi==='function'&&fvInstallUi()}
 function fwUpdateNavText(){
   const title=document.getElementById('fwTitle');if(title)title.textContent=fwUi('Field Workspace','Workspace de campos');
   const sub=document.getElementById('fwSubtitle');if(sub)sub.textContent=fwUi('OpenFOAM 3D fields and camera views','Campos OpenFOAM 3D y vistas de cámara');
-  const add=document.getElementById('fwAdd3DView');if(add)add.textContent=fwUi('+ Add 3D View','+ Añadir vista 3D');
   const cfg=document.getElementById('fwConfigureViews');if(cfg)cfg.textContent=fwUi('Configure 3D views','Configurar vistas 3D');
   const drawProfile=document.getElementById('fwDraw3DProfile');if(drawProfile)drawProfile.textContent=fwLineProfileState.enabled?fwUi('Pick A → B','Elige A → B'):fwUi('Draw profile','Dibujar perfil');
   const clearProfile=document.getElementById('fwClear3DProfile');if(clearProfile)clearProfile.textContent=fwUi('Clear line','Borrar línea');
@@ -154,8 +153,11 @@ function fwCreateSurface(){
       <div class="fwHeader">
         <div><div class="fwEyebrow">OpenFOAM 3D</div><h2 id="fwTitle">Field Workspace</h2><p id="fwSubtitle">3D fields and 2D diagnostics in the same workspace</p></div>
         <div class="fwHeaderActions">
-          <button class="btn primary" id="fwAdd3DView" type="button">+ Add 3D View</button>
-          <button class="btn" id="fwConfigureViews" type="button">Configure 3D views</button>
+          <div class="fwHeaderCommandRow"><button class="btn" id="fwConfigureViews" type="button">Configure 3D views</button>
+          <button class="btn" id="fwInspectorToggle" type="button" aria-controls="fwControlsDrawer" aria-expanded="false" data-fl-en="Inspector" data-fl-es="Inspector">Inspector</button></div>
+        </div>
+      </div>
+      <details class="fwProfileTools"><summary data-fl-en="Spatial profile tools" data-fl-es="Herramientas de perfiles espaciales">Spatial profile tools</summary><div class="fwProfileToolsBody">
           <button class="btn" id="fwDraw3DProfile" type="button" data-fl-en="Draw profile" data-fl-es="Dibujar perfil">Draw profile</button>
           <div class="fwCompact"><label data-fl-en="Profile from view" data-fl-es="Perfil desde vista">Profile from view</label><select id="fw3DProfileView" aria-label="Original 3D viewport for A to B spatial sampling"><option value="A">View A</option></select></div>
           <div class="fwCompact"><label data-fl-en="Line samples" data-fl-es="Muestras de línea">Line samples</label><input id="fw3DProfileSamples" type="number" min="20" max="500" step="10" value="160"></div>
@@ -164,10 +166,7 @@ function fwCreateSurface(){
           <button class="btn soft" id="fwExport3DProfileCsv" type="button" disabled data-fl-en="Export A–D CSV" data-fl-es="Exportar CSV A–D" title="Export the original sampled field values, independent physical times, source provenance and XYZ query positions from this active comparison">Export A–D CSV</button>
           <button class="btn tiny" id="fwClear3DProfile" type="button" data-fl-en="Clear line" data-fl-es="Borrar línea">Clear line</button>
           <span class="smallnote fwProfilePickStatus" id="fw3DProfileStatus" data-fl-en="Pick two points on the 3D geometry." data-fl-es="Elige dos puntos sobre la geometría 3D.">Pick two points on the 3D geometry.</span>
-          <span class="smallnote fwMultiHint" data-fl-en="Each 3D view has its own case · region · field · component. Visible views are included in video export." data-fl-es="Cada vista 3D tiene su propio caso · región · variable · componente. Las vistas visibles se incluyen en el video.">Each 3D view has its own case · region · field · component. Visible views are included in video export.</span>
-          <button class="btn" id="fwInspectorToggle" type="button" aria-controls="fwControlsDrawer" aria-expanded="false" data-fl-en="Inspector" data-fl-es="Inspector">Inspector</button>
-        </div>
-      </div>
+          </div></details>
       <div class="fwWorkspaceBar">
         <div class="fwViewTabs" id="fwViewTabs" role="tablist" aria-label="Field workspace views">
           <button class="fwViewTab active" type="button" role="tab" aria-selected="true" data-fw-view="3d">3D</button>
@@ -179,7 +178,7 @@ function fwCreateSurface(){
           <button class="btn tiny" id="fwTimeNext" type="button" title="Next physical-time frame" aria-label="Next frame">›</button>
           <input id="fwTimeSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Physical time">
           <span class="fwTimeReadout" id="fwTimeReadout">t = —</span>
-          <select id="fwTimeSpeed" aria-label="Playback speed"><option value=".25">0.25×</option><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+          <label class="fwSpeedControl"><span data-fl-en="Speed" data-fl-es="Velocidad">Speed</span><select id="fwTimeSpeed" aria-label="Playback speed"><option value=".25">0.25×</option><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
         </div>
       </div>
       <div class="fwGrid layout-3d" id="fwGrid">
@@ -242,6 +241,23 @@ function fwCreateSurface(){
     .fwPlotEmpty{padding:18px}.fwPlotCard.companion-none{display:none}.fwFieldTsControls{display:grid;gap:8px;margin-bottom:10px}.fwFieldTsControls.hidden{display:none!important}.fwTsSeries{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.fwTsSeriesHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.fwTsFieldSource,.fwTsProfileOnly,.fwTsProbeOnly{display:grid;gap:7px}.fwTsFieldSource.hidden,.fwTsProfileOnly.hidden,.fwTsProbeOnly.hidden,.fwTsGlobalOnly.hidden{display:none!important}
     @media(max-width:1100px){.fwTimeTransport{margin-left:0;flex:1 1 100%;grid-template-columns:auto auto auto minmax(120px,1fr) auto auto}.fwGrid.layout-split{grid-template-columns:1fr 1fr}}
     @media(max-width:900px){.fwHeader{display:grid}.fwHeaderActions{justify-content:flex-start}.fwGrid,.fwGrid.layout-split,.fwGrid.layout-plot,.fwGrid.layout-3d{grid-template-columns:1fr}.fwTimeTransport{grid-template-columns:32px minmax(100px,max-content) 32px minmax(90px,1fr) max-content 68px;}.fwTimeReadout,#fwTimeSpeed{grid-row:auto}.fw3DCard #fvCanvas,.fw3DCard .fvViewport{height:420px;min-height:420px}}
+    /* One full-width playback lane, with a readable dedicated speed control. */
+    #fieldSurface .fwHeader{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+    #fieldSurface .fwHeaderActions{flex:1 1 auto;justify-content:flex-end;min-width:0}
+    #fieldSurface .fwHeaderCommandRow{display:flex;flex-wrap:wrap;gap:7px}
+    #fieldSurface .fwProfileTools{border:1px solid var(--line);border-radius:12px;background:var(--panel);min-width:0}
+    #fieldSurface .fwProfileTools>summary{padding:10px 14px;font-size:12px;font-weight:750;cursor:pointer}
+    #fieldSurface .fwProfileToolsBody{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:0 12px 12px;min-width:0}
+    #fieldSurface .fwProfileToolsBody .fwCompact{flex:1 1 120px;max-width:230px;min-width:0}
+    #fieldSurface .fwProfileToolsBody .fwCompact select,#fieldSurface .fwProfileToolsBody .fwCompact input{width:100%;min-width:0;box-sizing:border-box}
+    #fieldSurface .fwProfilePickStatus{flex:1 1 100%;max-width:none;overflow-wrap:anywhere}
+    #fieldSurface .fwWorkspaceBar{align-items:center;gap:8px}
+    #fieldSurface #fwTimeTransport{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:100%;max-width:100%;margin:0;min-width:0;box-sizing:border-box}
+    #fieldSurface #fwTimeSlider{flex:1 1 160px;width:auto;min-width:90px}
+    #fieldSurface #fwTimeReadout{flex:0 1 auto;min-width:0;overflow-wrap:anywhere;white-space:normal;font-weight:750}
+    #fieldSurface .fwSpeedControl{display:flex;align-items:center;gap:6px;flex:0 0 auto;white-space:nowrap;color:var(--muted);font-size:12px;font-weight:750}
+    #fieldSurface #fwTimeSpeed{box-sizing:border-box;width:90px!important;min-width:90px!important;max-width:none!important;min-height:34px;padding:4px 8px;font-size:13px}
+
   `;document.head.appendChild(style);
   document.getElementById('fwCompanion')?.addEventListener('change',e=>{fwSetCompanion(e.target.value);if(fwState.view==='split'){fwSetLayout('split');document.dispatchEvent(new CustomEvent('foamlens-field-view-change',{detail:{view:'split',companion:fwState.companion}}))}});
   document.querySelectorAll('#fwViewTabs [data-fw-view]').forEach(b=>b.addEventListener('click',()=>fwActivateView(b.dataset.fwView)));
@@ -262,7 +278,6 @@ function fwCreateSurface(){
   document.getElementById('fwPauseAllViews')?.addEventListener('click',fwTimePauseAllViews);
   document.getElementById('fwTimeSlider')?.addEventListener('input',e=>{fwTimeStop();fwTimeLoadIndex(Number(e.target.value))});
   document.getElementById('fwTimeSpeed')?.addEventListener('change',()=>{if(fwTimeState.playing){fwTimeStop();fwTimePlay()}});
-  document.getElementById('fwAdd3DView')?.addEventListener('click',fwAdd3DView);
    document.getElementById('fwAdd3DViewVisible')?.addEventListener('click',fwAdd3DView);
    document.getElementById('fwImport3DCase')?.addEventListener('click',()=>document.getElementById('addFolder')?.click());
    fwBindSyncViewControls();

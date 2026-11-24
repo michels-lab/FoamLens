@@ -1069,6 +1069,20 @@ function fcAddViewportToolbar(viewport,view){
       caption.appendChild(legends)
     }
   }
+  // Arrange the original interactive nodes into distinct source, transport
+  // and display rows before binding. No duplicated selectors or clocks.
+  const row=(name,selectors)=>{
+    const items=selectors.map(selector=>bar.querySelector(selector)).filter(Boolean);
+    if(!items.length)return;
+    const group=document.createElement('div');group.className='fcToolbarRow '+name;
+    for(const item of items)group.appendChild(item);
+    bar.appendChild(group)
+  };
+  row('fcToolbarSource',['.fcMoveHandle','.fcQuickCase','.fcViewDiffLabel']);
+  row('fcToolbarSourceDetail',['.fcViewSourceDetails','.fcViewCopyFrom']);
+  row('fcToolbarTime',['.fcViewTimePicker']);
+  row('fcToolbarDisplay',['.fcViewportCameraPresets','.fcViewZoom','.fcDimensionSwitch']);
+  row('fcToolbarMaterials',['.fcPhysicalMenu']);
   viewport.insertBefore(bar,viewport.firstChild);
   bar.querySelectorAll('[data-fc-bind]').forEach(mirror=>mirror.addEventListener('change',()=>{
     const source=document.getElementById(mapping[mirror.dataset.fcBind]);if(!source)return;
@@ -2332,6 +2346,22 @@ function fcInstallUi(){
     .fcViewportCameraChoices button:hover,.fcViewportCameraChoices button:focus-visible,.fcViewportProjectionChoices button:hover,.fcViewportProjectionChoices button:focus-visible{border-color:var(--accent);outline-offset:2px}
     .fcViewportCameraChoices button[aria-pressed="true"],.fcViewportProjectionChoices button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel));font-weight:800}
     .fcViewportCameraPresets[open]{flex:1 0 100%}
+    /* Use the pane's actual width: independent time owns an entire row. */
+    #fcViewGrid .fcViewToolbar{display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:10px;min-width:0}
+    #fcViewGrid .fcToolbarRow{display:flex;flex-wrap:wrap;align-items:center;gap:7px;width:100%;min-width:0}
+    #fcViewGrid .fcToolbarRow:has(>.fcViewTimePicker[hidden]){display:none}
+    #fcViewGrid .fcToolbarSource .fcMoveHandle{flex:0 0 auto}
+    #fcViewGrid .fcToolbarSource .fcQuickCase{flex:1 1 140px;max-width:none;min-width:0}
+    #fcViewGrid .fcToolbarSourceDetail .fcViewSourceDetails{flex:1 1 180px;min-width:0}
+    #fcViewGrid .fcToolbarSourceDetail .fcViewCopyFrom{flex:1 1 120px;min-width:0;max-width:none}
+    #fcViewGrid .fcToolbarTime .fcViewTimePicker{flex:1 1 100%;min-width:0;max-width:none;width:100%;grid-template-columns:minmax(0,1fr);padding:8px;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+    #fcViewGrid .fcViewTimeControls{display:grid;grid-template-columns:36px minmax(56px,1fr) 36px 36px;gap:4px}
+    #fcViewGrid .fcViewPlaybackOptions{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+    #fcViewGrid .fcViewPlaybackRate{display:inline-flex;gap:6px;align-items:center;flex:0 0 auto;white-space:nowrap}
+    #fcViewGrid .fcViewPlaybackRate select{box-sizing:border-box;width:86px!important;min-width:86px!important;max-width:none!important;height:32px;padding:4px 8px;font-size:12px;line-height:normal}
+    #fcViewGrid .fcToolbarDisplay .fcViewZoom{margin-left:0;justify-content:flex-start}
+    #fcViewGrid .fcToolbarMaterials .fcPhysicalMenu{flex:1 1 100%;width:100%;min-width:0}
+    #fcViewGrid .fcViewToolbar .pvActions{width:100%;justify-content:flex-end}
     .fcPhysicalMenu{container-name:fc-region-dock;container-type:inline-size}
     .fcPhysicalRegionRow{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start}
     .fcPhysicalPrimaryPalette{font-size:10px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
