@@ -163,6 +163,48 @@ internal static class NativeCartesianMesh
             throw new ArgumentException("Split requires 2–12 nonempty explicit cell zones covering every cell, with distinct non-reserved region names.");
     }
 
+    internal static (string Dictionary, byte[] Surface) BuildSnappy(JsonElement root, long cells)
+    {
+        var settings=root.GetProperty("snappy");
+        if(root.GetProperty("zones").GetArrayLength()!=0)throw new ArgumentException("Single-surface snappy run requires a background plan without assigned zones.");
+        var axes=root.GetProperty("axes").EnumerateArray().Select(a=>a.GetProperty("points").EnumerateArray().Select(x=>x.GetDouble()).ToArray()).ToArray();
+        var inside=settings.GetProperty("inside").EnumerateArray().Select(x=>x.GetDouble()).ToArray();
+        if(inside.Length!=3||inside.Where((x,i)=>!double.IsFinite(x)||x<=axes[i][0]||x>=axes[i][^1]).Any())throw new ArgumentException("Explicit retained point must be strictly inside the background domain.");
+        int min=settings.GetProperty("minLevel").GetInt32(),max=settings.GetProperty("maxLevel").GetInt32(),limit=settings.GetProperty("maxCells").GetInt32();
+        if(min<0||max<min||max>4||limit<cells||limit>350000)throw new ArgumentException("Refinement levels 0–4 and cell limit up to 350000 required.");
+        var base64=settings.GetProperty("stlBase64").GetString()??"";
+        if(base64.Length>5600000)throw new ArgumentException("Selected STL exceeds transfer limit.");
+        byte[] data=Convert.FromBase64String(base64);
+        int triangles=NativeCadSurfaceCheck.ValidateBinaryStl(data);
+        for(int t=0;t<triangles;t++)for(int p=0;p<3;p++)for(int d=0;d<3;d++){
+            float x=System.Buffers.Binary.BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(84+50*t+12+12*p+4*d,4));
+            if(x<=axes[d][0]||x>=axes[d][^1])throw new ArgumentException("Surface must lie strictly inside the background mesh; expand its bounds first.");
+        }
+        string dict=$"""
+            FoamFile { version 2.0; format ascii; class dictionary; object snappyHexMeshDict; }
+            castellatedMesh true;
+            snap true;
+            addLayers false;
+            geometry { flSurface { type triSurface; file "surface.stl"; } }
+            castellatedMeshControls
+            {
+                maxLocalCells {{limit}}; maxGlobalCells {{limit}}; minRefinementCells 0; maxLoadUnbalance 0.1; nCellsBetweenLevels 2;
+                features ();
+                refinementSurfaces { flSurface { level ({{min}} {{max}}); patchInfo { type wall; } } }
+                resolveFeatureAngle 30;
+                refinementRegions {}
+                insidePoint {{FoamList(inside.Select(Num))}};
+                allowFreeStandingZoneFaces false;
+            }
+            snapControls { nSmoothPatch 3; tolerance 2; nSolveIter 30; nRelaxIter 5; nFeatureSnapIter 10; implicitFeatureSnap true; explicitFeatureSnap false; multiRegionFeatureSnap false; }
+            addLayersControls { relativeSizes true; layers {} expansionRatio 1.2; finalLayerThickness 0.3; minThickness 0.1; nGrow 0; featureAngle 60; nRelaxIter 5; nSmoothSurfaceNormals 1; nSmoothNormals 3; nSmoothThickness 10; maxFaceThicknessRatio 0.5; maxThicknessToMedialRatio 0.3; minMedialAxisAngle 90; nBufferCellsNoExtrude 0; nLayerIter 50; }
+            meshQualityControls { maxNonOrtho 65; maxBoundarySkewness 20; maxInternalSkewness 4; maxConcave 80; minVol 1e-20; minTetQuality 1e-15; minArea -1; minTwist 0.02; minDeterminant 0.001; minFaceWeight 0.02; minVolRatio 0.01; minTriangleTwist -1; nSmoothScale 4; errorReduction 0.75; }
+            debug 0;
+            mergeTolerance 1e-6;
+            """;
+        return (dict,data);
+    }
+
     // Fixed program; positional args are only the host-owned temp path and an allowlisted version.
     private const string Script = """
         set -e
@@ -175,6 +217,7 @@ internal static class NativeCartesianMesh
         fi
         if [ "${WM_PROJECT:-}" != OpenFOAM ] || [ "${WM_PROJECT_VERSION:-}" != "$version" ]; then echo 'Requested Foundation OpenFOAM environment unavailable' >&2; exit 127; fi
         if [ "$3" = gmshToFoam ]; then command -v gmshToFoam >/dev/null; else command -v blockMesh >/dev/null; fi
+        if [ "$3" = snappyHexMesh ]; then command -v snappyHexMesh >/dev/null; command -v surfaceCheck >/dev/null; fi
         command -v checkMesh >/dev/null
         command -v timeout >/dev/null
         cd "$1"
@@ -188,6 +231,18 @@ internal static class NativeCartesianMesh
         code=$?
         printf '%s\n' "$code" > generation.exit
         if [ "$code" -ne 0 ]; then exit "$code"; fi
+        if [ "$3" = snappyHexMesh ]; then
+          cp generation.log blockMesh.log
+          timeout --kill-after=5s 60s surfaceCheck -checkSelfIntersection "$1/constant/geometry/surface.stl" > surfaceCheck.log 2>&1
+          code=$?
+          printf '%s\n' "$code" > surfaceCheck.exit
+          if [ "$code" -ne 0 ]; then printf '%s\n' "$code" > generation.exit; exit "$code"; fi
+          timeout --kill-after=5s 180s snappyHexMesh -case "$1" > generation.log 2>&1
+          code=$?
+          printf '%s\n' "$code" > generation.exit
+          printf '%s\n' "$code" > snappyHexMesh.exit
+          if [ "$code" -ne 0 ]; then exit "$code"; fi
+        fi
         timeout --kill-after=5s 90s checkMesh -case "$1" > checkMesh.log 2>&1
         code=$?
         printf '%s\n' "$code" > checkMesh.exit
@@ -212,11 +267,14 @@ internal static class NativeCartesianMesh
         string? msh=gmsh?root.GetProperty("msh").GetString():null;
         if(gmsh&&msh is null)throw new ArgumentException("Canonical MSH missing.");
         bool split=root.TryGetProperty("splitRegions",out var splitNode)&&splitNode.GetBoolean();
+        bool snappy=!gmsh&&root.TryGetProperty("snappy",out _);
+        if(snappy&&split)throw new ArgumentException("Single-surface snappy and zone splitting are separate operations.");
         var expected=new Dictionary<string,long>(StringComparer.Ordinal);
         var (dict,cells)=gmsh?("",ValidateGmsh(msh!,split?expected:null)):Build(root);
         if(split){if(gmsh)ValidateSplit(expected,cells);else expected=CartesianZones(root,cells);}
-        string utility=gmsh?"gmshToFoam":"blockMesh";
-        long exportLimit=gmsh?48*1024*1024:MaxOutput;
+        var snappyInput=snappy?BuildSnappy(root,cells):default;
+        string utility=gmsh?"gmshToFoam":snappy?"snappyHexMesh":"blockMesh";
+        long exportLimit=gmsh||snappy?48*1024*1024:MaxOutput;
         var wsl=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"wsl.exe");
         if(!File.Exists(wsl))throw new NotSupportedException("WSL is unavailable.");
         var dir=Path.Combine(Path.GetTempPath(),"foamlens-blockmesh-"+Guid.NewGuid().ToString("N"));
@@ -226,11 +284,12 @@ internal static class NativeCartesianMesh
             if(split)await File.WriteAllTextAsync(Path.Combine(dir,"expected-regions.txt"),string.Join("\n",expected.Keys)+"\n",token);
             if(gmsh)await File.WriteAllTextAsync(Path.Combine(dir,"source.msh"),msh!,token);
             else await File.WriteAllTextAsync(Path.Combine(dir,"system","blockMeshDict"),dict,token);
+            if(snappy){Directory.CreateDirectory(Path.Combine(dir,"constant","geometry"));await File.WriteAllBytesAsync(Path.Combine(dir,"constant","geometry","surface.stl"),snappyInput.Surface!,token);await File.WriteAllTextAsync(Path.Combine(dir,"system","snappyHexMeshDict"),snappyInput.Dictionary!,token);}
             await File.WriteAllTextAsync(Path.Combine(dir,"system","controlDict"),"FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }\napplication blockMesh; startFrom startTime; startTime 0; stopAt endTime; endTime 1; deltaT 1; writeControl timeStep; writeInterval 1; writeFormat ascii; writePrecision 12; writeCompression off; timeFormat general; timePrecision 6; runTimeModifiable false;\n",token);
             var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","wslpath","-a",dir},TimeSpan.FromSeconds(15),token);
             var linux=translated.Stdout.Trim();
             if(translated.ExitCode!=0 || !linux.StartsWith("/") || linux.Contains('\n') || linux.Contains('\r'))throw new NotSupportedException("WSL path mapping failed.");
-            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?1100:205),token);
+            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?1100:snappy?450:205),token);
             string Clean(string s)=>s.Replace(linux,"<temporary case>",StringComparison.Ordinal).Replace(dir,"<temporary case>",StringComparison.OrdinalIgnoreCase);
             async Task<string?> Small(string file,int limit)
             {
@@ -240,7 +299,7 @@ internal static class NativeCartesianMesh
                 return Clean(new string(buffer,0,count))+(stream.Peek()!=-1?"\n[truncated]":"");
             }
             int? Exit(string name){var p=Path.Combine(dir,name);return File.Exists(p)&&new FileInfo(p).Length<32&&int.TryParse(File.ReadAllText(p),out var x)?x:null;}
-            var bm=Exit("generation.exit");var cm=Exit("checkMesh.exit");
+            var bm=snappy?Exit("snappyHexMesh.exit"):Exit("generation.exit");var cm=Exit("checkMesh.exit");
             var detected=(await Small("detected-version.txt",128))?.Trim();
             var files=new Dictionary<string,string>();long total=0;string? exportError=null;
             var splitExit=Exit("splitMeshRegions.exit");var regions=new Dictionary<string,object>();string? splitError=null;long splitBytes=0;
@@ -284,7 +343,7 @@ internal static class NativeCartesianMesh
                 }
                 if(exportError!=null)files.Clear();
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small("generation.log",48000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh||snappy?(int?)null:bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
