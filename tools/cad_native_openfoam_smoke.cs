@@ -32,7 +32,7 @@ async Task<string> Run(string name, string utility, bool split, JsonElement inpu
         if(utility=="snappyHexMesh"){
             var (sd,stl)=NativeCartesianMesh.BuildSnappy(input,cells);Directory.CreateDirectory(Path.Combine(dir,"constant","geometry"));
             File.WriteAllText(Path.Combine(dir,"system","snappyHexMeshDict"),sd);
-            File.WriteAllBytes(Path.Combine(dir,"constant","geometry","surface.stl"),stl);
+            foreach(var (file,data) in stl)File.WriteAllBytes(Path.Combine(dir,"constant","geometry",file),data);
         }
     }
     var run=await NativeCadSurfaceCheck.RunProcessAsync("/bin/bash",dir,new[]{"-c",NativeCartesianMesh.Script,"foamlens-mesh-ci",dir,version,utility,split?"split":"single"},TimeSpan.FromMinutes(10),CancellationToken.None);
