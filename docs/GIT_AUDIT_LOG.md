@@ -1,3 +1,23 @@
+## 2026-11-24 — native smoke verifies actual Field pointer/keyboard controls
+
+Replace obsolete native smoke checks for HTML draggable=true and permanently expanded Property with actual reachability and the real pointer/keyboard reorder handle. Execute Home/End on the real B viewport when visible, require changed order with identical connected GPU canvas, then restore node order and saved preference. Correct the difference view's Δ move-handle label instead of a NUL character. No gate removed; Windows validation pending.
+
+## 2026-11-24 — GRANADA native startup root cause (PR #379)
+
+Exact-head Windows build 45358771995 passed original QuickCup and source suites, then packaged WebView2 terminated with `Mesh report inspector is not mounted`. Earlier comparison module calls hoisted fwUpdateViewCount during fcInstallUi -> fcUpdateLayout, before the later Field Workspace module initializes its new `let fwSplitFrame`. This is a real temporal-dead-zone startup exception, reproduced directly against prior production code. Replace cross-module call with mounted API and make split scheduling inert before the workspace DOM exists. Regression fails on previous code with ReferenceError and passes on repair, including post-mount coalescing. Add smoke-only pre-navigation JS boot witness and sanitized native checkMesh failure log, no release gate removed. All other owner layout features retained; exact-head native validation pending.
+
+## 2026-11-24 — Field missing-case recovery diagnostics (PR #379)
+
+Previous exact head 035ed870: Field physical scale, playback/cameras, DPI, ownership, Time Series and QuickCup passed. Windows package stopped at actionable-diagnostics regression. Restore the actual problem/cause/action contract alongside the new per-region inventory, with five bilingual recovery categories (no case, mesh, results, matched region/time or selected field). Distinguish missing index entries from deleted files and preserve measured t=0. Direct seven assertions and JS syntax passed; native acceptance and release pending. Separate native checkMesh smoke still failed, without accessible detailed artifact; do not mark complete.
+
+## 2026-11-24 — Field drag order carried into scientific video (PR #379)
+
+Previous PR head 8dcaf905: Field playback/camera, viewport DPI, Time Series, ownership and QuickCup passed; Windows publisher stopped at missing old video UI contract. Found an additional actual defect: video descriptors were in fixed A/B/C/D order even after the user dragged existing viewports. Sort visible descriptors by actual DOM order, retain source identities and use explicit primary clock in video header. Preserve selected end index zero and capture each recorded view's actual source time in the JSON sidecar (null when unknown). Added executable regression for order, visibility, identity, zero and primary clock. JS syntax and direct assertions passed; no native runtime/release claim. Separate Granada native checkMesh smoke returned exit 1 without attached artifacts; not assumed fixed. All release gates retained.
+
+## 2026-11-24 — Field release regression repair (branch; validation pending)
+
+Windows run 45354761471 passed real QuickCup but failed Field controls; runs 45354704775, 45354704682 and 45354704660 reported the same outdated source assertions. Restore explicit bilingual Add 3D View and accessible group semantics in the original visible controls, fix the CSS selector after header reparenting, and route unpatched A playback through selected committed-clock dispatch instead of unconditional companion time. Update old direct-A contract and add executable tests for independent B/C clock, real zero, unavailable frame, nonselected completion and hidden split. No gate removed; no release or Windows acceptance claimed. Latest published v1.8.22; candidate v1.8.23 remains pending exact-head validation.
+
 ## 2026-11-24 — owner feedback block integrated, v1.8.23 retry
 
 PR #378 merged as 4726f8ef02a0f30f00f707ebb422633f77476060. Existing view handles now use pointer capture with slot highlight, original canvas identity, persisted viewport order and reset. Structured source, playback, camera and material rows, dedicated speed widths, global transport full-width and grouped profile tools. New companion clock selects a committed frame from A/B/C/D; profile source remains independent. Unavailable A diagnosis no longer duplicates count logic; isolated regression invokes actual diagnostics. Previous official run 45353734411 failed at unavailable selection regression, before publication. Same unpublished version retried with gates intact; last verified v1.8.22. JS syntax checked, no installed acceptance claimed. No CFD changes.

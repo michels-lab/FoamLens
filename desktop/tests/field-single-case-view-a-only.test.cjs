@@ -438,14 +438,14 @@ test('Granada Field A: load selection is awaitable and superseded failures canno
  const loader=new Function(...[
    'fvState','fvStopPlayback','fvRefreshSelectors','fvCase','fvAvailability','document',
    'fvCurrentFieldGroup','fvInvalidateUnavailableSelection','fvSetStatus','flUi',
-   'fvSetStats','fvEsc','fvRender','fvLoadFrame','console'
+   'fvSetStats','fvEsc','fvRender','fvLoadFrame','console','flIssueDescriptor'
  ],field.slice(start,end)+';return fvLoadSelection')(...[
    state,()=>{},()=>{},()=>readyCase,()=>({ready,reason:'original source missing'}),
    doc,()=>({name:'T'}),
    ()=>{invalidations.push(state.frameSeq);state.frameSeq++;state.mesh=null;state.fieldValues=null;state.time=NaN},
    (txt,error)=>status.push({txt,error}),en=>en,()=>{},String,()=>{},
    ()=>{state.frameSeq++;return load},
-   {error:()=>{}}
+   {error:()=>{}},()=>({problem:'Missing mesh',cause:'Not indexed',action:'Reimport'})
  ]);
  ready=false;
  const missing=loader();

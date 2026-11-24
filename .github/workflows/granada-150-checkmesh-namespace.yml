@@ -116,7 +116,13 @@ jobs:
             try { $app.Kill($true) } catch {}
             throw 'Native checkMesh/multipanel smoke timed out'
           }
-          if ($app.ExitCode -ne 0) { throw "Native checkMesh/multipanel smoke failed: $($app.ExitCode)" }
+          if ($app.ExitCode -ne 0) {
+            $log=Join-Path $env:LOCALAPPDATA 'FoamLens/Desktop/foamlens-desktop.log'
+            if (Test-Path $log) {
+              Get-Content $log -Tail 25 | Where-Object { $_ -match 'smoke boot JavaScript evidence|Exception|smoke failed' } | Write-Host
+            }
+            throw "Native checkMesh/multipanel smoke failed: $($app.ExitCode)"
+          }
           Write-Host 'Native smoke completed. Real OpenFOAM multi-region case and installed visual acceptance are separate.'
       - name: Retain native evidence, never distribute unsigned executables
         if: ${{ always() }}

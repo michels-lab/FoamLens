@@ -623,10 +623,55 @@ test('Field companion profile time changes only in an active split, never in hid
   assert.equal(changes.length,2,'Inactive Field cannot mutate any profile');
   assert(field.includes('id="fwProfileTimeSync"')&&
     field.includes("fwState.syncTime=!!e.target.checked")&&
-    field.includes("if(fwState.syncTime)fwSyncCompanionTime(fvState?.time)"),
+    field.includes("fwState.syncTime=!!e.target.checked;fwFollowProfileClock()"),
     'Original Field header must expose a real wired sync toggle');
-  assert(field.includes('if(!fvLoadFrame.__fwPatched)fwSyncCompanionTime(time)'),
+  assert(field.includes("if(!fvLoadFrame.__fwPatched)fwFollowProfileClock('A')"),
     'Patched 3D frame loader must not replay the same profile sync twice');
+});
+
+
+test('Selected companion clock follows only committed frames from its own visible 3D view',()=>{
+  const start=field.indexOf('function fwProfileClockView(){');
+  const end=field.indexOf('function fwUpdateViewCount(){',start);
+  assert(start>=0&&end>start);
+  const picker={value:'B',disabled:false},status={textContent:''};
+  const state={active:true,layout:'split',syncTime:true};
+  const frames={A:{time:7},B:{time:0},C:{time:14}};
+  const applied=[];
+  const api=new Function('document','fwState','fwCurrent3DProfileField','fwSyncCompanionTime','fwUi',
+    field.slice(start,end)+';return fwFollowProfileClock;')(
+    {getElementById:id=>id==='fwProfileClockView'?picker:id==='fwProfileClockStatus'?status:null},
+    state,v=>frames[v]||null,t=>applied.push(t),en=>en);
+  api('A');assert.deepStrictEqual(applied,[],'Unrelated A completion must not drive B clock');
+  api('B');assert.deepStrictEqual(applied,[0],'Real B zero is valid');
+  delete frames.B;api('B');assert.deepStrictEqual(applied,[0],'Missing B must not fall back to A');
+  assert(status.textContent.includes('Waiting'));
+  picker.value='C';api();assert.deepStrictEqual(applied,[0,14]);
+  state.syncTime=false;api('C');assert.equal(picker.disabled,true);
+  assert.deepStrictEqual(applied,[0,14],'Independent mode must never mutate companion');
+  state.syncTime=true;state.layout='3d';api('C');assert.deepStrictEqual(applied,[0,14]);
+});
+
+
+test('Field comparison boot never accesses later companion layout lexical state before workspace mount',()=>{
+  const a=field.indexOf('function fwSplitSchedule(){'),b=field.indexOf('function fwSplitMount(){',a);
+  assert(a>=0&&b>a);
+  const code=field.slice(a,b);
+  const calls=[];
+  const document={getElementById:()=>null};
+  // Native injection is one shared IIFE. The function declaration is hoisted
+  // but its let binding is in the temporal dead zone until module evaluation.
+  new Function('document','requestAnimationFrame',code+
+    ';fwSplitSchedule();let fwSplitFrame=0;')(document,()=>calls.push('scheduled'));
+  assert.equal(calls.length,0,'No workspace exists yet: do not access its state or schedule a frame');
+  const doc={getElementById:()=>({})};
+  const schedule=new Function('document','requestAnimationFrame','fwSplitApply',
+    'let fwSplitFrame=0;'+code+';return fwSplitSchedule;')(doc,cb=>{calls.push(cb);return 1},()=>{});
+  schedule();schedule();assert.equal(calls.length,1,'Mounted workspace schedules one frame only');
+  calls[0]();schedule();assert.equal(calls.length,2,'Later changes can schedule another frame');
+  const compare=fs.readFileSync(path.join(root,'v14-z-field-compare.js'),'utf8');
+  assert(compare.includes('window.FoamLensFieldWorkspace?.refreshViewCount?.()'),'Cross-module call must use mounted API');
+  assert(!compare.includes("if(typeof fwUpdateViewCount==='function')fwUpdateViewCount()"));
 });
 
 test('Field 3D + Profile reuses original plot surface and restores Data without leaking history controls',()=>{

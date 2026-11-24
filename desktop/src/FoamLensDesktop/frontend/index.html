@@ -5967,7 +5967,27 @@ function flIssueDescriptor(reason,context={}){
   const raw=String(reason?.reason??reason??'').trim(),lower=raw.toLowerCase(),code=String(reason?.code||context?.code||raw||'unknown').trim().toLowerCase();
   const has=(...tokens)=>tokens.some(t=>code.includes(String(t).toLowerCase())||lower.includes(String(t).toLowerCase()));
   let problem='',cause='',action='';
-  if(has('selection-missing','no case selected')){
+  if(has('field-case-missing')){
+    problem=flUi('No OpenFOAM case is selected.','No se seleccionó un caso OpenFOAM.');
+    cause=flUi('Field needs an imported case root.','Field necesita la raíz de un caso importado.');
+    action=flUi('Import the case root and select the case in view A.','Importa la raíz del caso y selecciónalo en vista A.');
+  }else if(has('field-mesh-missing')){
+    problem=flUi('No complete mesh was indexed.','No se indexó una malla completa.');
+    cause=flUi('The imported inventory has no complete points, faces, owner and neighbour group.','El inventario importado no contiene un grupo completo de points, faces, owner y neighbour.');
+    action=flUi('Inspect constant/polyMesh or constant/<region>/polyMesh and processor folders, then reimport the case root. Do not assume files were deleted.','Revisa constant/polyMesh o constant/<region>/polyMesh y las carpetas processor; vuelve a importar la raíz. No supongas que los archivos fueron borrados.');
+  }else if(has('field-results-missing')){
+    problem=flUi('No compatible saved field was indexed.','No se indexó ningún campo guardado compatible.');
+    cause=flUi('A mesh exists but the import has no compatible scalar/vector field times.','Existe malla pero la importación no contiene tiempos de campos escalares/vectoriales compatibles.');
+    action=flUi('Inspect numeric time directories and their region files, then reimport the case root if results exist.','Revisa las carpetas numéricas de tiempo y sus archivos de región; si existen resultados, vuelve a importar la raíz.');
+  }else if(has('field-region-mismatch')){
+    problem=flUi('Mesh and field regions or times do not match.','Las regiones o tiempos de malla y campo no coinciden.');
+    cause=flUi('The indexed mesh and field cannot form a supported physical frame.','La malla y el campo indexados no forman un frame físico compatible.');
+    action=flUi('Select a matching region and field, or inspect the original mesh/time folders and reimport.','Selecciona región y campo coincidentes o revisa las carpetas originales de malla/tiempo y vuelve a importar.');
+  }else if(has('field-selection-missing')){
+    problem=flUi('No field is selected for the available mesh.','No se seleccionó un campo para la malla disponible.');
+    cause=flUi('The current region or field selector has no matching source.','El selector actual de región o campo no tiene fuente coincidente.');
+    action=flUi('Select a detected region, field and component in view A.','Selecciona región, campo y componente detectados en vista A.');
+  }else if(has('selection-missing','no case selected')){
     problem=flUi('A required selection is missing.','Falta una selección necesaria.');
     cause=flUi('FoamLens cannot determine which case, field, region or time to analyze.','FoamLens no puede determinar qué caso, campo, región o tiempo analizar.');
     action=flUi('Choose the required selectors and run the operation again.','Selecciona los controles necesarios y vuelve a ejecutar la operación.');

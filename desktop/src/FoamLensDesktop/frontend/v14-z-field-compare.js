@@ -1004,7 +1004,7 @@ function fcSyncViewSourceSummary(bar){
 }
 function fcAddViewportToolbar(viewport,view){
   if(!viewport||viewport.querySelector('[data-fc-toolbar]'))return;
-  const mapping=fcViewSourceMap(view),letter=view==='A'||view==='B'?view:String.fromCharCode(64+Number(view));
+  const mapping=fcViewSourceMap(view),letter=['A','B','Δ'].includes(view)?view:String.fromCharCode(64+Number(view));
   const bar=document.createElement('div');bar.className='fcViewToolbar';bar.dataset.fcToolbar=String(view);
   const en=fcUi('View','Vista');
   bar.addEventListener('toggle',()=>requestAnimationFrame(fcAlignViewToolbarHeights),true);
@@ -2269,7 +2269,7 @@ function fcUpdateLayout(){
         fcUi('A − B outdated: original case, field or source data changed. Recalculate difference.','A − B obsoleta: cambió el caso, campo o fuente original. Recalcula la diferencia.'):
         problem||fcUi('A − B is not available for the selected fields or geometry.','A − B no está disponible para estos campos o geometría.')
     }else notice.textContent=''
-  }document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();if(typeof fwUpdateViewCount==='function')fwUpdateViewCount();fcScheduleLayoutRender()
+  }document.getElementById('fvStats')?.classList.toggle('hidden',fcState.enabled);fcUpdateLabels();fcUpdateStatsGrid();window.FoamLensFieldWorkspace?.promoteCaseSelectors?.();fcScheduleToolbarSync();window.FoamLensFieldWorkspace?.refreshViewCount?.();fcScheduleLayoutRender()
 }
 function fcInstallUi(){
   if(document.getElementById('fcPanel'))return true;const controls=document.getElementById('fieldViewControls'),status=document.getElementById('fvStatus'),panel=document.getElementById('fieldViewPanel'),primary=panel?.querySelector('.fvViewport');if(!controls||!status||!panel||!primary)return false;

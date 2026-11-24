@@ -759,6 +759,31 @@ test('all visible synchronized 3D views remain eligible for the same exported an
   ])assert((animationSource+'\n'+workspaceSource).includes(token),'Missing multi-view video token: '+token);
 });
 
+test('Video keeps the dragged viewport order and excludes hidden or absent canvases',()=>{
+  const start=animationSource.indexOf('function vaDescriptorList(){');
+  const end=animationSource.indexOf('function vaAccumulateRanges(',start);
+  const nodes={};
+  for(const [id,rank,hidden] of [['A',2,false],['B',1,false],['C',3,true],['D',0,false]]){
+    nodes[id]={rank,closest:()=>({classList:{contains:c=>c==='hidden'&&hidden}}),
+      compareDocumentPosition(other){return this.rank<other.rank?4:this.rank>other.rank?2:0}};
+  }
+  const primary={key:'primary',canvasId:'A',time:0},others=[{key:'view2',canvasId:'B',time:3},{key:'view3',canvasId:'C'},{key:'view4',canvasId:'D',time:5},{key:'missing',canvasId:'X'}];
+  const descriptorList=new Function('window','document',animationSource.slice(start,end)+';return vaDescriptorList;')(
+    {FoamLensFieldView:{getVideoDescriptor:()=>primary},FoamLensFieldCompare:{getVideoDescriptors:()=>others}},
+    {getElementById:id=>nodes[id]||null});
+  const list=descriptorList();
+  assert.deepStrictEqual(list.map(d=>d.key),['view4','view2','primary']);
+  assert.strictEqual(list[2],primary,'Reordering must not rewrite source identity');
+  assert.equal(list[2].time,0,'Real zero remains valid');
+  nodes.A.rank=-1;assert.deepStrictEqual(descriptorList().map(d=>d.key),['primary','view4','view2']);
+  const a=animationSource.indexOf('function vaSelectedFrameIndex('),b=animationSource.indexOf('async function vaExport()',a);
+  const index=new Function(animationSource.slice(a,b)+';return vaSelectedFrameIndex')();
+  assert.equal(index('0',9),0,'Explicit first-frame end must not expand to entire timeline');
+  assert.equal(index('',9),9);assert.equal(index('bad',9),9);assert.equal(index('-1',9),9);
+  assert(animationSource.includes("descriptors.find(d=>d.key==='primary')?.time"),'Reordered first pane must not become the video primary clock');
+  assert(animationSource.includes('sourceTime:Number.isFinite(d.time)?d.time:null'),'Unknown view time cannot be serialized as zero');
+});
+
 test('Field View exposes explicit 3D navigation presets and an interactive XYZ gizmo',()=>{
   for(const token of [
     'fvOrbitMode','fvPanMode','fvZoomMode','fvFitCamera',
@@ -882,7 +907,7 @@ test('OpenFOAM video frame provenance distinguishes measured, missing, hidden an
   assert.throws(()=>capture(9.8,main,scene,'metal'),/time mismatch/);
   assert.throws(()=>capture(9.8,{...main,time:0},scene,'metal'),/Primary field frame/);
   assert.throws(()=>capture(null,main,scene,'metal'),/Missing physical time/);
-  assert(animationSource.includes('physicalFrames.push({frameIndex:frame,...evidence})'),
+  assert(animationSource.includes('physicalFrames.push({frameIndex:frame,...evidence,views:descriptors.map'),
     'One provenance record per encoded frame is required');
   assert(animationSource.includes('fvVideoProvenance')&&animationSource.includes('vaDownloadProvenance'),
     'User must be able to download the per-video provenance sidecar');
