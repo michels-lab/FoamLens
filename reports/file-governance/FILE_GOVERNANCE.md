@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 522; classified: 518; readable documents: 111; above read cap: 1; findings: 1.
+Tracked: 522; classified: 518; readable documents: 111; above read cap: 1; findings: 0.
 
 ## File roles
 
@@ -28,7 +28,6 @@ Tracked: 522; classified: 518; readable documents: 111; above read cap: 1; findi
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 4 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-field-view.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 86b503626f3cdedb)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.
