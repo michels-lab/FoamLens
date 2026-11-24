@@ -37,7 +37,13 @@ async Task<string> Run(string name, string utility, bool split, JsonElement inpu
     }
     var run=await NativeCadSurfaceCheck.RunProcessAsync("/bin/bash",dir,new[]{"-c",NativeCartesianMesh.Script,"foamlens-mesh-ci",dir,version,utility,split?"split":"single"},TimeSpan.FromMinutes(10),CancellationToken.None);
     File.WriteAllText(Path.Combine(dir,"runner.log"),run.Stdout+"\n"+run.Stderr);
-    if(run.ExitCode!=0)throw new InvalidOperationException(name+": native runner exit "+run.ExitCode+"\n"+run.Stderr);
+    if(run.ExitCode!=0){
+        foreach(var log in Directory.EnumerateFiles(dir,"*.log").OrderBy(x=>x)){
+            var lines=File.ReadLines(log).TakeLast(100);
+            Console.Error.WriteLine("=== "+name+"/"+Path.GetFileName(log)+" ===\n"+string.Join("\n",lines));
+        }
+        throw new InvalidOperationException(name+": native runner exit "+run.ExitCode+"\n"+run.Stderr);
+    }
     if(File.ReadAllText(Path.Combine(dir,"detected-version.txt")).Trim()!=version)throw new InvalidOperationException("Version mismatch");
     void ExitOk(string file){if(File.ReadAllText(Path.Combine(dir,file)).Trim()!="0")throw new InvalidOperationException(name+": "+file);}
     ExitOk("generation.exit");ExitOk("checkMesh.exit");
@@ -52,7 +58,11 @@ int Cells(string dir,string? region=null)
     s=Regex.Replace(s,@"/\*[\s\S]*?\*/|//[^\r\n]*","");
     int header=s.IndexOf('}');if(header<0)throw new InvalidOperationException("Missing owner header");
     var m=Regex.Match(s[(header+1)..],@"^\s*(\d+)\s*\(([\s\S]*?)\)\s*;?\s*$");
-    if(!m.Success)throw new InvalidOperationException("Unexpected owner list");
+    if(!m.Success){
+        var uniform=Regex.Match(s[(header+1)..],@"^\s*(\d+)\s*\{\s*(\d+)\s*\}\s*;?\s*$");
+        if(!uniform.Success||int.Parse(uniform.Groups[1].Value,CultureInfo.InvariantCulture)<=0)throw new InvalidOperationException("Unexpected owner list: "+s[(header+1)..].Trim()[..Math.Min(120,s[(header+1)..].Trim().Length)]);
+        return checked(int.Parse(uniform.Groups[2].Value,CultureInfo.InvariantCulture)+1);
+    }
     var ids=Regex.Matches(m.Groups[2].Value,@"\d+").Cast<Match>().Select(x=>int.Parse(x.Value,CultureInfo.InvariantCulture)).ToArray();
     if(ids.Length!=int.Parse(m.Groups[1].Value,CultureInfo.InvariantCulture)||ids.Length==0)throw new InvalidOperationException("Owner count mismatch");
     return ids.Max()+1;
