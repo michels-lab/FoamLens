@@ -86,6 +86,25 @@ internal static class NativeCartesianMesh
             try{Build(test.RootElement);}catch(ArgumentException){continue;}
             throw new InvalidOperationException("Unsafe Cartesian plan accepted.");
         }
+        using(var incomplete=JsonDocument.Parse(valid.Replace(",{\"ijk\":[1,0,0],\"name\":\"mold\"}","")))
+        {
+            try{CartesianZones(incomplete.RootElement,cells);throw new InvalidOperationException("Incomplete zones accepted.");}catch(ArgumentException){}
+        }
+        var stl=new byte[134];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(stl.AsSpan(80,4),1);
+        for(int i=0;i<9;i++)System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(stl.AsSpan(96+4*i,4),0.25f);
+        var snappyJson=valid.Replace("[{\"ijk\":[0,0,0],\"name\":\"metal\"},{\"ijk\":[1,0,0],\"name\":\"mold\"}]","[]");
+        snappyJson=snappyJson[..^1]+",\"snappy\":{\"inside\":[0.5,0.5,0.5],\"minLevel\":1,\"maxLevel\":2,\"maxCells\":200000,\"stlBase64\":\""+Convert.ToBase64String(stl)+"\"}}";
+        using(var sn=JsonDocument.Parse(snappyJson))
+        {
+            var (sd,surface)=BuildSnappy(sn.RootElement,cells);
+            if(!sd.Contains("insidePoint (0.5 0.5 0.5);")||!sd.Contains("level (1 2)")||!sd.Contains("addLayers false;")||surface.Length!=134)throw new InvalidOperationException("Snappy dictionary self-test failed.");
+        }
+        foreach(var invalid in new[]{snappyJson.Replace("[0.5,0.5,0.5]","[0,0.5,0.5]"),snappyJson.Replace("\"maxLevel\":2","\"maxLevel\":9")})
+        {
+            using var sn=JsonDocument.Parse(invalid);
+            try{BuildSnappy(sn.RootElement,cells);throw new InvalidOperationException("Invalid snappy settings accepted.");}catch(ArgumentException){}
+        }
         const string msh = """
             $MeshFormat
             2.2 0 8
