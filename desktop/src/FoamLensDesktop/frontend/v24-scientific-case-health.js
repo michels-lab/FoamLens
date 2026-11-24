@@ -90,6 +90,7 @@ function chPostRunCsv(text='',sourceFile=''){
      new Set(header).size!==header.length||!header.includes('time_s'))
     throw Error('Require unique source numeric column names and explicit time_s header');
   const columnValues=header.map(()=>({min:Infinity,max:-Infinity,first:null,last:null}));
+  const valuesByColumn=header.map(()=>[]);
   let firstTime=null,lastTime=null,minGap=Infinity,maxGap=0;const savedTimes=[];
   for(let row=1;row<lines.length;row++){
     const cells=chCsvCells(lines[row]);
@@ -109,11 +110,12 @@ function chPostRunCsv(text='',sourceFile=''){
     lastTime=time;savedTimes.push(time);
     for(let col=0;col<values.length;col++){
       const value=values[col],record=columnValues[col];
+      valuesByColumn[col].push(value);
       if(row===1)record.first=value;
       record.last=value;record.min=Math.min(record.min,value);record.max=Math.max(record.max,value)
     }
   }
-  return{schema:'foamlens/native-postrun-csv-evidence/1',
+  const result={schema:'foamlens/native-postrun-csv-evidence/1',
     sourceFile:String(sourceFile||'').slice(0,180),
     samples:lines.length-1,savedTimes_s:savedTimes,
     firstTime_s:firstTime,lastTime_s:lastTime,
@@ -122,7 +124,10 @@ function chPostRunCsv(text='',sourceFile=''){
     columns:header.map((name,i)=>({name,...columnValues[i]})),
     originalSamplesRevalidated:false,
     physicalModelValidated:false,originalCaseBindingVerified:false,
-    note:'Imported numeric reductions only; timestamps are saved outputs, not solver deltaT. No source-frame, contact, latent heat, Courant, or experimental verification.'}
+    note:'Imported numeric reductions only; timestamps are saved outputs, not solver deltaT. No source-frame, contact, latent heat, Courant, or experimental verification.'};
+  // Full saved columns are used by the local workbench; do not expand every value in the summary JSON.
+  Object.defineProperty(result,'valuesByColumn',{value:valuesByColumn,enumerable:false});
+  return result
 }
 
 // Source CSV timestamps and imported OpenFOAM time directories must never be
@@ -370,6 +375,107 @@ function chRefresh(){
   chInvalidate(chUi('Choose case, optionally attach original reports, then run evidence audit.',
     'Elige caso, adjunta reportes si existen y ejecuta la auditoría de evidencia.'))
 }
+// Original postrun workbench: linked physical-time plots and exact stored-sample inspection.
+function chPostrunFmt(n){
+  if(!Number.isFinite(n))return '—';
+  return n===0?'0':Number(n.toPrecision(7)).toString()
+}
+function chPostrunChart(p,index,first,last,cursor,color){
+  const ts=p.savedTimes_s,ys=p.valuesByColumn[index],W=840,H=224,L=94,R=22,T=30,B=42;
+  let ymin=Infinity,ymax=-Infinity;
+  for(let i=first;i<=last;i++){ymin=Math.min(ymin,ys[i]);ymax=Math.max(ymax,ys[i])}
+  const xmin=ts[first],xmax=ts[last],scaleY=Math.max(Math.abs(ymin),Math.abs(ymax),Number.MIN_VALUE);
+  const yn0=ymin/scaleY,yn1=ymax/scaleY,scaleX=Math.max(Math.abs(xmin),Math.abs(xmax),Number.MIN_VALUE);
+  const xn0=xmin/scaleX,xn1=xmax/scaleX;
+  const x=i=>L+(xn1===xn0?.5:(ts[i]/scaleX-xn0)/(xn1-xn0))*(W-L-R);
+  const y=v=>T+(yn1===yn0?.5:1-(v/scaleY-yn0)/(yn1-yn0))*(H-T-B);
+  const blend=(a,b,t)=>a*(1-t)+b*t;
+  let grid='';
+  for(let j=0;j<=4;j++){
+    const q=j/4,px=L+q*(W-L-R),py=T+q*(H-T-B);
+    grid+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+py+'" y2="'+py+'" stroke="#8994a3" opacity=".25"/>'+
+      '<text x="'+(L-8)+'" y="'+(py+4)+'" text-anchor="end" font-size="11">'+chEsc(chPostrunFmt(blend(ymax,ymin,q)))+'</text>'+
+      '<line x1="'+px+'" x2="'+px+'" y1="'+T+'" y2="'+(H-B)+'" stroke="#8994a3" opacity=".2"/>'+
+      '<text x="'+px+'" y="'+(H-B+17)+'" text-anchor="middle" font-size="11">'+chEsc(chPostrunFmt(blend(xmin,xmax,q)))+'</text>';
+  }
+  let coords='';
+  for(let i=first;i<=last;i++)coords+=(i===first?'':' ')+x(i).toFixed(3)+','+y(ys[i]).toFixed(3);
+  const k=Math.max(first,Math.min(last,cursor)),cx=x(k),cy=y(ys[k]);
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+chEsc(p.headers[index])+'" style="display:block;width:100%;height:auto;max-height:300px;background:#111827;border-radius:9px" fill="#dbe5ef" font-family="system-ui,sans-serif">'+
+    '<rect width="'+W+'" height="'+H+'" rx="9" fill="#111827"/>'+
+    '<text x="'+L+'" y="18" font-size="13" font-weight="650" fill="'+color+'">'+chEsc(p.headers[index])+'</text>'+
+    grid+'<path d="M '+L+' '+T+' V '+(H-B)+' H '+(W-R)+'" fill="none" stroke="#94a3b8"/>'+
+    '<polyline points="'+coords+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'+
+    '<line x1="'+cx+'" x2="'+cx+'" y1="'+T+'" y2="'+(H-B)+'" stroke="#e2e8f0" opacity=".85" stroke-dasharray="4 4"/>'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+color+'" stroke="#fff"/>'+
+    '<text x="'+((W+L-R)/2)+'" y="'+(H-5)+'" text-anchor="middle" font-size="11">time_s [s]</text></svg>'
+}
+function chPostrunSave(name,content,mime){
+  if(typeof downloadText==='function'){downloadText(name,content,mime);return}
+  const u=URL.createObjectURL(new Blob([content],{type:mime})),a=document.createElement('a');
+  a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)
+}
+function chMountPostrunWorkbench(p){
+  const host=chEl('chPostrunWorkbench');if(!host||!p?.valuesByColumn)return;
+  const available=p.headers.map((name,i)=>({name,i})).filter(c=>c.name!=='time_s');
+  if(!available.length)return;
+  const opts=available.map(c=>'<option value="'+c.i+'">'+chEsc(c.name)+'</option>').join('');
+  const label=(a,b)=>chEsc(chUi(a,b));
+  host.style.cssText='display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);margin-bottom:12px;min-width:0';
+  host.innerHTML='<h3 style="margin:0">'+label('Native postrun timeline','Evolución temporal de resultados nativos')+'</h3>'+
+    '<p class="smallnote" style="margin:0;overflow-wrap:anywhere">'+chEsc(p.sourceFile)+' · '+p.samples+' '+label('original saved samples','muestras originales guardadas')+
+    ' · '+label('independent Y scales, shared physical time; source headers preserved','escalas Y independientes, tiempo físico compartido; encabezados originales conservados')+'</p>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:8px">'+
+    '<div class="field"><label for="chMetric1">'+label('Metric 1','Variable 1')+'</label><select id="chMetric1">'+opts+'</select></div>'+
+    '<div class="field"><label for="chMetric2">'+label('Metric 2','Variable 2')+'</label><select id="chMetric2"><option value="">'+label('None','Ninguna')+'</option>'+opts+'</select></div>'+
+    '<div class="field"><label for="chRangeFirst">'+label('First saved sample','Primera muestra')+'</label><input id="chRangeFirst" type="number" min="1" max="'+p.samples+'" value="1" step="1"></div>'+
+    '<div class="field"><label for="chRangeLast">'+label('Last saved sample','Última muestra')+'</label><input id="chRangeLast" type="number" min="1" max="'+p.samples+'" value="'+p.samples+'" step="1"></div></div>'+
+    '<div class="extActions"><button class="btn soft" id="chApplyRange" type="button">'+label('Apply time window','Aplicar intervalo')+'</button>'+
+    '<button class="btn soft" id="chResetRange" type="button">'+label('Full history','Historial completo')+'</button>'+
+    '<button class="btn soft" id="chExportWindow" type="button">'+label('Export visible samples CSV','Exportar muestras visibles CSV')+'</button>'+
+    '<button class="btn soft" id="chExportChart" type="button">'+label('Export chart SVG','Exportar gráfica SVG')+'</button></div>'+
+    '<p id="chRangeMsg" class="smallnote" aria-live="polite" style="margin:0"></p>'+
+    '<div id="chNativePlots" style="display:grid;gap:6px;min-width:0"></div>'+
+    '<div class="field"><label for="chCursor">'+label('Inspect an actual saved time','Inspeccionar un tiempo guardado real')+'</label>'+
+    '<input id="chCursor" type="range" style="width:100%" min="0" max="'+(p.samples-1)+'" value="0" step="1"></div>'+
+    '<div id="chSampleReadout" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(175px,100%),1fr));gap:8px;overflow-wrap:anywhere" aria-live="polite"></div>'+
+    '<p class="smallnote" style="margin:0">'+label('Lines connect saved samples for visualization only. No missing states, physical units or validation are inferred. The CSV is manually associated with the selected case.','Las líneas conectan muestras guardadas solo para visualización. No se infieren estados faltantes, unidades ni validación física. El CSV se asocia manualmente al caso seleccionado.')+'</p>';
+  const firstInput=chEl('chRangeFirst'),lastInput=chEl('chRangeLast'),m1=chEl('chMetric1'),m2=chEl('chMetric2'),slider=chEl('chCursor'),msg=chEl('chRangeMsg');
+  m1.value=String(available[0].i);if(available.length>1)m2.value=String(available[1].i);
+  let first=0,last=p.samples-1,charts=[],frame=0;
+  const alive=()=>chPostrun===p&&host.isConnected&&chBound?.postrun===p;
+  const indices=()=>[...new Set([m1.value,m2.value].filter(v=>v!=='').map(Number))];
+  const card=(title,value,sub='')=>'<div style="padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel)"><div class="smallnote">'+chEsc(title)+'</div><b style="font-size:17px">'+chEsc(value)+'</b><div class="smallnote">'+chEsc(sub)+'</div></div>';
+  const render=()=>{
+    frame=0;if(!alive())return;
+    const cursor=Number(slider.value),ix=indices();
+    charts=ix.map((i,j)=>chPostrunChart(p,i,first,last,cursor,j?'#fbbf24':'#5eead4'));
+    chEl('chNativePlots').innerHTML=charts.join('');
+    chEl('chSampleReadout').innerHTML=card('time_s',String(p.savedTimes_s[cursor])+' s',label('Saved sample','Muestra guardada')+' '+(cursor+1)+' / '+p.samples)+
+      ix.map(i=>card(p.headers[i],String(p.valuesByColumn[i][cursor]),label('Original numeric value','Valor numérico original'))).join('');
+    msg.textContent=(last-first+1)+' '+chUi('saved samples','muestras guardadas')+' · '+String(p.savedTimes_s[first])+'–'+String(p.savedTimes_s[last])+' s';
+  };
+  const schedule=()=>{if(!frame)frame=requestAnimationFrame(render)};
+  const apply=()=>{
+    if(!alive())return;const a=Number(firstInput.value),b=Number(lastInput.value);
+    if(!Number.isInteger(a)||!Number.isInteger(b)||a<1||b>p.samples||a>b){msg.textContent=chUi('Choose a valid ordered saved-sample window.','Elige un intervalo válido de muestras guardadas.');return}
+    first=a-1;last=b-1;slider.min=String(first);slider.max=String(last);slider.value=String(Math.max(first,Math.min(last,Number(slider.value))));render()
+  };
+  chEl('chApplyRange').onclick=apply;chEl('chResetRange').onclick=()=>{firstInput.value='1';lastInput.value=String(p.samples);apply()};
+  m1.onchange=render;m2.onchange=render;slider.oninput=schedule;
+  chEl('chExportWindow').onclick=()=>{
+    if(!alive())return;const ix=indices(),rows=[['time_s',...ix.map(i=>p.headers[i])].join(',')];
+    for(let j=first;j<=last;j++)rows.push([p.savedTimes_s[j],...ix.map(i=>p.valuesByColumn[i][j])].join(','));
+    chPostrunSave('FoamLens_postrun_selected_samples.csv',rows.join('\n')+'\n','text/csv')
+  };
+  chEl('chExportChart').onclick=()=>{
+    if(!alive())return;const cursor=Number(slider.value),svgs=indices().map((i,j)=>chPostrunChart(p,i,first,last,cursor,j?'#fbbf24':'#5eead4'));
+    const body=svgs.map((svg,j)=>svg.replace('<svg ','<svg x="0" y="'+(j*224)+'" width="840" height="224" ')).join('');
+    chPostrunSave('FoamLens_postrun_timeline.svg','<svg xmlns="http://www.w3.org/2000/svg" width="840" height="'+(svgs.length*224)+'" viewBox="0 0 840 '+(svgs.length*224)+'">'+body+'</svg>','image/svg+xml')
+  };
+  render()
+}
+
 function chRun(){
   chInvalidate();const c=chSelectedCase(),status=chEl('chStatus');if(!c){status.textContent='Select an imported case.';return}
   if(!c.discoveryModel){status.textContent='Imported case discovery model unavailable; rescan the full case before auditing.';return}
@@ -382,7 +488,7 @@ function chRun(){
   status.textContent='Evidence coverage: '+r.coverage.analyzed+'/'+r.coverage.total+
     ' checks · errors '+counts.error+' · warnings '+counts.warning+
     ' · insufficient '+counts['insufficient-information']+' · NOT a case-validity verdict.';
-  chEl('chBody').innerHTML='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
+  chEl('chBody').innerHTML=(chPostrun?'<section id="chPostrunWorkbench"></section>':'')+'<div class="extTableWrap"><table class="extTable"><thead><tr>'+
     '<th>Evidence check</th><th>State</th><th>Source-backed observation and limitation</th></tr></thead><tbody>'+
     r.checks.map(check=>'<tr><td>'+chEsc(check.title)+'</td><td>'+chEsc(check.status)+'</td>'+
       '<td>'+chEsc(check.details)+(check.evidence?.length?'<div class="smallnote">Source: '+
@@ -400,6 +506,7 @@ function chRun(){
         '<tr><td>'+chEsc(col.name)+'</td><td>'+chEsc(col.min)+'</td><td>'+
         chEsc(col.max)+'</td><td>'+chEsc(col.first)+'</td><td>'+chEsc(col.last)+
         '</td></tr>').join('')+'</tbody></table></div>':'');
+  if(chPostrun)chMountPostrunWorkbench(chPostrun);
   chEl('chExport').disabled=false
 }
 function chDownload(data){
