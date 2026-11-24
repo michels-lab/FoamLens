@@ -39,3 +39,12 @@ const fixtureModels=[{visible:true,unit:'mm',partsVisible:new Map([['metal',true
 const visible=new Function('cgModels','cgUnitScale','cgBinaryStl',src.slice(visStart,visEnd)+';return cmbVisibleSurfaces') (fixtureModels,u=>u==='mm'?.001:null,(tris,scale)=>new Uint8Array(84+50*tris.length));
 assert.deepEqual(visible().map(x=>x.part),['metal','mold']);assert.equal(visible()[0].bytes.length,134);fixtureModels[0].unit='';assert.throws(visible);
 console.log('Visible multi-surface selection and unit gate PASS');
+
+const advStart=src.indexOf('function cmbAdvancedSnappy('),advEnd=src.indexOf('function cmbVisibleSurfaces()',advStart);
+const advanced=new Function(src.slice(num,numEnd)+src.slice(advStart,advEnd)+';return cmbAdvancedSnappy')();
+const advancedPlan=advanced(bg,2,'0.001 -0.03 0.001 0.009 -0.01 0.009 3','1 1 3 2\n2 0 1 0','1.2 0.3 0.1');
+assert.deepEqual(advancedPlan.boxes,[{min:[.001,-.03,.001],max:[.009,-.01,.009],level:3}]);assert.deepEqual(advancedPlan.surfaceSettings,[{id:1,minLevel:1,maxLevel:3,layers:2},{id:2,minLevel:0,maxLevel:1,layers:0}]);
+assert.deepEqual(advancedPlan.layerSettings,{expansionRatio:1.2,finalLayerThickness:.3,minThickness:.1});
+assert.equal(advanced(bg,1,'','','1.2 0.3 0.1').surfaceSettings.length,0);
+for(const [boxes,surfaces,layers] of [['0 -0.04 0 0.04 0 0.01 2','','1.2 .3 .1'],['0 -0.04 0 0 0 .01 2','','1.2 .3 .1'],['','','1.2 .1 .3'],['','1 1 2 9','1.2 .3 .1'],['','1 1 2 1\n1 2 3 0','1.2 .3 .1'],['','2 1 2 1','1.2 .3 .1'],['','1 3 2 1','1.2 .3 .1']])assert.throws(()=>advanced(bg,1,boxes,surfaces,layers));
+console.log('Local box refinement, per-surface levels and relative layer validation PASS');
