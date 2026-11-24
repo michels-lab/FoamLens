@@ -1,3 +1,7 @@
+## 2026-11-24 — owner feedback block integrated, v1.8.23 retry
+
+PR #378 merged as 4726f8ef02a0f30f00f707ebb422633f77476060. Existing view handles now use pointer capture with slot highlight, original canvas identity, persisted viewport order and reset. Structured source, playback, camera and material rows, dedicated speed widths, global transport full-width and grouped profile tools. New companion clock selects a committed frame from A/B/C/D; profile source remains independent. Unavailable A diagnosis no longer duplicates count logic; isolated regression invokes actual diagnostics. Previous official run 45353734411 failed at unavailable selection regression, before publication. Same unpublished version retried with gates intact; last verified v1.8.22. JS syntax checked, no installed acceptance claimed. No CFD changes.
+
 ## 2026-11-24 — selectable profile synchronization source and case recovery
 
 Existing 3D+Profile companion may now follow a selected A/B/C/D committed frame, without changing profile case or field. A missing selected source reports waiting rather than inventing zero or silently following A; independent profile mode remains. Hooks follow completed source loads and refresh the list on view add/remove. Source diagnosis uses one authoritative summary and the unavailable-selection regression harness evaluates real diagnostic functions with the real loader. Previous publisher 45353734411 failed in that isolated harness; no gates disabled. JS syntax checked; installed validation pending. No CFD changes.

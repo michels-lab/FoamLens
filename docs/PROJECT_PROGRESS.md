@@ -1,5 +1,7 @@
 # FoamLens — avance global verificable
 
+**Granada 2026-11-24:** #378 fusionado (orden arrastrable, controles organizados, velocidad legible, perfil sigue reloj A/B/C/D); reintento 1.8.23 con gates intactos. Última estable verificada 1.8.22; aceptación 7/15.
+
 **Granada 2026-11-24:** integrado espacio 3D + perfil con distribución adaptable y preferencias persistentes; publicación 1.8.23 reactivada tras corregir dependencia del evaluador de tiempos. Última estable verificada 1.8.22; aceptación 7/15.
 
 **Granada 2026-11-24:** #377 fusionado; primer release v1.8.23 falló en cámara independiente y se corrige en nueva fuente con diagnóstico por región y mejoras de cotas/leyendas/transparencia. Última publicación confirmada v1.8.22. Hitos formales 7/15 hasta aceptación integral.
