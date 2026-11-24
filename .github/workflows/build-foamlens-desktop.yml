@@ -675,6 +675,10 @@ jobs:
       - name: Test CAD surface import, topology, units and triSurface export
         shell: pwsh
         run: node desktop/tests/cad-surface-inspector.test.cjs
+      - name: CAD Cartesian designer and native request
+        run: node desktop/tests/cad-blockmesh-designer.test.cjs
+      - name: CAD Mesh Studio scientific topology and Gmsh
+        run: node desktop/tests/cad-mesh-studio.test.cjs
 
       - name: Test original CAD assembly model-part visibility, isolate and restore, and export selection
         shell: pwsh
