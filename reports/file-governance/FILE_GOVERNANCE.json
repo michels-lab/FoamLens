@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 67
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "14163e03bbbceb5f6afa6c43a04328f5ccf2ce36bad6bd80abb2ed86d7065b95",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "2fa00f2e010d6a3474c77171736c2c1038429e8b4b2e73371ae90ce3a96dea9d",
+  "evidence_fingerprint": "3e46562e14223a05b2dc3a36a654c3f89dc17b8f1365d942a4a331d109df6665",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -949,7 +951,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ebde43926aab2a7eaad4a64f72d4d6d6bf5aa2a7"
+      "blob": "61ce901dd5de04d658cd5db4ee05e510e08eb71a"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-isosurface.js",
@@ -998,7 +1000,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "69546c5032918b224442c7f84c32a41b4729bf06"
+      "blob": "af86e0db35e09ba7672b3f308dc9dae9046e3b4f"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js",
@@ -1124,7 +1126,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d3ee129a59f5219f811abc388a9af0ea74ad55b6"
+      "blob": "22e883243845ebdc6b73d3bc1ba4552b3de27bd0"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js",
@@ -1537,7 +1539,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2e79b9c54143a3fbea746f8ebebd8196e55ee95f"
+      "blob": "e9928908475c054b08ae0a8c700ffa5fa022b819"
     },
     {
       "path": "desktop/tests/field-multiview-profile-comparison.test.cjs",
@@ -1565,7 +1567,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2182a7a8bdc621661b7ee8b6c212b0cdf1bf021d"
+      "blob": "31db8c5d0ed12bdd203afb25fe431631dbd4e501"
     },
     {
       "path": "desktop/tests/field-probe.test.cjs",
@@ -1607,7 +1609,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3de538de5916ab05d6ed5ec7a7c628a45e850047"
+      "blob": "55810bad1045f13424f3b070b06159f590befe12"
     },
     {
       "path": "desktop/tests/findings-export.test.cjs",
@@ -3654,7 +3656,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "de0c956b2084feaf",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "6 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v14-field-view.js, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js, desktop/tests/field-multiregion-views.test.cjs, desktop/tests/field-multiview-ux.test.cjs, desktop/tests/field-view.test.cjs",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
