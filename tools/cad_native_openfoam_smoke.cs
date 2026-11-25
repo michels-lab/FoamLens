@@ -37,7 +37,7 @@ async Task<string> Run(string name, string utility, bool split, JsonElement inpu
     }
     var source=Path.GetFullPath(Path.Combine(output,"..","tools","native-quality"));
     var staged=Path.Combine(dir,"native-quality-src");
-    foreach(var name in new[]{"foamlensMeshQuality.C","Make/files","Make/options"}){var target=Path.Combine(staged,name);Directory.CreateDirectory(Path.GetDirectoryName(target)!);File.Copy(Path.Combine(source,name),target,true);}
+    foreach(var asset in new[]{"foamlensMeshQuality.C","Make/files","Make/options"}){var target=Path.Combine(staged,asset);Directory.CreateDirectory(Path.GetDirectoryName(target)!);File.Copy(Path.Combine(source,asset),target,true);}
     var run=await NativeCadSurfaceCheck.RunProcessAsync("/bin/bash",dir,new[]{"-c",NativeCartesianMesh.Script,"foamlens-mesh-ci",dir,version,utility,split?"split":"single"},TimeSpan.FromMinutes(30),CancellationToken.None);
     File.WriteAllText(Path.Combine(dir,"runner.log"),run.Stdout+"\n"+run.Stderr);
     if(run.ExitCode!=0){
