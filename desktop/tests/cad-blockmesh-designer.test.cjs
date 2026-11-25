@@ -62,3 +62,8 @@ assert.equal(advancedPlan.snapEnabled,true);assert.equal(advancedPlan.transition
 assert.throws(()=>advanced(bg,1,'','1 1 2 1','1.2 .3 .1',false,3));
 for(const n of [0,7,1.5,NaN])assert.throws(()=>advanced(bg,1,'','','1.2 .3 .1',true,n));
 console.log('Castellated-only diagnostic and refinement transition validation PASS');
+
+assert.equal(advanced(bg,1,"","","1.2 .3 .1",true,3,true).explicitFeatures,true);
+assert.equal(advancedPlan.explicitFeatures,false);
+assert.throws(()=>advanced(bg,1,"","","1.2 .3 .1",false,3,true));
+console.log("Explicit sharp-edge recovery mode validation PASS");
