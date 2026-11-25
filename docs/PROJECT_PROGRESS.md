@@ -1,5 +1,10 @@
 # FoamLens — avance global verificable
 
+## 2026-11-25 — Granada 3B: geometric mesh quality and exact histogram selection
+- 0f934f5: additional polyMesh quality diagnostics: longest/shortest unique cell-edge ratio and internal face centroid offset from owner-neighbour centroid-line/face-plane intersection, normalized by sqrt(area). Explicit approximations, not native OpenFOAM aspect ratio or skewness; degenerate geometry excluded and invalid IDs counted. Existing volume, face area and nonorthogonality retained.
+- Computed metric histogram selects exact disjoint bin IDs, reuses Mesh Studio markers, supports manual inclusive threshold and records selection type/range in CSV/JSON provenance. Source switching clears computed selection; existing Field workspace unchanged. Preview samples at most 3000 IDs.
+- Direct V8 syntax and analytical tests passed before commit (cube ratio 1, stretched cube 4, aligned internal offset 0, sheared pair 0.25, disjoint bin membership). 24dcb4e adds permanent regression cases; full suite, native CLI and installed Windows UI not executed in this session. Native quality field extraction and snappy mesh quality remain pending. Stable v1.8.23, verified global 8/15 (53%), no merge/release or MasterProject changes.
+
 ## 2026-11-25 — Granada 3A: editable curved block edges
 - d53c456: Mesh Studio now enumerates original unique block edges by vertex IDs, loads existing arc midpoint in meters, allows add/edit/remove, immediately redraws and exports a new normalized SI blockMeshDict ZIP. Original file untouched; blocks, zones, grading, patches and supported defaultPatch retained. Nonfinite, degenerate and non-edge input rejected. No new native mesh generated or physical certification.
 - Direct V8 syntax and synthetic arc edit/roundtrip checks passed before commit; a3c953f adds persistent regression tests for immutable edits, reversed IDs, defaultPatch and rejection paths. Full CI, native execution of edited dictionary and installed Windows UI not verified in this session. Only explicit supported hex/arc syntax; no splines or projected edges, no automatic CAD fitting. Existing snappy quality failures remain open.
