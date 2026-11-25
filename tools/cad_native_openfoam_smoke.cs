@@ -127,6 +127,27 @@ using var stream=new MemoryStream();using(var bw=new BinaryWriter(stream,Encodin
         foreach(var i in t)foreach(var x in v[i])bw.Write(x);bw.Write((ushort)0);
     }
 }
+// A separate aligned, level-zero castellated control isolates cell
+// selection from refinement transitions and surface snapping. The three
+// existing strict snapped mesh scenarios below remain unchanged.
+await Scenario("snappy-aligned-control",async()=>{
+    var dir=await Run("snappy-aligned-control","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=0,maxLevel=0,maxCells=20000,snapEnabled=false,transitionLayers=2,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
+    int cells=Cells(dir);if(cells!=448)throw new InvalidOperationException("Aligned castellated control expected 448 external cells, got "+cells);
+    CheckLog(dir,"checkMesh.log");
+    return new{cells,quality="Mesh OK",snap=false,refinement=0};
+});
+// Repeat the original refinement with snapping disabled. This diagnostic
+// must produce a valid mesh snapshot and a determinate quality report;
+// its mesh-quality status is separate from the strict snapped scenarios.
+await Scenario("snappy-refinement-diagnostic",async()=>{
+    var dir=await Run("snappy-refinement-diagnostic","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,snapEnabled=false,transitionLayers=3,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
+    int cells=Cells(dir);if(cells<=0||cells==512)throw new InvalidOperationException("Castellated refinement diagnostic did not change mesh");
+    string log=File.ReadAllText(Path.Combine(dir,"checkMesh.log"));string quality=NativeCartesianMesh.QualityStatus(0,log);
+    if(quality is not ("mesh-ok-reported" or "checks-failed"))throw new InvalidOperationException("Missing determinate quality evidence");
+    if(quality=="checks-failed"&&!Directory.Exists(Path.Combine(dir,"constant","polyMesh","sets")))throw new InvalidOperationException("Expected native defect sets for rejected mesh");
+    Console.WriteLine("Diagnostic quality: "+quality);
+    return new{cells,quality,snap=false,transitionLayers=3,qualityCertified=false};
+});
 await Scenario("snappy",async()=>{
 var snappy=await Run("snappy","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
 var snappyCells=Cells(snappy);if(snappyCells<=0||snappyCells==512)throw new InvalidOperationException("Snappy did not produce a different mesh");
