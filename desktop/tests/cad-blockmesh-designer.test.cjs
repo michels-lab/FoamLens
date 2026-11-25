@@ -55,3 +55,10 @@ assert.equal(boxSlice(bg,0,0,advancedPlan.boxes).length,1);
 assert.equal(boxSlice(bg,0,1,advancedPlan.boxes).length,0);
 assert.deepEqual(boxSlice(bg,0,0,advancedPlan.boxes)[0].rect,[-.03,.001,-.01,.009]);
 console.log('Refinement box preview respects physical block slab PASS');
+
+assert.equal(advanced(bg,1,'','','1.2 .3 .1',false,3).snapEnabled,false);
+assert.equal(advanced(bg,1,'','','1.2 .3 .1',false,3).transitionLayers,3);
+assert.equal(advancedPlan.snapEnabled,true);assert.equal(advancedPlan.transitionLayers,2);
+assert.throws(()=>advanced(bg,1,'','1 1 2 1','1.2 .3 .1',false,3));
+for(const n of [0,7,1.5,NaN])assert.throws(()=>advanced(bg,1,'','','1.2 .3 .1',true,n));
+console.log('Castellated-only diagnostic and refinement transition validation PASS');
