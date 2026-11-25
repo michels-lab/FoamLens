@@ -352,7 +352,30 @@ internal static class NativeCartesianMesh
         timeout --kill-after=5s 90s checkMesh -case "$1" -allTopology -allGeometry -writeSets -writeSurfaces > checkMesh.log 2>&1
         code=$?
         printf '%s\n' "$code" > checkMesh.exit
-        if [ "$code" -ne 0 ] || [ "$4" != split ]; then exit "$code"; fi
+        # Foundation checkMesh does not expose the OpenCFD writeFields switch.
+        # Generate actual native cell volumes separately, without changing quality status.
+        fl_write_volumes() {
+          local region="$1" log="$2" result
+          if ! command -v foamPostProcess >/dev/null; then
+            echo 'foamPostProcess unavailable' > "$log.log"
+            printf '127\n' > "$log.exit"
+            return 0
+          fi
+          mkdir -p 0
+          if [ -n "$region" ]; then
+            timeout --kill-after=5s 40s foamPostProcess -case "$fl_case" -region "$region" -time 0 -func writeCellVolumes > "$log.log" 2>&1
+          else
+            timeout --kill-after=5s 40s foamPostProcess -case "$fl_case" -time 0 -func writeCellVolumes > "$log.log" 2>&1
+          fi
+          result=$?
+          printf '%s\n' "$result" > "$log.exit"
+          return 0
+        }
+        fl_case="$1"
+        if [ "$code" -ne 0 ] || [ "$4" != split ]; then
+          fl_write_volumes "" nativeVolumes
+          exit "$code"
+        fi
         if ! command -v splitMeshRegions >/dev/null; then echo 'splitMeshRegions unavailable' >&2; exit 127; fi
         if [ "$fl_version" = 14 ]; then
           timeout --kill-after=5s 120s splitMeshRegions -case "$1" -cellZones all -noFields > splitMeshRegions.log 2>&1
@@ -367,6 +390,7 @@ internal static class NativeCartesianMesh
           timeout --kill-after=5s 60s checkMesh -case "$1" -region "$region" -allTopology -allGeometry -writeSets -writeSurfaces > "checkMesh.$region.log" 2>&1
           code=$?
           printf '%s\n' "$code" > "checkMesh.$region.exit"
+          fl_write_volumes "$region" "nativeVolumes.$region"
         done < expected-regions.txt
         exit 0
         """;
@@ -399,7 +423,7 @@ internal static class NativeCartesianMesh
             var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","wslpath","-a",dir},TimeSpan.FromSeconds(15),token);
             var linux=translated.Stdout.Trim();
             if(translated.ExitCode!=0 || !linux.StartsWith("/") || linux.Contains('\n') || linux.Contains('\r'))throw new NotSupportedException("WSL path mapping failed.");
-            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?1100:snappy?650:205),token);
+            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?1650:snappy?710:260),token);
             string Clean(string s)=>s.Replace(linux,"<temporary case>",StringComparison.Ordinal).Replace(dir,"<temporary case>",StringComparison.OrdinalIgnoreCase);
             async Task<string?> Small(string file,int limit)
             {
@@ -441,7 +465,20 @@ internal static class NativeCartesianMesh
                 }
                 return(sets,warnings.ToArray(),bytes);
             }
-            var nativeSets=new Dictionary<string,string>();string[] setWarnings=Array.Empty<string>();
+            async Task<(Dictionary<string,string> Fields,string Status,long Bytes)> ReadVolumes(string? region,long remaining)
+            {
+                var fields=new Dictionary<string,string>();var log=region is null?"nativeVolumes":"nativeVolumes."+region;
+                var exit=Exit(log+".exit");if(exit is null)return(fields,"not-run",0);if(exit!=0)return(fields,"command-failed",0);
+                var folder=region is null?Path.Combine(dir,"0"):Path.Combine(dir,"0",region);
+                if(!Directory.Exists(folder)||(File.GetAttributes(folder)&FileAttributes.ReparsePoint)!=0)return(fields,"missing-or-linked",0);
+                var info=new FileInfo(Path.Combine(folder,"V"));
+                if(!info.Exists||(info.Attributes&FileAttributes.ReparsePoint)!=0)return(fields,"missing-or-linked",0);
+                if(info.Length>Math.Min(8*1024*1024,remaining))return(fields,"transfer-limit",0);
+                var data=await File.ReadAllTextAsync(info.FullName,token);var header=data.Substring(0,Math.Min(data.Length,2048));
+                if(data.Contains('\0')||!System.Text.RegularExpressions.Regex.IsMatch(header,@"\bformat\s+ascii\s*;")||!System.Text.RegularExpressions.Regex.IsMatch(header,@"\bclass\s+volScalarField\s*;")||!System.Text.RegularExpressions.Regex.IsMatch(header,@"\bobject\s+V\s*;"))return(fields,"unsupported-field",0);
+                fields["V"]=data;return(fields,"captured",info.Length);
+            }
+            var nativeSets=new Dictionary<string,string>();string[] setWarnings=Array.Empty<string>();var nativeQualityFields=new Dictionary<string,string>();string nativeVolumeStatus="not-run";
             var splitExit=Exit("splitMeshRegions.exit");var regions=new Dictionary<string,object>();string? splitError=null;long splitBytes=0;
             if(split&&splitExit==0)
             {
@@ -463,8 +500,8 @@ internal static class NativeCartesianMesh
                     }
                     if(splitError!=null)break;
                     var captured=await ReadSets(poly,64*1024*1024-splitBytes);splitBytes+=captured.Bytes;
-                    var regionLog=await Small("checkMesh."+name+".log",48000);
-                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit")),checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings };
+                    var regionLog=await Small("checkMesh."+name+".log",48000);var volumes=await ReadVolumes(name,64*1024*1024-splitBytes);splitBytes+=volumes.Bytes;
+                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit")),checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings,nativeQualityFields=volumes.Fields,nativeVolumeStatus=volumes.Status,nativeVolumeLog=await Small("nativeVolumes."+name+".log",12000) };
                 }
                 if(splitError!=null)regions.Clear();
                 // Combined and separated meshes are different snapshots. Do not
@@ -483,9 +520,9 @@ internal static class NativeCartesianMesh
                     if(data.Contains('\0') || !System.Text.RegularExpressions.Regex.IsMatch(data.Substring(0,Math.Min(data.Length,2048)),@"\bformat\s+ascii\s*;")){exportError="Only native ASCII mesh export is supported.";break;}
                     files["constant/polyMesh/"+name]=data;
                 }
-                if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;}
+                if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;total+=captured.Bytes;var volumes=await ReadVolumes(null,exportLimit-total);nativeQualityFields=volumes.Fields;nativeVolumeStatus=volumes.Status;}
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
