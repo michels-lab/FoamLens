@@ -54,6 +54,17 @@ assert.deepEqual(ms.geometricMetric(m,'nonOrthogonality').values,[]);
 const two={points:[...m.points,[2,0,0],[2,1,0],[2,0,1],[2,1,1]],faces:[[1,2,6,5],m.faces[0],m.faces[1],m.faces[2],m.faces[4],m.faces[5],[1,2,9,8],[5,10,11,6],[1,8,10,5],[8,9,11,10],[2,6,11,9]],owner:[0,0,0,0,0,0,1,1,1,1,1],neighbour:[1],cells:[[0,1,2,3,4,5],[0,6,7,8,9,10]]};
 const orth=ms.geometricMetric(two,'nonOrthogonality');assert.equal(orth.values.length,1);assert(Math.abs(orth.values[0].value)<1e-6);
 console.log('Computed native geometry and threshold PASS');
+const edgeRatio=ms.geometricMetric(m,'cellEdgeRatio');assert.equal(edgeRatio.values[0].value,1);assert.equal(edgeRatio.unit,'1');
+const elongated={...m,points:m.points.map(p=>[4*p[0],p[1],p[2]])};assert.equal(ms.geometricMetric(elongated,'cellEdgeRatio').values[0].value,4);
+assert.deepEqual(ms.geometricMetric({...m,cells:[[0,1,2,3,4]]},'cellEdgeRatio').invalid,[0]);
+assert.deepEqual(ms.geometricMetric(m,'internalFaceOffset').values,[]);
+assert(Math.abs(ms.geometricMetric(two,'internalFaceOffset').values[0].value)<1e-10);
+const skewed={...two,points:two.points.map((p,i)=>i>=8?[p[0],p[1]+1,p[2]]:p)};
+const offset=ms.geometricMetric(skewed,'internalFaceOffset');assert(Math.abs(offset.values[0].value-.25)<1e-10);assert.equal(offset.eligible,1);assert.match(offset.method,/not OpenFOAM skewness/);
+const metricBins=ms.metricHistogram([0,1,2].map((value,id)=>({value,id})),2);assert.deepEqual(metricBins.map(b=>b.rows.map(r=>r.id)),[[0],[1,2]]);
+assert.deepEqual(ms.metricHistogram([],2),[]);assert.equal(ms.metricHistogram([{id:0,value:5},{id:1,value:5}]).length,1);assert.throws(()=>ms.metricHistogram([{id:0,value:NaN}]));assert.throws(()=>ms.metricHistogram([],1));
+console.log('Geometric edge ratio, internal centroid offset and non-overlapping histogram bins PASS');
+
 
 const msh41=['$MeshFormat','4.1 0 8','$EndMeshFormat','$PhysicalNames','4','3 101 "metal"','3 102 "mold"','2 201 "contact"','2 202 "interface alias"','$EndPhysicalNames','$Entities','0 0 1 2','3 1 0 0 1 1 1 2 201 202 0','1 0 0 0 1 1 1 1 101 0','2 1 0 0 2 1 1 1 102 0','$EndEntities','$Nodes','2 12 10 120','3 1 0 8','10 20 30 40 50 60 70 80','0 0 0','1 0 0','1 1 0','0 1 0','0 0 1','1 0 1','1 1 1','0 1 1','3 2 0 4','90 100 110 120','2 0 0','2 1 0','2 0 1','2 1 1','$EndNodes','$Elements','3 3 1001 3003','3 1 5 1','1001 10 20 30 40 50 60 70 80','3 2 5 1','2002 20 90 100 30 60 110 120 70','2 3 3 1','3003 20 30 70 60','$EndElements'].join('\n');
 const g41=mg.parse(msh41,'mm');assert.equal(g41.version,'4.1');assert.equal(g41.points.size,12);assert.equal(g41.elements.size,3);assert.deepEqual(g41.elements.get(3003).physicalTags,[201,202]);assert.equal(g41.groups.get('2:202').count,1);assert.deepEqual(g41.points.get(120),[.002,.001,.001]);
