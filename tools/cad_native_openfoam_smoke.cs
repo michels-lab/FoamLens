@@ -35,7 +35,10 @@ async Task<string> Run(string name, string utility, bool split, JsonElement inpu
             foreach(var (file,data) in stl)File.WriteAllBytes(Path.Combine(dir,"constant","geometry",file),data);
         }
     }
-    var run=await NativeCadSurfaceCheck.RunProcessAsync("/bin/bash",dir,new[]{"-c",NativeCartesianMesh.Script,"foamlens-mesh-ci",dir,version,utility,split?"split":"single"},TimeSpan.FromMinutes(10),CancellationToken.None);
+    var source=Path.GetFullPath(Path.Combine(output,"..","tools","native-quality"));
+    var staged=Path.Combine(dir,"native-quality-src");
+    foreach(var name in new[]{"foamlensMeshQuality.C","Make/files","Make/options"}){var target=Path.Combine(staged,name);Directory.CreateDirectory(Path.GetDirectoryName(target)!);File.Copy(Path.Combine(source,name),target,true);}
+    var run=await NativeCadSurfaceCheck.RunProcessAsync("/bin/bash",dir,new[]{"-c",NativeCartesianMesh.Script,"foamlens-mesh-ci",dir,version,utility,split?"split":"single"},TimeSpan.FromMinutes(30),CancellationToken.None);
     File.WriteAllText(Path.Combine(dir,"runner.log"),run.Stdout+"\n"+run.Stderr);
     if(run.ExitCode!=0){
         foreach(var log in Directory.EnumerateFiles(dir,"*.log").OrderBy(x=>x)){
@@ -82,6 +85,14 @@ var cart=await Run("cartesian","blockMesh",true,JsonSerializer.SerializeToElemen
 foreach(var region in new[]{"metal","mold"}){
     if(Cells(cart,region)!=256)throw new InvalidOperationException("Wrong split Cartesian region cell count");
     CheckLog(cart,"checkMesh."+region+".log");
+    var q=Path.Combine(cart,"nativeQuality."+region);
+    if(File.ReadAllText(Path.Combine(cart,"nativeQuality."+region+".exit")).Trim()!="0")throw new InvalidOperationException("Native quality extractor failed; inspect nativeQualityBuild.log");
+    var manifest=File.ReadAllText(Path.Combine(q,"complete.txt"));
+    if(!manifest.Contains("region="+region+"\n")||!manifest.Contains("cells=256\n"))throw new InvalidOperationException("Native quality region mismatch");
+    var vols=File.ReadLines(Path.Combine(q,"cellVolume.csv")).Skip(1).Select(l=>double.Parse(l.Split(',')[1],CultureInfo.InvariantCulture)).ToArray();
+    if(vols.Length!=256||vols.Any(v=>Math.Abs(v-1.0/512)>1e-12))throw new InvalidOperationException("Native cell volume analytical gate");
+    var angles=File.ReadLines(Path.Combine(q,"nonOrthogonality.csv")).Skip(1).Select(l=>double.Parse(l.Split(',')[1],CultureInfo.InvariantCulture)).ToArray();
+    if(angles.Length==0||angles.Any(v=>Math.Abs(v)>1e-5))throw new InvalidOperationException("Native orthogonality analytical gate");
 }
 return new{metal=256,mold=256};});
 // Each region is 2×2×2 HEX8 cells with internal neighbours in all
