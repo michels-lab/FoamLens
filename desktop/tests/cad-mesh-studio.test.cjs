@@ -99,6 +99,15 @@ assert.throws(()=>ms.generatedVolume({regions:{metal:volumeReceipt}},'mold',nati
 assert.throws(()=>ms.generatedVolume({...volumeReceipt,nativeVolumeStatus:'command-failed'},null,nativeQualityMesh));
 for(const v of [nativeV.replace('object V','object T'),nativeV.replace('0 3 0','0 0 0')])assert.throws(()=>ms.generatedVolume({...volumeReceipt,nativeQualityFields:{V:v}},null,nativeQualityMesh));
 console.log('Generated native V receipt identity and independent region binding PASS');
+const sixReceipt={nativeMetricsStatus:'captured',nativeMetricsManifest:'foamlens/native-quality/1\nregion=metal\ninstance=constant\ncells=2\nfaces=3\ninternalFaces=1\n',nativeMetrics:{nonOrthogonality:'id,value\n0,15\n',cellVolume:'id,value\n0,1\n1,2\n'}};
+const sixReport={regions:{metal:sixReceipt}};
+assert.equal(ms.generatedMetric(sixReport,'metal',nativeQualityMesh,'nonOrthogonality').values[0].value,15);
+assert.equal(ms.generatedMetric(sixReport,'metal',nativeQualityMesh,'cellVolume').sourceBindingVerified,true);
+assert.throws(()=>ms.generatedMetric({regions:{mold:sixReceipt}},'mold',nativeQualityMesh,'cellVolume'));
+assert.throws(()=>ms.generatedMetric({regions:{metal:{...sixReceipt,nativeMetrics:{nonOrthogonality:'id,value\n1,15\n'}}}},'metal',nativeQualityMesh,'nonOrthogonality'));
+assert.throws(()=>ms.generatedMetric({regions:{metal:{...sixReceipt,nativeMetricsStatus:'command-failed'}}},'metal',nativeQualityMesh,'cellVolume'));
+console.log('Native six-metric receipt region, topology and exact ID gates PASS');
+
 
 
 
