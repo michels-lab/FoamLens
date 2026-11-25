@@ -1,5 +1,10 @@
 # FoamLens — avance global verificable
 
+## 2026-11-25 — Granada block 3 integration: native quality workflow
+- e70399b/27b20a4: packaged C++ meshCheck utility, isolated wmake build and six metrics per region; command failures remain separate from checkMesh quality. d094d44 binds CSVs to exact region/mesh counts and IDs, exposes native metrics in Mesh Studio and includes raw data/manifest/logs in ZIP. 9a41ad8/176ee2f/d1b8e7c wire real Foundation 13/14 fixture and synthetic receipt tests.
+- Prior exact head 12d88a0 CAD workflow 45580235087: frontend PASS, host and both native jobs FAIL at C# raw interpolation syntax; Windows cancelled. 5cf7345 fixes single-dollar raw interpolation for literal dictionary braces; verified source reread, exact-head compile/runtime pending. No claim of actual C++ compilation or snappy quality acceptance. No release.
+- Formal 8/15 (53%) unchanged, v1.8.23 stable; PR #381 remains candidate. Finish actual Foundation quality exporter, snappy quality, native Windows/owner acceptance before release. No MasterProject changes.
+
 ## 2026-11-25 — Granada 3B/3G: native cell-volume capture, region binding and ZIP
 - 48bd8bd: Foundation 13/14 native runner requests writeCellVolumes using foamPostProcess at time 0 after checkMesh (or per split region); command result and logs remain independent of mesh-quality acceptance. Captures only ASCII V with expected class and object, bounded transfer and link checks. Original case untouched. Upstream Foundation documentation: https://cpp.openfoam.org/v13/writeCellVolumes_8C_source.html and https://cpp.openfoam.org/v14/foamPostProcess_8C.html.
 - 791e910: Mesh Studio validates native V identity, dimensions and exact cell count against generated region receipt, exposes native V histogram and quality map, includes source field and command logs in ZIP with region metadata. Manual imported scalar files remain unverified by source. 471188f adds permanent tests for identity, dimensions, region isolation and command-failure rejection.
