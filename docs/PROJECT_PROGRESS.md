@@ -1,5 +1,10 @@
 # FoamLens — avance global verificable
 
+## 2026-11-25 — Granada block 3 closure: complete JS scripts and PR event recovery
+- At source snapshot eac7b438d7074b78a7d98457731e80daee38865b, executed both complete repository JS test scripts in V8 using minimal filesystem/path/assert adapters (not Node CLI, browser or native runtime). Mesh Studio: 300 assertions, Cartesian designer: 70 assertions, all passed. No production source changes in this intervention.
+- PR #381 was open, mergeable=false, 173 commits ahead and zero behind main. Newer PR workflow listings returned empty. Closed and immediately reopened the same PR, preserved exact head and base, appended closure status to PR description. Verified PR open, not merged, mergeable=false; no new runs surfaced at recheck. Do not infer CI or bypass gates.
+- Last verified exact older source CI 16/17, Windows and host passed. Native extractor and strict snappy acceptance remain open. Formal 8/15 (53%), v1.8.23 stable. No release, no owner physical acceptance and no MasterProject modification. Next: inspect restarted PR CI when available; resolve actual native failures; publish only with required gates.
+
 ## 2026-11-25 — Granada block 3 closure: explicit sharp-edge recovery
 - Prior PR head 9c1f6c6: GitHub reports mergeable=false, but compare shows 165 commits ahead and zero behind main (afab8fe); no current workflow results surfaced for 9c1f6c6, 7ce0b2f or 7ff610e. Last verified 16/17 CI baseline 5cf7345 remains; no new acceptance inferred.
 - Native quality evidence 45516872572 Foundation 14: Cartesian and Gmsh passed; strict snappy single/multi/advanced failed with 144/132/585 concave cells and advanced 24 low-weight faces. New opt-in explicit sharp-edge recovery uses Foundation surfaceFeatures, extendedFeatureEdgeMesh, 150-degree included angle, tolerance 1, 300 solve iterations and explicit snap. Existing defaults and strict gates unchanged. 2987048/96580ea/683a9f9/538b4fd/03965bb: host staging, UI, dictionary/log ZIP, separate diagnostic and regression. No quality recovery proven until actual run.
