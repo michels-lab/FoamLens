@@ -90,6 +90,16 @@ assert.throws(()=>ms.nativeQualityField(surfaceQuality,nativeQualityMesh,'missin
 assert.throws(()=>ms.nativeQualityField(surfaceQuality.replace('value nonuniform List<scalar> 2 (4 5);',''),nativeQualityMesh,'wall'));
 assert.throws(()=>ms.nativeQualityField(surfaceQuality.replace('format ascii','format binary'),nativeQualityMesh));
 console.log('Native scalar quality association, exact patch offsets and face polygon projection PASS');
+const nativeV='FoamFile { format ascii; class volScalarField; object V; } dimensions [0 3 0 0 0 0 0]; internalField uniform 0.125; boundaryField {}';
+const volumeReceipt={nativeVolumeStatus:'captured',nativeQualityFields:{V:nativeV}};
+const actualV=ms.generatedVolume(volumeReceipt,null,nativeQualityMesh);
+assert.equal(actualV.sourceBindingVerified,true);assert.equal(actualV.values.length,2);assert.equal(actualV.values[0].value,.125);
+const regionV=ms.generatedVolume({regions:{metal:volumeReceipt}},'metal',nativeQualityMesh);assert.equal(regionV.region,'metal');
+assert.throws(()=>ms.generatedVolume({regions:{metal:volumeReceipt}},'mold',nativeQualityMesh));
+assert.throws(()=>ms.generatedVolume({...volumeReceipt,nativeVolumeStatus:'command-failed'},null,nativeQualityMesh));
+for(const v of [nativeV.replace('object V','object T'),nativeV.replace('0 3 0','0 0 0')])assert.throws(()=>ms.generatedVolume({...volumeReceipt,nativeQualityFields:{V:v}},null,nativeQualityMesh));
+console.log('Generated native V receipt identity and independent region binding PASS');
+
 
 
 
