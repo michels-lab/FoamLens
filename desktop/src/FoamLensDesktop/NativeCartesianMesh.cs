@@ -71,8 +71,18 @@ internal static class NativeCartesianMesh
         return (b.ToString(),cells);
     }
 
+    internal static string QualityStatus(int? exit,string log)
+    {
+        if(exit is null)return "not-run";
+        if(exit!=0)return "command-failed";
+        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^\s*Failed\s+\d+\s+mesh checks?\.\s*$"))return "checks-failed";
+        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^\s*Mesh OK\.\s*$"))return "mesh-ok-reported";
+        return "undetermined";
+    }
+
     internal static void SelfTest()
     {
+        if(QualityStatus(0,"Failed 1 mesh checks.\n")!="checks-failed"||QualityStatus(0,"Mesh OK.\n")!="mesh-ok-reported"||QualityStatus(0,"End\n")!="undetermined"||QualityStatus(1,"Mesh OK.\n")!="command-failed")throw new InvalidOperationException("Quality receipt self-test failed.");
         const string valid = """
             {"axes":[{"points":[0,1,2],"counts":[2,3],"grading":[1,1]},{"points":[0,1],"counts":[4],"grading":[1]},{"points":[0,1],"counts":[5],"grading":[1]}],"patches":["xMin","xMax","yMin","yMax","zMin","zMax"],"zones":[{"ijk":[0,0,0],"name":"metal"},{"ijk":[1,0,0],"name":"mold"}]}
             """;
@@ -429,7 +439,8 @@ internal static class NativeCartesianMesh
                     }
                     if(splitError!=null)break;
                     var captured=await ReadSets(poly,64*1024*1024-splitBytes);splitBytes+=captured.Bytes;
-                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),checkMeshLog=await Small("checkMesh."+name+".log",48000),files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings };
+                    var regionLog=await Small("checkMesh."+name+".log",48000);
+                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=QualityStatus(Exit("checkMesh."+name+".exit"),regionLog??""),checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings };
                 }
                 if(splitError!=null)regions.Clear();
                 // Combined and separated meshes are different snapshots. Do not
@@ -450,7 +461,7 @@ internal static class NativeCartesianMesh
                 }
                 if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;}
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=QualityStatus(cm,(await Small("checkMesh.log",48000))??""),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
