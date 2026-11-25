@@ -125,3 +125,16 @@ near(ms.timeSummary(ms.xyzSelect(summaryTable,summaryFilters),'integral',3).time
 assert.throws(()=>ms.xyzSelect(summaryTable,[]));
 assert.throws(()=>ms.xyzFluxPair({...summaryTable,meta:tableA.meta},faceB,0,1,1,0));
 console.log('Bounded native history summary, immutable ROI and no fabricated per-entity data PASS');
+
+const overlayRows=[{id:7,x:0,y:0,z:0},{id:8,x:1,y:-1,z:0},{id:9,x:3,y:0,z:0}];
+const overlay=ms.overlayPoints(overlayRows,2);assert.equal(overlay.total,3);assert.equal(overlay.sampled,2);assert.deepEqual(overlay.points.map(p=>p.id),[7,9]);
+const identityMvp=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
+assert.deepEqual(ms.overlayProject(ms.overlayPoints(overlayRows).points,identityMvp,200,100),[{id:7,x:100,y:50},{id:8,x:200,y:100}]);
+assert.deepEqual(ms.overlayProject(overlay.points,[...identityMvp.slice(0,15),-1],200,100),[]);
+const overlayCase={id:'C3D04'},overlayInfo={caseObj:overlayCase,mesh:flatMesh,view:'C',region:'metal',name:'T',component:'value',storage:'volume',time:2};
+assert.equal(ms.overlayMatches(overlayInfo,overlayInfo,{},true),true);
+for(const altered of [{caseObj:{id:'C3D04'}},{mesh:{...flatMesh}},{view:'B'},{region:'mold'},{name:'U'},{component:'x'},{storage:'point'},{time:3}])assert.equal(ms.overlayMatches(overlayInfo,{...overlayInfo,...altered},{},true),false);
+assert.equal(ms.overlayMatches(overlayInfo,overlayInfo,{sync:{interpolated:true}},true),false);
+assert.equal(ms.overlayMatches(overlayInfo,overlayInfo,{},false),false);
+assert.throws(()=>ms.overlayPoints([{id:0,x:NaN,y:0,z:0}]));
+console.log('Exact source ROI overlays, camera projection and capped marker sampling PASS');
