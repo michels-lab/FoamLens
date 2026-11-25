@@ -120,6 +120,14 @@ internal static class NativeCartesianMesh
             using var sn=JsonDocument.Parse(invalid);
             try{BuildSnappy(sn.RootElement,cells);throw new InvalidOperationException("Invalid advanced snappy settings accepted.");}catch(ArgumentException){}
         }
+        using(var diagnostic=JsonDocument.Parse(snappyJson[..^2]+",\"snapEnabled\":false,\"transitionLayers\":3}}")){
+            var (sd,_)=BuildSnappy(diagnostic.RootElement,cells);
+            if(!sd.Contains("snap false;")||!sd.Contains("nCellsBetweenLevels 3;")||!sd.Contains("addLayers false;"))throw new InvalidOperationException("Castellated diagnostic self-test failed.");
+        }
+        foreach(var badDiagnostic in new[]{snappyJson[..^2]+",\"transitionLayers\":7}}",advancedJson[..^2]+",\"snapEnabled\":false}}"}){
+            using var docDiagnostic=JsonDocument.Parse(badDiagnostic);
+            try{BuildSnappy(docDiagnostic.RootElement,cells);throw new InvalidOperationException("Invalid diagnostic settings accepted.");}catch(ArgumentException){}
+        }
         foreach(var invalid in new[]{snappyJson.Replace("[0.5,0.5,0.5]","[0,0.5,0.5]"),snappyJson.Replace("\"maxLevel\":2","\"maxLevel\":9")})
         {
             using var sn=JsonDocument.Parse(invalid);
