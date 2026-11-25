@@ -75,6 +75,22 @@ assert.equal(pickedQuality.points[0].color,ms.metricColor(5,-1,999));assert.deep
 assert.equal(ms.qualityMap(mapMesh,mapMetric,[]).total,0);assert.equal(ms.qualityMap(mapMesh,mapMetric,null,1).points[0].id,97);
 assert.match(ms.metricColor(2,2,2),/^#[0-9a-f]{6}$/);assert.throws(()=>ms.metricColor(NaN,0,1));assert.throws(()=>ms.qualityMap(mapMesh,mapMetric,null,0));
 console.log('Quality map preserves extrema, exact IDs, stable scale and bounded samples PASS');
+const nativeQualityMesh={cells:[[],[]],points:[[0,0,0],[1,0,0],[0,1,0]],faces:[[0,1,2],[0,1,2],[0,1,2]],neighbour:[1],patches:[{name:'wall',start:1,count:2}]};
+const qualityHead=cls=>'FoamFile { format ascii; class '+cls+'; object skewness; location "0/metal"; } dimensions [0 0 0 0 0 0 0]; ';
+const scalarQuality=ms.nativeQualityField(qualityHead('volScalarField')+'internalField nonuniform List<scalar> 2 (1 3); boundaryField {}',nativeQualityMesh);
+assert.equal(scalarQuality.kind,'cellSet');assert.deepEqual(scalarQuality.values,[{id:0,value:1},{id:1,value:3}]);assert.equal(scalarQuality.sourceBindingVerified,false);
+const surfaceQuality=qualityHead('surfaceScalarField')+'internalField uniform 2; boundaryField { wall { type calculated; value nonuniform List<scalar> 2 (4 5); } }';
+assert.deepEqual(ms.nativeQualityField(surfaceQuality,nativeQualityMesh).values,[{id:0,value:2}]);
+const patchQuality=ms.nativeQualityField(surfaceQuality,nativeQualityMesh,'wall');assert.deepEqual(patchQuality.values,[{id:1,value:4},{id:2,value:5}]);
+const facePolygons=ms.qualityFacePolygons(nativeQualityMesh,ms.qualityMap(nativeQualityMesh,patchQuality),'faceSet');assert.equal(facePolygons.length,2);assert.deepEqual(facePolygons[0].vertices,nativeQualityMesh.points);
+assert.deepEqual(ms.qualityFacePolygons(nativeQualityMesh,{points:[]},'cellSet'),[]);
+assert.equal(ms.nativeQualityField(qualityHead('pointScalarField')+'internalField uniform 7;',nativeQualityMesh).values.length,3);
+for(const raw of ['internalField nonuniform List<scalar> 1 (3);','internalField uniform NaN;','internalField uniform 1; internalField uniform 2;'])assert.throws(()=>ms.nativeQualityField(qualityHead('volScalarField')+raw,nativeQualityMesh));
+assert.throws(()=>ms.nativeQualityField(surfaceQuality,nativeQualityMesh,'missing'));
+assert.throws(()=>ms.nativeQualityField(surfaceQuality.replace('value nonuniform List<scalar> 2 (4 5);',''),nativeQualityMesh,'wall'));
+assert.throws(()=>ms.nativeQualityField(surfaceQuality.replace('format ascii','format binary'),nativeQualityMesh));
+console.log('Native scalar quality association, exact patch offsets and face polygon projection PASS');
+
 
 
 
