@@ -580,7 +580,7 @@ function msMount(){
   }
   if(activeMetric&&el('msQualityMapOn').checked){try{
    mapMetric=activeMetric;let subset=null;
-   if(el('msQualityMapSelected').checked){if(computed&&threshold!==null)subset=threshold;else if(quality&&qualityBin!==null){const ids=new Set(quality.histogram[qualityBin].ids);subset=quality.values.filter(r=>ids.has(r.id))}}
+   if(el('msQualityMapSelected').checked){subset=[];if(computed&&threshold!==null)subset=threshold;else if(quality&&qualityBin!==null){const ids=new Set(quality.histogram[qualityBin].ids);subset=quality.values.filter(r=>ids.has(r.id))}}
    map=msCore.qualityMap(m,mapMetric,subset);
    const legend=el('msQualityMapLegend'),label=document.createElement('p');label.className='cgNotice';label.textContent=(computed?computed.metric+' ['+computed.unit+']':el('msQualityName').value+' · CSV')+' · '+map.points.length+'/'+map.total+' '+t('projected IDs; vertex means, not filled cells','IDs proyectados; media de vértices, no celdas rellenas');legend.append(label);
    if(map.points.length){const ramp=document.createElement('div');ramp.style.cssText='height:10px;border-radius:3px;background:'+ (map.min===map.max?msCore.metricColor(map.min,map.min,map.max):'linear-gradient(to right,#2359b0,#31b4b2,#f5d756,#ca372b)');legend.append(ramp);const ends=document.createElement('p');ends.style.cssText='display:flex;justify-content:space-between;margin:3px 0';for(const v of [map.min,map.max]){const item=document.createElement('span');item.textContent=v.toPrecision(6);ends.append(item)}legend.append(ends)}
