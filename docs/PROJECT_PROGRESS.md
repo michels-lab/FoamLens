@@ -1,5 +1,10 @@
 # FoamLens — avance global verificable
 
+## 2026-11-25 — Granada 3B/3G: native cell-volume capture, region binding and ZIP
+- 48bd8bd: Foundation 13/14 native runner requests writeCellVolumes using foamPostProcess at time 0 after checkMesh (or per split region); command result and logs remain independent of mesh-quality acceptance. Captures only ASCII V with expected class and object, bounded transfer and link checks. Original case untouched. Upstream Foundation documentation: https://cpp.openfoam.org/v13/writeCellVolumes_8C_source.html and https://cpp.openfoam.org/v14/foamPostProcess_8C.html.
+- 791e910: Mesh Studio validates native V identity, dimensions and exact cell count against generated region receipt, exposes native V histogram and quality map, includes source field and command logs in ZIP with region metadata. Manual imported scalar files remain unverified by source. 471188f adds permanent tests for identity, dimensions, region isolation and command-failure rejection.
+- Direct V8 synthetic receipt checks and frontend syntax passed. Native WSL command, C# compile, full tests and installed Windows runtime not verified in this session. Automatic native nonorthogonality/skewness/aspect ratio generation remains open; V is the first actual native metric, not certification. Stable v1.8.23; formal global 8/15 (53%), PR #381 unmerged, no release or MasterProject changes.
+
 ## 2026-11-25 — Granada 3B: native scalar field import and projected face coloring
 - 02a4738: Mesh Studio accepts ASCII volScalarField, surfaceScalarField and pointScalarField, uniform or explicit nonuniform List<scalar>, dimensions and exact entity counts. Named surface patch values use original patch face offsets; missing values/unsupported encoding rejected. Imported files reuse histogram, picking and color scale. Case/region/time association requires manual confirmation, not verified by count alone.
 - Optional colored face polygons use original topology, bounded sampled IDs and transparent 2D projection; no depth test or true volumetric render. Native quality field generation/automatic extraction by checkMesh remains pending.
