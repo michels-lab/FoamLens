@@ -10,6 +10,7 @@ on:
       - 'desktop/tests/cad-occt-freecad.test.py'
       - 'desktop/src/FoamLensDesktop/NativeCartesianMesh.cs'
       - 'tools/cad_native_openfoam_smoke.cs'
+      - 'tools/native-quality/**'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -31,6 +32,7 @@ on:
       - 'desktop/tests/cad-occt-freecad.test.py'
       - 'desktop/src/FoamLensDesktop/NativeCartesianMesh.cs'
       - 'tools/cad_native_openfoam_smoke.cs'
+      - 'tools/native-quality/**'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -92,7 +94,7 @@ jobs:
 
   actual-foundation:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
