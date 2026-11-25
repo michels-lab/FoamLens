@@ -9,9 +9,9 @@
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "Roadmap V2 G-A/G-B: block 3 candidate; reconcile main governance and roadmap; native release gates pending",
+  "phase": "Block 3 source integrated in main; v1.8.24 release intent, publication pending",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/381",
-  "source_head_sha": "eac7b438d7074b78a7d98457731e80daee38865b",
+  "source_head_sha": "fb1aea5478588267a4d4eb914abfe1c4ee747686",
   "latest_verified_stable": "v1.8.23",
   "release_hold": false,
   "owner_physical_acceptance": false,
@@ -151,21 +151,22 @@
       ]
     }
   ],
-  "next_step": "Check exact native CI and mergeability after reopening; resolve native exporter and strict snappy acceptance, then Windows and release.",
-  "limitations": "8/15 verified; direct JS tests with V8 adapters passed, no new native CI surfaced; PR open but not mergeable. Previous main limitations: 8/15 milestones verified for currently released v1.8.23. Exact-main binary gate must be reverified for future versions. Owner visual/physical acceptance pending. G37 auxiliary test failed because it pins obsolete version 1.8.10; six-cycle native run did not execute.",
+  "next_step": "Verify exact release-source Windows publisher and downloaded checksums; owner C3D04/C3D05 acceptance; strict refined snappy 4.3 tracked #148.",
+  "limitations": "Historical 8/15; V2 N/D. Exact PR Windows and Foundation core passed; both strict refined snappy suites failed and remain diagnostic-only. No physical acceptance or v1.8.24 publication yet.",
   "last_granada": {
     "as_of": "2026-11-25",
     "progress_before": 53,
     "progress_after": 53,
     "verified_milestones": 8,
     "total_milestones": 15,
-    "source_code_sha": "eac7b438d7074b78a7d98457731e80daee38865b",
-    "scope": "Block 3 full JS script checks and PR event recovery",
+    "source_code_sha": "fb1aea5478588267a4d4eb914abfe1c4ee747686",
+    "scope": "Merge #381 native CAD core and prepare stable v1.8.24",
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/pull/381",
-      "https://github.com/michels-lab/FoamLens/commit/eac7b438d7074b78a7d98457731e80daee38865b"
+      "https://github.com/michels-lab/FoamLens/commit/fb1aea5478588267a4d4eb914abfe1c4ee747686",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45586465969",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45586465447"
     ],
-    "pending": "Check exact native CI and mergeability after reopening; resolve native exporter and strict snappy acceptance, then Windows and release."
+    "pending": "Verify exact release-source Windows publisher and downloaded checksums; owner C3D04/C3D05 acceptance; strict refined snappy 4.3 tracked #148."
   },
   "roadmap_v2": {
     "document": "docs/IMPLEMENTATION_ROADMAP_V2_2026-11-24.md",
@@ -190,17 +191,17 @@
     ],
     "open_prs_at_planning": 13,
     "block3_candidate": {
-      "status": "Integrated source candidate; 370 direct JS assertions passed; native and release gates pending",
-      "code_test_sha": "537e4af0261960bdb080546b916bf91be94945ce",
+      "status": "Integrated in main; exact PR Windows and Foundation 13/14 core passed; release and real owner cases pending",
+      "code_test_sha": "d81b16acd8bbbfeea7fabd43a5d49a3a020782e3",
       "evidence": [
-        "https://github.com/michels-lab/FoamLens/actions/runs/45485606483",
-        "https://github.com/michels-lab/FoamLens/pull/381",
-        "https://github.com/michels-lab/FoamLens/commit/537e4af0261960bdb080546b916bf91be94945ce"
+        "https://github.com/michels-lab/FoamLens/commit/fb1aea5478588267a4d4eb914abfe1c4ee747686",
+        "https://github.com/michels-lab/FoamLens/actions/runs/45586465969",
+        "https://github.com/michels-lab/FoamLens/actions/runs/45586465447"
       ],
       "pending": [
-        "exact native Foundation 13/14",
-        "strict snappy quality",
-        "exact Windows and real owner C3D04/C3D05"
+        "v1.8.24 official publication",
+        "owner real C3D04/C3D05",
+        "4.3 strict refined snappy remains diagnostic-only"
       ]
     }
   }

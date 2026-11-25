@@ -1,6 +1,10 @@
-# FoamLens Desktop v1.8.23
+# FoamLens Desktop v1.8.24
 
-**FoamLens Desktop v1.8.23 with frontend v51** is the release source pending publication. Field A–D fall back to their own saved physical time and fitted cameras when A is unavailable; aligned scenes, clearer unavailable-case evidence, multicase spatial profiles and interactive 2D/3D comparison. Also includes shared collision-aware XYZ labels, compact scientific legends, depth-ordered comparison regions and indexed case source diagnosis. Responsive 3D + Profile arrangements and plot sizing are included. Includes movable views, persisted viewport order, structured controls and a selectable profile clock. Owner manual validation follows publication.
+**FoamLens Desktop v1.8.24 with frontend v51** is the release source pending publication. Integrated CAD/Mesh Studio with curved blockMesh editing and export, native Foundation 13/14 core mesh workflow, Gmsh, quality metrics and source-bound spatial analysis. Refined snappy remains diagnostic-only, not solver-ready. Owner physical acceptance remains pending.
+
+## Previous published stable: v1.8.23
+
+[v1.8.23](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.23) remains the verified stable until the official release workflow publishes v1.8.24.
 
 ## Previous published stable: v1.8.22
 
