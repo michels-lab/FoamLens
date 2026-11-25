@@ -40,6 +40,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../../../tools/native-quality/foamlensMeshQuality.C" LogicalName="FoamLens.NativeQuality.foamlensMeshQuality.C" />
+    <EmbeddedResource Include="../../../tools/native-quality/Make/files" LogicalName="FoamLens.NativeQuality.Make/files" />
+    <EmbeddedResource Include="../../../tools/native-quality/Make/options" LogicalName="FoamLens.NativeQuality.Make/options" />
     <EmbeddedResource Include="NativeCadOcctFreecad.py">
       <LogicalName>FoamLens.NativeCadOcctFreecad.py</LogicalName>
     </EmbeddedResource>
