@@ -8,6 +8,9 @@ on:
       - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
       - 'desktop/tests/cad-occt-native.test.cjs'
       - 'desktop/tests/cad-occt-freecad.test.py'
+      - 'desktop/src/FoamLensDesktop/NativeCartesianMesh.cs'
+      - 'tools/cad_native_openfoam_smoke.cs'
+      - 'tools/native-quality/**'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -15,6 +18,9 @@ on:
       - 'desktop/tests/cad-surface-inspector.test.cjs'
       - 'desktop/tests/cad-assembly-visibility.test.cjs'
       - 'desktop/tests/cad-openfoam-staging.test.cjs'
+      - 'desktop/src/FoamLensDesktop/frontend/v24-z-cad-blockmesh-designer.js'
+      - 'desktop/tests/cad-blockmesh-designer.test.cjs'
+      - 'desktop/tests/cad-mesh-studio.test.cjs'
       - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
   pull_request:
@@ -24,6 +30,9 @@ on:
       - 'desktop/src/FoamLensDesktop/FoamLensDesktop.csproj'
       - 'desktop/tests/cad-occt-native.test.cjs'
       - 'desktop/tests/cad-occt-freecad.test.py'
+      - 'desktop/src/FoamLensDesktop/NativeCartesianMesh.cs'
+      - 'tools/cad_native_openfoam_smoke.cs'
+      - 'tools/native-quality/**'
       - 'desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs'
       - 'desktop/src/FoamLensDesktop/Program.cs'
       - 'desktop/tests/cad-native-surfacecheck.test.cjs'
@@ -31,6 +40,9 @@ on:
       - 'desktop/tests/cad-surface-inspector.test.cjs'
       - 'desktop/tests/cad-assembly-visibility.test.cjs'
       - 'desktop/tests/cad-openfoam-staging.test.cjs'
+      - 'desktop/src/FoamLensDesktop/frontend/v24-z-cad-blockmesh-designer.js'
+      - 'desktop/tests/cad-blockmesh-designer.test.cjs'
+      - 'desktop/tests/cad-mesh-studio.test.cjs'
       - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
   workflow_dispatch:
@@ -50,6 +62,10 @@ jobs:
         run: node desktop/tests/cad-assembly-visibility.test.cjs
       - name: OpenFOAM Foundation vs .com staging of original physical STL surfaces and geometry references
         run: node desktop/tests/cad-openfoam-staging.test.cjs
+      - name: Cartesian blockMesh topology plan and reject paths
+        run: node desktop/tests/cad-blockmesh-designer.test.cjs
+      - name: Curved geometry, native topology, quality and Gmsh HEX8
+        run: node desktop/tests/cad-mesh-studio.test.cjs
       - name: CAD OpenFOAM staging UI with edition gate and explicit per-part role mapping
         run: node desktop/tests/cad-openfoam-staging-ui.test.cjs
       - name: Native WSL surfaceCheck browser request and fail-closed tests
@@ -58,3 +74,63 @@ jobs:
         run: node desktop/tests/cad-occt-native.test.cjs
       - name: Execute FreeCAD conversion script under controlled mock Part API (NOT actual OCCT)
         run: python3 desktop/tests/cad-occt-freecad.test.py
+
+  cartesian-host:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile native Cartesian host and execute its input/topology self-test (no WSL)
+        shell: bash
+        run: |
+          work="$(mktemp -d)"
+          dotnet new console --framework net8.0 --output "$work" --no-restore
+          cp desktop/src/FoamLensDesktop/NativeCartesianMesh.cs desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs "$work/"
+          printf '%s\n' 'FoamLensDesktop.NativeCartesianMesh.SelfTest();' > "$work/Program.cs"
+          dotnet run --project "$work"
+
+  actual-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['13', '14']
+        suite: ['core', 'snappy']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install official Foundation package on ephemeral runner
+        shell: bash
+        env:
+          FOAM_VERSION: ${{ matrix.version }}
+        run: |
+          set -euo pipefail
+          curl -fsSL https://dl.openfoam.org/gpg.key | sudo tee /etc/apt/trusted.gpg.d/openfoam.asc >/dev/null
+          echo 'deb [arch=amd64] http://dl.openfoam.org/ubuntu noble main' | sudo tee /etc/apt/sources.list.d/foamlens-openfoam.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "openfoam$FOAM_VERSION"
+      - name: Execute actual native meshing, splitting and quality checks
+        shell: bash
+        env:
+          FOAM_VERSION: ${{ matrix.version }}
+          FOAM_SUITE: ${{ matrix.suite }}
+        run: |
+          set -e
+          work="$(mktemp -d)"
+          dotnet new console --framework net8.0 --output "$work" --no-restore
+          cp desktop/src/FoamLensDesktop/NativeCartesianMesh.cs desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs "$work/"
+          cp tools/cad_native_openfoam_smoke.cs "$work/Program.cs"
+          dotnet run --project "$work" -- "$GITHUB_WORKSPACE/cad-native-evidence" "$FOAM_VERSION" "$FOAM_SUITE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CAD-actual-Foundation-${{ matrix.version }}-${{ matrix.suite }}
+          path: cad-native-evidence/
+          if-no-files-found: warn
+          retention-days: 7

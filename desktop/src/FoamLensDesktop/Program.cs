@@ -44,6 +44,11 @@ internal static class Program
             NativeCadOcctConverter.SelfTest();
             return;
         }
+        if (args.Any(arg => string.Equals(arg, "--cad-cartesian-self-test", StringComparison.OrdinalIgnoreCase)))
+        {
+            NativeCartesianMesh.SelfTest();
+            return;
+        }
         if (args.Any(arg => string.Equals(arg, "--cad-surfacecheck-self-test",
                 StringComparison.OrdinalIgnoreCase)))
         {
@@ -4191,6 +4196,12 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "convertCadBrep":
                     await HandleConvertCadBrepAsync(root, requestId);
                     break;
+                case "runGmshMesh":
+                    await HandleRunCartesianMeshAsync(root, requestId, true);
+                    break;
+                case "runCartesianMesh":
+                    await HandleRunCartesianMeshAsync(root, requestId);
+                    break;
                 case "runCadSurfaceCheck":
                     await HandleRunCadSurfaceCheckAsync(root, requestId);
                     break;
@@ -4443,6 +4454,27 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         {
             EndOperation(requestId, operation);
         }
+    }
+
+    private async Task HandleRunCartesianMeshAsync(JsonElement root, string requestId, bool gmsh = false)
+    {
+        var operation = BeginOperation(requestId);
+        try
+        {
+            if (root.GetRawText().Length > (gmsh ? 36 * 1024 * 1024 : root.TryGetProperty("snappy",out _) ? 6 * 1024 * 1024 : 200000)) throw new ArgumentException("Cartesian request too large.");
+            var report = await NativeCartesianMesh.RunAsync(root, operation.Token, gmsh);
+            Reply(requestId, true, report, null);
+        }
+        catch (OperationCanceledException) { Reply(requestId, false, null, "Native mesh operation cancelled."); }
+        catch (ArgumentException ex) { Reply(requestId, false, null, ex.Message); }
+        catch (NotSupportedException ex) { Reply(requestId, false, null, ex.Message); }
+        catch (TimeoutException ex) { Reply(requestId, false, null, ex.Message); }
+        catch (Exception ex)
+        {
+            Log("Native Cartesian mesh failed: " + ex.GetType().Name);
+            Reply(requestId, false, null, "Invalid mesh plan or native WSL execution failed. Original case untouched.");
+        }
+        finally { EndOperation(requestId, operation); }
     }
 
     private async Task HandleRunCadSurfaceCheckAsync(JsonElement root, string requestId)

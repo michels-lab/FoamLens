@@ -48,7 +48,7 @@ internal static class NativeCadSurfaceCheck
         bool OpenFoamCaseMutated,
         string Caveat);
 
-    private sealed record ProcessOutput(int ExitCode, string Stdout, string Stderr, bool Truncated);
+    internal sealed record ProcessOutput(int ExitCode, string Stdout, string Stderr, bool Truncated);
 
     internal static int ValidateBinaryStl(byte[] data)
     {
@@ -160,7 +160,7 @@ internal static class NativeCadSurfaceCheck
         }
     }
 
-    private static async Task<ProcessOutput> RunProcessAsync(
+    internal static async Task<ProcessOutput> RunProcessAsync(
         string executable, string workingDirectory, string[] arguments,
         TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -193,7 +193,7 @@ internal static class NativeCadSurfaceCheck
             catch (InvalidOperationException) { }
             catch (System.ComponentModel.Win32Exception) { }
             cancellationToken.ThrowIfCancellationRequested();
-            throw new TimeoutException("surfaceCheck timed out; original case was not modified.");
+            throw new TimeoutException("Native WSL operation timed out; original case was not modified.");
         }
     }
 
