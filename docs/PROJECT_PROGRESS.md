@@ -1,5 +1,10 @@
 # FoamLens — avance global verificable
 
+## 2026-11-25 — Granada 3B: native scalar field import and projected face coloring
+- 02a4738: Mesh Studio accepts ASCII volScalarField, surfaceScalarField and pointScalarField, uniform or explicit nonuniform List<scalar>, dimensions and exact entity counts. Named surface patch values use original patch face offsets; missing values/unsupported encoding rejected. Imported files reuse histogram, picking and color scale. Case/region/time association requires manual confirmation, not verified by count alone.
+- Optional colored face polygons use original topology, bounded sampled IDs and transparent 2D projection; no depth test or true volumetric render. Native quality field generation/automatic extraction by checkMesh remains pending.
+- Direct V8 synthetic checks passed (volume and patch values, count rejection, polygon topology); d9e406f adds persistent regression tests. Full suite, actual native command and installed Windows GUI not verified in this session. Stable v1.8.23; formal global 8/15 (53%), PR #381 unmerged, no release or MasterProject changes.
+
 ## 2026-11-25 — Granada 3A/3B: spatial quality color maps and graphical picking
 - 0b75eda/e000f75: Mesh Studio projects computed or imported quality metrics as colored vertex-mean markers, with global min/max color scale, deterministic bounded sample of up to 3000 IDs preserving selected extrema, full or selected-only mode (empty selection stays empty), exact marker ID picking and metric readout; graphical block-edge picking opens existing arc editor. No filled cell rendering, depth/occlusion, or native quality certification. CSV association remains manually supplied.
 - Direct V8 syntax and synthetic sampling/extrema/scale assertions passed before commit. 93680c2 adds permanent tests. Browser/installed Windows GUI and complete native CI still pending. Native quality extraction and snappy quality acceptance remain open.
