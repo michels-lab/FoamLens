@@ -1,3 +1,8 @@
+## 2026-11-25 — Granada block 3 integration: native quality workflow
+- e70399b/27b20a4: packaged C++ meshCheck utility, isolated wmake build and six metrics per region; command failures remain separate from checkMesh quality. d094d44 binds CSVs to exact region/mesh counts and IDs, exposes native metrics in Mesh Studio and includes raw data/manifest/logs in ZIP. 9a41ad8/176ee2f/d1b8e7c wire real Foundation 13/14 fixture and synthetic receipt tests.
+- Prior exact head 12d88a0 CAD workflow 45580235087: frontend PASS, host and both native jobs FAIL at C# raw interpolation syntax; Windows cancelled. 5cf7345 fixes single-dollar raw interpolation for literal dictionary braces; verified source reread, exact-head compile/runtime pending. No claim of actual C++ compilation or snappy quality acceptance. No release.
+- Formal 8/15 (53%) unchanged, v1.8.23 stable; PR #381 remains candidate. Finish actual Foundation quality exporter, snappy quality, native Windows/owner acceptance before release. No MasterProject changes.
+
 ## 2026-11-24 — Block 3 CAD/Mesh Studio functional expansion (PR #381)
 
 - Source commits 295f7117 (curved blockMesh, native polyMesh, defect-set location and exact XYZ patch matching), d3b71904 (MSH 2.2 ASCII groups/IDs and HEX8 contact), d242e081 (quality CSV histogram and spatial selection), 3c87bd6b (CAD tessellated vertex distance). Existing Cartesian designer, CAD import/OCCT and Field remain intact.
