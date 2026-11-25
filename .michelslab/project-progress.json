@@ -9,9 +9,9 @@
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "Block 3 closure: Windows and C# host recovered; native fixture compile repaired, exact native retest pending",
+  "phase": "Block 3 closure: native explicit feature recovery implemented; exact native CI and mergeability pending",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/381",
-  "source_head_sha": "7ce0b2f59b6324a69e55ba0840a5c5f1308ae001",
+  "source_head_sha": "03965bbb8c0b15b298e8a6ffc7c96973f8c2436c",
   "latest_verified_stable": "v1.8.23",
   "release_hold": false,
   "owner_physical_acceptance": false,
@@ -151,21 +151,20 @@
       ]
     }
   ],
-  "next_step": "Verify actual Foundation 13/14 extractor and snappy diagnostic outcomes; fix remaining real failures and check Windows owner workflow before release.",
-  "limitations": "8/15 verified; exact prior Windows and host passed; native tests stopped at CS0136 in fixture, corrected; no actual native or physical acceptance on new code.",
+  "next_step": "Verify exact Foundation 13/14 and Windows runs; assess strict snappy and explicit recovery outcomes, resolve remaining blockers, then release.",
+  "limitations": "8/15 verified; last reviewed 16/17 CI; latest workflow results unavailable and PR not mergeable; explicit recovery not yet validated.",
   "last_granada": {
     "as_of": "2026-11-25",
     "progress_before": 53,
     "progress_after": 53,
     "verified_milestones": 8,
     "total_milestones": 15,
-    "source_code_sha": "7ce0b2f59b6324a69e55ba0840a5c5f1308ae001",
-    "scope": "Block 3 convergence: native fixture compile repair and diagnostics",
+    "source_code_sha": "03965bbb8c0b15b298e8a6ffc7c96973f8c2436c",
+    "scope": "Block 3 snappy sharp-edge recovery, strict quality gates retained",
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/actions/runs/45581268326",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45581268314",
-      "https://github.com/michels-lab/FoamLens/commit/7ce0b2f59b6324a69e55ba0840a5c5f1308ae001"
+      "https://github.com/michels-lab/FoamLens/actions/runs/45516872572",
+      "https://github.com/michels-lab/FoamLens/commit/03965bbb8c0b15b298e8a6ffc7c96973f8c2436c"
     ],
-    "pending": "Verify actual Foundation 13/14 extractor and snappy diagnostic outcomes; fix remaining real failures and check Windows owner workflow before release."
+    "pending": "Verify exact Foundation 13/14 and Windows runs; assess strict snappy and explicit recovery outcomes, resolve remaining blockers, then release."
   }
 }
