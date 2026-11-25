@@ -124,6 +124,10 @@ internal static class NativeCartesianMesh
             var (sd,_)=BuildSnappy(diagnostic.RootElement,cells);
             if(!sd.Contains("snap false;")||!sd.Contains("nCellsBetweenLevels 3;")||!sd.Contains("addLayers false;"))throw new InvalidOperationException("Castellated diagnostic self-test failed.");
         }
+        using(var feature=JsonDocument.Parse(snappyJson[..^2]+",\"explicitFeatures\":true}}")){
+            var (sd,surface)=BuildSnappy(feature.RootElement,cells);var fd=BuildSurfaceFeatures(feature.RootElement,surface.Keys);
+            if(!sd.Contains("explicitFeatureSnap true;")||!sd.Contains("surface_001.extendedFeatureEdgeMesh")||fd is null||!fd.Contains("includedAngle 150;"))throw new InvalidOperationException("Explicit feature recovery self-test failed.");
+        }
         foreach(var badDiagnostic in new[]{snappyJson[..^2]+",\"transitionLayers\":7}}",advancedJson[..^2]+",\"snapEnabled\":false}}"}){
             using var docDiagnostic=JsonDocument.Parse(badDiagnostic);
             try{BuildSnappy(docDiagnostic.RootElement,cells);throw new InvalidOperationException("Invalid diagnostic settings accepted.");}catch(ArgumentException){}
