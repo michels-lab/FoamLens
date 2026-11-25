@@ -271,7 +271,7 @@ internal static class NativeCartesianMesh
             if(cfg.Item3>0)layerPatches.AppendLine("\""+key+"(_.*)?\" { nSurfaceLayers "+cfg.Item3+"; }");
         }
         if(!snapEnabled&&layerPatches.Length>0)throw new ArgumentException("Boundary layers require snapping; use a separate explicit run.");
-        string dict=$"""
+        string dict=$$"""
             FoamFile { version 2.0; format ascii; class dictionary; object snappyHexMeshDict; }
             castellatedMesh true;
             snap {{(snapEnabled?"true":"false")}};
