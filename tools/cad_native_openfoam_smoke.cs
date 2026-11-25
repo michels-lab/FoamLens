@@ -80,41 +80,31 @@ foreach(var region in new[]{"metal","mold"}){
     if(Cells(cart,region)!=256)throw new InvalidOperationException("Wrong split Cartesian region cell count");
     CheckLog(cart,"checkMesh."+region+".log");
 }
-const string msh="""
-$MeshFormat
-2.2 0 8
-$EndMeshFormat
-$PhysicalNames
-3
-2 1 "fl_2_201"
-3 2 "fl_3_101"
-3 3 "fl_3_102"
-$EndPhysicalNames
-$Nodes
-12
-1 0 0 0
-2 1 0 0
-3 1 1 0
-4 0 1 0
-5 0 0 1
-6 1 0 1
-7 1 1 1
-8 0 1 1
-9 2 0 0
-10 2 1 0
-11 2 0 1
-12 2 1 1
-$EndNodes
-$Elements
-3
-1 5 2 2 1 1 2 3 4 5 6 7 8
-2 5 2 3 2 2 9 10 3 6 11 12 7
-3 3 2 1 3 2 3 7 6
-$EndElements
-""";
-var gmsh=await Run("gmsh","gmshToFoam",true,JsonSerializer.SerializeToElement(new{msh=msh.Replace("\r\n","\n")}));
+// Each region is 2×2×2 HEX8 cells with internal neighbours in all
+// three axes. A one-cell region is underdetermined by checkMesh, even
+// when its volume and geometric shape are perfect.
+string ConformalGmsh()
+{
+    int Node(int x,int y,int z)=>1+x+5*(y+3*z);
+    var nodes=new List<string>();
+    for(int z=0;z<=2;z++)for(int y=0;y<=2;y++)for(int x=0;x<=4;x++)
+        nodes.Add($"{Node(x,y,z)} {x} {y} {z}");
+    var elements=new List<string>();int id=0;
+    for(int z=0;z<2;z++)for(int y=0;y<2;y++)for(int x=0;x<4;x++){
+        int group=x<2?2:3;
+        int[] v={Node(x,y,z),Node(x+1,y,z),Node(x+1,y+1,z),Node(x,y+1,z),Node(x,y,z+1),Node(x+1,y,z+1),Node(x+1,y+1,z+1),Node(x,y+1,z+1)};
+        elements.Add($"{++id} 5 2 {group} {group} "+string.Join(" ",v));
+    }
+    for(int z=0;z<2;z++)for(int y=0;y<2;y++){
+        int[] v={Node(2,y,z),Node(2,y+1,z),Node(2,y+1,z+1),Node(2,y,z+1)};
+        elements.Add($"{++id} 3 2 1 1 "+string.Join(" ",v));
+    }
+    return string.Join("\n",new[]{"$MeshFormat","2.2 0 8","$EndMeshFormat","$PhysicalNames","3","2 1 \"fl_2_201\"","3 2 \"fl_3_101\"","3 3 \"fl_3_102\"","$EndPhysicalNames","$Nodes",nodes.Count.ToString(CultureInfo.InvariantCulture)}
+        .Concat(nodes).Concat(new[]{"$EndNodes","$Elements",elements.Count.ToString(CultureInfo.InvariantCulture)}).Concat(elements).Concat(new[]{"$EndElements",""}));
+}
+var gmsh=await Run("gmsh","gmshToFoam",true,JsonSerializer.SerializeToElement(new{msh=ConformalGmsh()}));
 foreach(var region in new[]{"fl_3_101","fl_3_102"}){
-    if(Cells(gmsh,region)!=1)throw new InvalidOperationException("Wrong Gmsh split region cell count");
+    if(Cells(gmsh,region)!=8)throw new InvalidOperationException("Wrong Gmsh split region cell count");
     CheckLog(gmsh,"checkMesh."+region+".log");
 }
 // Closed outward-wound cube inside background, retained external point
@@ -157,5 +147,5 @@ CheckLog(advanced,"checkMesh.log");
 // acceptance claim; actual extrusion coverage needs its own evidence.
 var advancedLog=File.ReadAllText(Path.Combine(advanced,"generation.log"));
 if(!advancedLog.Contains("layer",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Layer stage diagnostics unavailable");
-File.WriteAllText(Path.Combine(output,"summary.json"),JsonSerializer.Serialize(new{version,cartesian=new{metal=256,mold=256},gmsh=new{metal=1,mold=1},snappyCells,multiCells,advancedCells,layerCoverageCertified=false,engine="actual Foundation CLI",windowsWslTransportVerified=false},new JsonSerializerOptions{WriteIndented=true}));
+File.WriteAllText(Path.Combine(output,"summary.json"),JsonSerializer.Serialize(new{version,cartesian=new{metal=256,mold=256},gmsh=new{metal=8,mold=8},snappyCells,multiCells,advancedCells,layerCoverageCertified=false,engine="actual Foundation CLI",windowsWslTransportVerified=false},new JsonSerializerOptions{WriteIndented=true}));
 Console.WriteLine("Actual OpenFOAM "+version+" mesh workflow PASS");
