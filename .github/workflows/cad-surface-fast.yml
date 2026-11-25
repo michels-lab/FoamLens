@@ -99,6 +99,7 @@ jobs:
       fail-fast: false
       matrix:
         version: ['13', '14']
+        suite: ['core', 'snappy']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -118,17 +119,18 @@ jobs:
         shell: bash
         env:
           FOAM_VERSION: ${{ matrix.version }}
+          FOAM_SUITE: ${{ matrix.suite }}
         run: |
           set -e
           work="$(mktemp -d)"
           dotnet new console --framework net8.0 --output "$work" --no-restore
           cp desktop/src/FoamLensDesktop/NativeCartesianMesh.cs desktop/src/FoamLensDesktop/NativeCadSurfaceCheck.cs "$work/"
           cp tools/cad_native_openfoam_smoke.cs "$work/Program.cs"
-          dotnet run --project "$work" -- "$GITHUB_WORKSPACE/cad-native-evidence" "$FOAM_VERSION"
+          dotnet run --project "$work" -- "$GITHUB_WORKSPACE/cad-native-evidence" "$FOAM_VERSION" "$FOAM_SUITE"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: CAD-actual-Foundation-${{ matrix.version }}
+          name: CAD-actual-Foundation-${{ matrix.version }}-${{ matrix.suite }}
           path: cad-native-evidence/
           if-no-files-found: warn
           retention-days: 7

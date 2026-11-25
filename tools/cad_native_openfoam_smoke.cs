@@ -10,6 +10,8 @@ using FoamLensDesktop;
 
 var output=Path.GetFullPath(args[0]);
 var version=args[1];
+var suite=args.Length>2?args[2]:"all";
+if(suite is not ("all" or "core" or "snappy"))throw new ArgumentException("Invalid suite");
 if(version is not ("13" or "14"))throw new ArgumentException("version");
 Directory.CreateDirectory(output);
 var patches=new[]{"xMin","xMax","yMin","yMax","zMin","zMax"};
@@ -81,7 +83,7 @@ void CheckLog(string dir,string file)
 }
 var outcomes=new Dictionary<string,object>();
 async Task Scenario(string name,Func<Task<object>> action){try{outcomes[name]=new{passed=true,evidence=await action()};Console.WriteLine("PASS "+name);}catch(Exception e){outcomes[name]=new{passed=false,error=e.Message};Console.Error.WriteLine("FAIL "+name+": "+e);}}
-await Scenario("cartesian",async()=>{
+if(suite!="snappy")await Scenario("cartesian",async()=>{
 var cart=await Run("cartesian","blockMesh",true,JsonSerializer.SerializeToElement(new{axes,patches,zones}));
 foreach(var region in new[]{"metal","mold"}){
     if(Cells(cart,region)!=256)throw new InvalidOperationException("Wrong split Cartesian region cell count");
@@ -125,7 +127,7 @@ string ConformalGmsh()
     return string.Join("\n",new[]{"$MeshFormat","2.2 0 8","$EndMeshFormat","$PhysicalNames","3","2 1 \"fl_2_201\"","3 2 \"fl_3_101\"","3 3 \"fl_3_102\"","$EndPhysicalNames","$Nodes",nodes.Count.ToString(CultureInfo.InvariantCulture)}
         .Concat(nodes).Concat(new[]{"$EndNodes","$Elements",elements.Count.ToString(CultureInfo.InvariantCulture)}).Concat(elements).Concat(new[]{"$EndElements",""}));
 }
-await Scenario("gmsh",async()=>{
+if(suite!="snappy")await Scenario("gmsh",async()=>{
 var gmsh=await Run("gmsh","gmshToFoam",true,JsonSerializer.SerializeToElement(new{msh=ConformalGmsh()}));
 foreach(var region in new[]{"fl_3_101","fl_3_102"}){
     if(Cells(gmsh,region)!=8)throw new InvalidOperationException("Wrong Gmsh split region cell count");
@@ -149,7 +151,7 @@ using var stream=new MemoryStream();using(var bw=new BinaryWriter(stream,Encodin
 // A separate aligned, level-zero castellated control isolates cell
 // selection from refinement transitions and surface snapping. The three
 // existing strict snapped mesh scenarios below remain unchanged.
-await Scenario("snappy-aligned-control",async()=>{
+if(suite!="core")await Scenario("snappy-aligned-control",async()=>{
     var dir=await Run("snappy-aligned-control","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=0,maxLevel=0,maxCells=20000,snapEnabled=false,transitionLayers=2,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
     int cells=Cells(dir);if(cells!=448)throw new InvalidOperationException("Aligned castellated control expected 448 external cells, got "+cells);
     CheckLog(dir,"checkMesh.log");
@@ -158,7 +160,7 @@ await Scenario("snappy-aligned-control",async()=>{
 // Repeat the original refinement with snapping disabled. This diagnostic
 // must produce a valid mesh snapshot and a determinate quality report;
 // its mesh-quality status is separate from the strict snapped scenarios.
-await Scenario("snappy-refinement-diagnostic",async()=>{
+if(suite!="core")await Scenario("snappy-refinement-diagnostic",async()=>{
     var dir=await Run("snappy-refinement-diagnostic","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,snapEnabled=false,transitionLayers=3,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
     int cells=Cells(dir);if(cells<=0||cells==512)throw new InvalidOperationException("Castellated refinement diagnostic did not change mesh");
     string log=File.ReadAllText(Path.Combine(dir,"checkMesh.log"));string quality=NativeCartesianMesh.QualityStatus(0,log);
@@ -167,7 +169,7 @@ await Scenario("snappy-refinement-diagnostic",async()=>{
     Console.WriteLine("Diagnostic quality: "+quality);
     return new{cells,quality,snap=false,transitionLayers=3,qualityCertified=false};
 });
-await Scenario("snappy-explicit-recovery",async()=>{
+if(suite!="core")await Scenario("snappy-explicit-recovery",async()=>{
     var dir=await Run("snappy-explicit-recovery","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,explicitFeatures=true,transitionLayers=3,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
     if(File.ReadAllText(Path.Combine(dir,"surfaceFeatures.exit")).Trim()!="0")throw new InvalidOperationException("Explicit feature extraction failed");
     int cells=Cells(dir);if(cells<=0||cells==512)throw new InvalidOperationException("Explicit recovery did not create a mesh");
@@ -176,7 +178,7 @@ await Scenario("snappy-explicit-recovery",async()=>{
     Console.WriteLine("Explicit feature recovery quality: "+quality);
     return new{cells,quality,qualityCertified=false};
 });
-await Scenario("snappy",async()=>{
+if(suite!="core")await Scenario("snappy",async()=>{
 var snappy=await Run("snappy","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
 var snappyCells=Cells(snappy);if(snappyCells<=0||snappyCells==512)throw new InvalidOperationException("Snappy did not produce a different mesh");
 CheckLog(snappy,"checkMesh.log");
@@ -191,7 +193,7 @@ byte[] SmallCube(float offset)
     }
     return data;
 }
-await Scenario("snappy-multi",async()=>{
+if(suite!="core")await Scenario("snappy-multi",async()=>{
 var multi=await Run("snappy-multi","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.125f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}}));
 var multiCells=Cells(multi);if(multiCells<=0||multiCells==512)throw new InvalidOperationException("Multi-surface snappy did not produce a different mesh");
 CheckLog(multi,"checkMesh.log");
@@ -199,7 +201,7 @@ var boundary=File.ReadAllText(Path.Combine(multi,"constant","polyMesh","boundary
 if(!boundary.Contains("flSurface_001")||!boundary.Contains("flSurface_002"))throw new InvalidOperationException("Both distinct CAD surface patches must be represented");
 return new{cells=multiCells,surfaces=2};});
 
-await Scenario("snappy-advanced",async()=>{
+if(suite!="core")await Scenario("snappy-advanced",async()=>{
 var advanced=await Run("snappy-advanced","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,stlBase64=Convert.ToBase64String(stream.ToArray()),boxes=new[]{new{min=new[]{.05,.05,.05},max=new[]{.23,.23,.23},level=2}},surfaceSettings=new[]{new{id=1,minLevel=1,maxLevel=2,layers=1}},layerSettings=new{expansionRatio=1.2,finalLayerThickness=.25,minThickness=.1}}}));
 var advancedCells=Cells(advanced);if(advancedCells<=0||advancedCells==512)throw new InvalidOperationException("Advanced snappy did not produce a different mesh");
 CheckLog(advanced,"checkMesh.log");
@@ -208,7 +210,7 @@ CheckLog(advanced,"checkMesh.log");
 var advancedLog=File.ReadAllText(Path.Combine(advanced,"generation.log"));
 if(!advancedLog.Contains("layer",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Layer stage diagnostics unavailable");
 return new{cells=advancedCells,layerCoverageCertified=false};});
-File.WriteAllText(Path.Combine(output,"summary.json"),JsonSerializer.Serialize(new{version,scenarios=outcomes,engine="actual Foundation CLI",windowsWslTransportVerified=false},new JsonSerializerOptions{WriteIndented=true}));
+File.WriteAllText(Path.Combine(output,"summary.json"),JsonSerializer.Serialize(new{version,suite,scenarios=outcomes,engine="actual Foundation CLI",windowsWslTransportVerified=false},new JsonSerializerOptions{WriteIndented=true}));
 var failed=outcomes.Where(x=>!(bool)x.Value.GetType().GetProperty("passed")!.GetValue(x.Value)!).Select(x=>x.Key).ToArray();
 if(failed.Length>0)throw new InvalidOperationException("Actual Foundation "+version+" failed scenarios: "+string.Join(", ",failed));
-Console.WriteLine("Actual OpenFOAM "+version+" mesh workflow PASS");
+Console.WriteLine("Actual OpenFOAM "+version+" "+suite+" mesh workflow PASS");
