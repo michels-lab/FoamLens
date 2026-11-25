@@ -86,7 +86,14 @@ foreach(var region in new[]{"metal","mold"}){
     if(Cells(cart,region)!=256)throw new InvalidOperationException("Wrong split Cartesian region cell count");
     CheckLog(cart,"checkMesh."+region+".log");
     var q=Path.Combine(cart,"nativeQuality."+region);
-    if(File.ReadAllText(Path.Combine(cart,"nativeQuality."+region+".exit")).Trim()!="0")throw new InvalidOperationException("Native quality extractor failed; inspect nativeQualityBuild.log");
+    var qualityExit=Path.Combine(cart,"nativeQuality."+region+".exit");
+    if(!File.Exists(qualityExit)||File.ReadAllText(qualityExit).Trim()!="0"){
+        foreach(var logName in new[]{"nativeQualityBuild.log","nativeQuality."+region+".log"}){
+            var logPath=Path.Combine(cart,logName);
+            if(File.Exists(logPath))Console.Error.WriteLine("=== "+logName+" ===\n"+string.Join("\n",File.ReadLines(logPath).TakeLast(150)));
+        }
+        throw new InvalidOperationException("Native quality extractor failed in "+region);
+    }
     var manifest=File.ReadAllText(Path.Combine(q,"complete.txt"));
     if(!manifest.Contains("region="+region+"\n")||!manifest.Contains("cells=256\n"))throw new InvalidOperationException("Native quality region mismatch");
     var vols=File.ReadLines(Path.Combine(q,"cellVolume.csv")).Skip(1).Select(l=>double.Parse(l.Split(',')[1],CultureInfo.InvariantCulture)).ToArray();
