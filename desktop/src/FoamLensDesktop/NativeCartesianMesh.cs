@@ -372,8 +372,42 @@ internal static class NativeCartesianMesh
           return 0
         }
         fl_case="$1"
+        # Build only packaged sources, in this isolated temporary case. Never
+        # execute a binary supplied by a case or from an arbitrary PATH entry.
+        fl_quality_build() {
+          if [ -f nativeQualityBuild.exit ]; then return 0; fi
+          local result
+          if [ ! -f "$fl_case/native-quality-src/foamlensMeshQuality.C" ] || ! command -v wmake >/dev/null; then
+            echo 'Packaged source or wmake unavailable' > nativeQualityBuild.log
+            printf '127\n' > nativeQualityBuild.exit
+            return 0
+          fi
+          mkdir -p "$fl_case/native-quality-bin"
+          (cd "$fl_case/native-quality-src" && export FOAM_USER_APPBIN="$fl_case/native-quality-bin" && timeout --kill-after=5s 180s wmake) > nativeQualityBuild.log 2>&1
+          result=$?
+          printf '%s\n' "$result" > nativeQualityBuild.exit
+          return 0
+        }
+        fl_quality_run() {
+          local region="$1" log="$2" result out="$fl_case/$2"
+          fl_quality_build
+          if [ "$(cat nativeQualityBuild.exit)" != 0 ] || [ ! -x "$fl_case/native-quality-bin/foamlensMeshQuality" ]; then
+            printf '127\n' > "$log.exit"
+            return 0
+          fi
+          mkdir "$out" || { printf '3\n' > "$log.exit"; return 0; }
+          if [ -n "$region" ]; then
+            timeout --kill-after=5s 60s "$fl_case/native-quality-bin/foamlensMeshQuality" -case "$fl_case" -region "$region" -output "$out" > "$log.log" 2>&1
+          else
+            timeout --kill-after=5s 60s "$fl_case/native-quality-bin/foamlensMeshQuality" -case "$fl_case" -output "$out" > "$log.log" 2>&1
+          fi
+          result=$?
+          printf '%s\n' "$result" > "$log.exit"
+          return 0
+        }
         if [ "$code" -ne 0 ] || [ "$4" != split ]; then
           fl_write_volumes "" nativeVolumes
+          fl_quality_run "" nativeQuality
           exit "$code"
         fi
         if ! command -v splitMeshRegions >/dev/null; then echo 'splitMeshRegions unavailable' >&2; exit 127; fi
@@ -391,6 +425,7 @@ internal static class NativeCartesianMesh
           code=$?
           printf '%s\n' "$code" > "checkMesh.$region.exit"
           fl_write_volumes "$region" "nativeVolumes.$region"
+          fl_quality_run "$region" "nativeQuality.$region"
         done < expected-regions.txt
         exit 0
         """;
@@ -420,10 +455,19 @@ internal static class NativeCartesianMesh
             else await File.WriteAllTextAsync(Path.Combine(dir,"system","blockMeshDict"),dict,token);
             if(snappy){Directory.CreateDirectory(Path.Combine(dir,"constant","geometry"));foreach(var (name,data) in snappyInput.Surfaces!)await File.WriteAllBytesAsync(Path.Combine(dir,"constant","geometry",name),data,token);await File.WriteAllTextAsync(Path.Combine(dir,"system","snappyHexMeshDict"),snappyInput.Dictionary!,token);}
             await File.WriteAllTextAsync(Path.Combine(dir,"system","controlDict"),"FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }\napplication blockMesh; startFrom startTime; startTime 0; stopAt endTime; endTime 1; deltaT 1; writeControl timeStep; writeInterval 1; writeFormat ascii; writePrecision 12; writeCompression off; timeFormat general; timePrecision 6; runTimeModifiable false;\n",token);
+            // Embedded assets are the same sources used by the Linux CI fixture.
+            var sourceDir=Path.Combine(dir,"native-quality-src");
+            foreach(var asset in new[]{"foamlensMeshQuality.C","Make/files","Make/options"})
+            {
+                using var stream=typeof(NativeCartesianMesh).Assembly.GetManifestResourceStream("FoamLens.NativeQuality."+asset);
+                if(stream is null)continue;
+                var target=Path.Combine(sourceDir,asset);Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                using var file=File.Create(target);await stream.CopyToAsync(file,token);
+            }
             var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","wslpath","-a",dir},TimeSpan.FromSeconds(15),token);
             var linux=translated.Stdout.Trim();
             if(translated.ExitCode!=0 || !linux.StartsWith("/") || linux.Contains('\n') || linux.Contains('\r'))throw new NotSupportedException("WSL path mapping failed.");
-            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?1650:snappy?710:260),token);
+            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?2600:snappy?970:520),token);
             string Clean(string s)=>s.Replace(linux,"<temporary case>",StringComparison.Ordinal).Replace(dir,"<temporary case>",StringComparison.OrdinalIgnoreCase);
             async Task<string?> Small(string file,int limit)
             {
@@ -478,7 +522,27 @@ internal static class NativeCartesianMesh
                 if(data.Contains('\0')||!System.Text.RegularExpressions.Regex.IsMatch(header,@"\bformat\s+ascii\s*;")||!System.Text.RegularExpressions.Regex.IsMatch(header,@"\bclass\s+volScalarField\s*;")||!System.Text.RegularExpressions.Regex.IsMatch(header,@"\bobject\s+V\s*;"))return(fields,"unsupported-field",0);
                 fields["V"]=data;return(fields,"captured",info.Length);
             }
-            var nativeSets=new Dictionary<string,string>();string[] setWarnings=Array.Empty<string>();var nativeQualityFields=new Dictionary<string,string>();string nativeVolumeStatus="not-run";
+            async Task<(Dictionary<string,string> Metrics,string Status,string? Manifest,long Bytes)> ReadQuality(string? region,long remaining)
+            {
+                var metrics=new Dictionary<string,string>();var log=region is null?"nativeQuality":"nativeQuality."+region;
+                var exit=Exit(log+".exit");if(exit is null)return(metrics,"not-run",null,0);if(exit!=0)return(metrics,exit==127?"build-unavailable":"command-failed",null,0);
+                var folder=Path.Combine(dir,log);
+                if(!Directory.Exists(folder)||(File.GetAttributes(folder)&FileAttributes.ReparsePoint)!=0)return(metrics,"missing-or-linked",null,0);
+                var manifest=new FileInfo(Path.Combine(folder,"complete.txt"));
+                if(!manifest.Exists||manifest.Length>2048||(manifest.Attributes&FileAttributes.ReparsePoint)!=0)return(metrics,"incomplete",null,0);
+                var receipt=await File.ReadAllTextAsync(manifest.FullName,token);
+                long bytes=manifest.Length;
+                foreach(var name in new[]{"nonOrthogonality","skewness","faceWeight","volumeRatio","faceArea","cellVolume"})
+                {
+                    var info=new FileInfo(Path.Combine(folder,name+".csv"));
+                    if(!info.Exists||(info.Attributes&FileAttributes.ReparsePoint)!=0||info.Length>Math.Min(16*1024*1024,remaining-bytes))return(new(),"incomplete-or-transfer-limit",null,0);
+                    var data=await File.ReadAllTextAsync(info.FullName,token);
+                    if(data.Contains('\0')||!data.StartsWith("id,value\n",StringComparison.Ordinal))return(new(),"unsupported-metric",null,0);
+                    metrics[name]=data;bytes+=info.Length;
+                }
+                return(metrics,"captured",receipt,bytes);
+            }
+            var nativeSets=new Dictionary<string,string>();string[] setWarnings=Array.Empty<string>();var nativeQualityFields=new Dictionary<string,string>();string nativeVolumeStatus="not-run";var nativeMetrics=new Dictionary<string,string>();string nativeMetricsStatus="not-run";string? nativeMetricsManifest=null;
             var splitExit=Exit("splitMeshRegions.exit");var regions=new Dictionary<string,object>();string? splitError=null;long splitBytes=0;
             if(split&&splitExit==0)
             {
@@ -500,8 +564,8 @@ internal static class NativeCartesianMesh
                     }
                     if(splitError!=null)break;
                     var captured=await ReadSets(poly,64*1024*1024-splitBytes);splitBytes+=captured.Bytes;
-                    var regionLog=await Small("checkMesh."+name+".log",48000);var volumes=await ReadVolumes(name,64*1024*1024-splitBytes);splitBytes+=volumes.Bytes;
-                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit")),checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings,nativeQualityFields=volumes.Fields,nativeVolumeStatus=volumes.Status,nativeVolumeLog=await Small("nativeVolumes."+name+".log",12000) };
+                    var regionLog=await Small("checkMesh."+name+".log",48000);var volumes=await ReadVolumes(name,64*1024*1024-splitBytes);splitBytes+=volumes.Bytes;var quality=await ReadQuality(name,64*1024*1024-splitBytes);splitBytes+=quality.Bytes;
+                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit")),checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings,nativeQualityFields=volumes.Fields,nativeVolumeStatus=volumes.Status,nativeVolumeLog=await Small("nativeVolumes."+name+".log",12000),nativeMetrics=quality.Metrics,nativeMetricsStatus=quality.Status,nativeMetricsManifest=quality.Manifest,nativeMetricsLog=await Small("nativeQuality."+name+".log",12000) };
                 }
                 if(splitError!=null)regions.Clear();
                 // Combined and separated meshes are different snapshots. Do not
@@ -520,9 +584,9 @@ internal static class NativeCartesianMesh
                     if(data.Contains('\0') || !System.Text.RegularExpressions.Regex.IsMatch(data.Substring(0,Math.Min(data.Length,2048)),@"\bformat\s+ascii\s*;")){exportError="Only native ASCII mesh export is supported.";break;}
                     files["constant/polyMesh/"+name]=data;
                 }
-                if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;total+=captured.Bytes;var volumes=await ReadVolumes(null,exportLimit-total);nativeQualityFields=volumes.Fields;nativeVolumeStatus=volumes.Status;}
+                if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;total+=captured.Bytes;var volumes=await ReadVolumes(null,exportLimit-total);nativeQualityFields=volumes.Fields;nativeVolumeStatus=volumes.Status;total+=volumes.Bytes;var quality=await ReadQuality(null,exportLimit-total);nativeMetrics=quality.Metrics;nativeMetricsStatus=quality.Status;nativeMetricsManifest=quality.Manifest;}
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
