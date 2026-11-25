@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 522; classified: 518; readable documents: 111; above read cap: 1; findings: 0.
+Tracked: 523; classified: 519; readable documents: 112; above read cap: 1; findings: 1.
 
 ## File roles
 
@@ -16,7 +16,7 @@ Tracked: 522; classified: 518; readable documents: 111; above read cap: 1; findi
 | bitacora | 2 |
 | build_script | 10 |
 | config | 8 |
-| document | 105 |
+| document | 106 |
 | index | 5 |
 | installer_metadata | 1 |
 | license | 1 |
@@ -28,6 +28,7 @@ Tracked: 522; classified: 518; readable documents: 111; above read cap: 1; findi
 
 ## Findings (human review required)
 
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 1 implementation/config paths changed since this log's last commit; examples: .michelslab/project-progress.json. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID b4d9ab2d5ec0460d)
 
 Complete path → purpose/role/certainty list lives in FILE_GOVERNANCE.json. SUMMARY.json has counts only for master polling.
 A dated file, duplicate, or suspicious name is an **investigation candidate**, not unwanted material.

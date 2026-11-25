@@ -9,7 +9,7 @@
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "Block 3 closure: 370 direct JS checks passed; same PR reopened, native CI unavailable",
+  "phase": "Roadmap V2 G-A/G-B: block 3 candidate; reconcile main governance and roadmap; native release gates pending",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/381",
   "source_head_sha": "eac7b438d7074b78a7d98457731e80daee38865b",
   "latest_verified_stable": "v1.8.23",
@@ -152,7 +152,7 @@
     }
   ],
   "next_step": "Check exact native CI and mergeability after reopening; resolve native exporter and strict snappy acceptance, then Windows and release.",
-  "limitations": "8/15 verified; direct JS tests with V8 adapters passed, no new native CI surfaced; PR open but not mergeable.",
+  "limitations": "8/15 verified; direct JS tests with V8 adapters passed, no new native CI surfaced; PR open but not mergeable. Previous main limitations: 8/15 milestones verified for currently released v1.8.23. Exact-main binary gate must be reverified for future versions. Owner visual/physical acceptance pending. G37 auxiliary test failed because it pins obsolete version 1.8.10; six-cycle native run did not execute.",
   "last_granada": {
     "as_of": "2026-11-25",
     "progress_before": 53,
@@ -166,5 +166,42 @@
       "https://github.com/michels-lab/FoamLens/commit/eac7b438d7074b78a7d98457731e80daee38865b"
     ],
     "pending": "Check exact native CI and mergeability after reopening; resolve native exporter and strict snappy acceptance, then Windows and release."
+  },
+  "roadmap_v2": {
+    "document": "docs/IMPLEMENTATION_ROADMAP_V2_2026-11-24.md",
+    "document_commit": "9f952d68d8e6a0f3f4fe0b8936567307e6818f01",
+    "macro_blocks": 10,
+    "deliverables": 36,
+    "progress_percent": null,
+    "verified_deliverables": null,
+    "status": "baseline inventory pending; historical 8/15 unchanged",
+    "active_operation": "G-A/G-B",
+    "active_deliverables": [
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5"
+    ],
+    "deferred": [
+      "2.1–2.3 until G-F",
+      "10.1",
+      "10.2"
+    ],
+    "open_prs_at_planning": 13,
+    "block3_candidate": {
+      "status": "Integrated source candidate; 370 direct JS assertions passed; native and release gates pending",
+      "code_test_sha": "537e4af0261960bdb080546b916bf91be94945ce",
+      "evidence": [
+        "https://github.com/michels-lab/FoamLens/actions/runs/45485606483",
+        "https://github.com/michels-lab/FoamLens/pull/381",
+        "https://github.com/michels-lab/FoamLens/commit/537e4af0261960bdb080546b916bf91be94945ce"
+      ],
+      "pending": [
+        "exact native Foundation 13/14",
+        "strict snappy quality",
+        "exact Windows and real owner C3D04/C3D05"
+      ]
+    }
   }
 }

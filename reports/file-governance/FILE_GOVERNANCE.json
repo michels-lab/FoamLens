@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 522,
-  "classified_files_total": 518,
-  "docs_content_inspected": 111,
+  "tracked_files_total": 523,
+  "classified_files_total": 519,
+  "docs_content_inspected": 112,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 8,
-    "document": 105,
+    "document": 106,
     "index": 5,
     "installer_metadata": 1,
     "license": 1,
@@ -22,10 +22,12 @@
     "web_ui": 2,
     "workflow": 67
   },
-  "finding_counts": {},
-  "finding_total": 0,
-  "inventory_fingerprint": "2d2c1b913754a469a3a066ebd4b405f6f09ea670d61868ebdb97390c797f5428",
-  "evidence_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1
+  },
+  "finding_total": 1,
+  "inventory_fingerprint": "18bc44d829244abd34cd9869fc8bc98cdbc9d6b6de867f687b7c8d6203ffbf0b",
+  "evidence_fingerprint": "fc51ac09e6f086293ec5f19587d1cfae4b190ebf3aa5cb7ead7c7230951826a8",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -592,7 +594,7 @@
       "role": "config",
       "purpose": "machine-readable configuration",
       "certainty": "rule",
-      "blob": "1d083b4d19ff03346ac7c5ccd253c56804b30b8c"
+      "blob": "4a7cbb154f08401664fe8713eb1d42d445c85403"
     },
     {
       "path": ".michelslab/project.yml",
@@ -2723,6 +2725,13 @@
       "blob": "c49257f8cf8259390b0db0cd1c3b2791db412c47"
     },
     {
+      "path": "docs/IMPLEMENTATION_ROADMAP_V2_2026-11-24.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "7746fe7219163d78e29f619e4e9417becca62c2f"
+    },
+    {
       "path": "docs/IMPORT_PERFORMANCE_REPORT_2026-10-12.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -3654,7 +3663,17 @@
       "blob": "d81d5922aaa1a81dd1f320e308380d5698a46e87"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "b4d9ab2d5ec0460d",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "1 implementation/config paths changed since this log's last commit; examples: .michelslab/project-progress.json",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    }
+  ],
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
