@@ -1,5 +1,10 @@
 # FoamLens — avance global verificable
 
+## 2026-11-25 — Granada 3A/3B: spatial quality color maps and graphical picking
+- 0b75eda/e000f75: Mesh Studio projects computed or imported quality metrics as colored vertex-mean markers, with global min/max color scale, deterministic bounded sample of up to 3000 IDs preserving selected extrema, full or selected-only mode (empty selection stays empty), exact marker ID picking and metric readout; graphical block-edge picking opens existing arc editor. No filled cell rendering, depth/occlusion, or native quality certification. CSV association remains manually supplied.
+- Direct V8 syntax and synthetic sampling/extrema/scale assertions passed before commit. 93680c2 adds permanent tests. Browser/installed Windows GUI and complete native CI still pending. Native quality extraction and snappy quality acceptance remain open.
+- Stable v1.8.23, formal 8/15 (53%) unchanged; PR #381 candidate, no release/merge. No MasterProject modifications.
+
 ## 2026-11-25 — Granada 3B: geometric mesh quality and exact histogram selection
 - 0f934f5: additional polyMesh quality diagnostics: longest/shortest unique cell-edge ratio and internal face centroid offset from owner-neighbour centroid-line/face-plane intersection, normalized by sqrt(area). Explicit approximations, not native OpenFOAM aspect ratio or skewness; degenerate geometry excluded and invalid IDs counted. Existing volume, face area and nonorthogonality retained.
 - Computed metric histogram selects exact disjoint bin IDs, reuses Mesh Studio markers, supports manual inclusive threshold and records selection type/range in CSV/JSON provenance. Source switching clears computed selection; existing Field workspace unchanged. Preview samples at most 3000 IDs.
