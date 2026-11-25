@@ -229,6 +229,9 @@ internal static class NativeCartesianMesh
             }
             surfaces.Add("surface_"+(i+1).ToString("D3",CultureInfo.InvariantCulture)+".stl",data);
         }
+        bool snapEnabled=!settings.TryGetProperty("snapEnabled",out var snapNode)||snapNode.GetBoolean();
+        int transition=settings.TryGetProperty("transitionLayers",out var transNode)?transNode.GetInt32():2;
+        if(transition<1||transition>6)throw new ArgumentException("Transition buffer must be 1–6 cells.");
         var geometry=new StringBuilder();var refine=new StringBuilder();var boxes=new StringBuilder();var layerPatches=new StringBuilder();
         var overrides=new Dictionary<int,(int Min,int Max,int Layers)>();
         if(settings.TryGetProperty("surfaceSettings",out var configs))
@@ -259,15 +262,16 @@ internal static class NativeCartesianMesh
             refine.AppendLine(key+" { level ("+cfg.Item1+" "+cfg.Item2+"); patchInfo { type wall; } }");
             if(cfg.Item3>0)layerPatches.AppendLine("\""+key+"(_.*)?\" { nSurfaceLayers "+cfg.Item3+"; }");
         }
-        string dict=$$"""
+        if(!snapEnabled&&layerPatches.Length>0)throw new ArgumentException("Boundary layers require snapping; use a separate explicit run.");
+        string dict=$"""
             FoamFile { version 2.0; format ascii; class dictionary; object snappyHexMeshDict; }
             castellatedMesh true;
-            snap true;
+            snap {{(snapEnabled?"true":"false")}};
             addLayers {{(layerPatches.Length>0?"true":"false")}};
             geometry { {{geometry.ToString()}} }
             castellatedMeshControls
             {
-                maxLocalCells {{limit}}; maxGlobalCells {{limit}}; minRefinementCells 0; maxLoadUnbalance 0.1; nCellsBetweenLevels 2;
+                maxLocalCells {{limit}}; maxGlobalCells {{limit}}; minRefinementCells 0; maxLoadUnbalance 0.1; nCellsBetweenLevels {{transition}};
                 features ();
                 refinementSurfaces { {{refine.ToString()}} }
                 resolveFeatureAngle 30;
