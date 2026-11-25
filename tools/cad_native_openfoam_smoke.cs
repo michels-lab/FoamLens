@@ -33,6 +33,7 @@ async Task<string> Run(string name, string utility, bool split, JsonElement inpu
             var (sd,stl)=NativeCartesianMesh.BuildSnappy(input,cells);Directory.CreateDirectory(Path.Combine(dir,"constant","geometry"));
             File.WriteAllText(Path.Combine(dir,"system","snappyHexMeshDict"),sd);
             foreach(var (file,data) in stl)File.WriteAllBytes(Path.Combine(dir,"constant","geometry",file),data);
+            var featureDict=NativeCartesianMesh.BuildSurfaceFeatures(input,stl.Keys);if(featureDict is not null)File.WriteAllText(Path.Combine(dir,"system","surfaceFeaturesDict"),featureDict);
         }
     }
     var source=Path.GetFullPath(Path.Combine(output,"..","tools","native-quality"));
@@ -165,6 +166,15 @@ await Scenario("snappy-refinement-diagnostic",async()=>{
     if(quality=="checks-failed"&&!Directory.Exists(Path.Combine(dir,"constant","polyMesh","sets")))throw new InvalidOperationException("Expected native defect sets for rejected mesh");
     Console.WriteLine("Diagnostic quality: "+quality);
     return new{cells,quality,snap=false,transitionLayers=3,qualityCertified=false};
+});
+await Scenario("snappy-explicit-recovery",async()=>{
+    var dir=await Run("snappy-explicit-recovery","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,explicitFeatures=true,transitionLayers=3,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
+    if(File.ReadAllText(Path.Combine(dir,"surfaceFeatures.exit")).Trim()!="0")throw new InvalidOperationException("Explicit feature extraction failed");
+    int cells=Cells(dir);if(cells<=0||cells==512)throw new InvalidOperationException("Explicit recovery did not create a mesh");
+    string log=File.ReadAllText(Path.Combine(dir,"checkMesh.log"));string quality=NativeCartesianMesh.QualityStatus(0,log);
+    if(quality is not ("mesh-ok-reported" or "checks-failed"))throw new InvalidOperationException("Missing determinate explicit recovery quality");
+    Console.WriteLine("Explicit feature recovery quality: "+quality);
+    return new{cells,quality,qualityCertified=false};
 });
 await Scenario("snappy",async()=>{
 var snappy=await Run("snappy","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,stlBase64=Convert.ToBase64String(stream.ToArray())}}));
