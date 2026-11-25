@@ -76,13 +76,14 @@ internal static class NativeCartesianMesh
         if(exit is null)return "not-run";
         if(exit!=0)return "command-failed";
         if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^\s*Failed\s+\d+\s+mesh checks?\.\s*$"))return "checks-failed";
+        if(log.Contains("[truncated]",StringComparison.Ordinal))return "undetermined";
         if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^\s*Mesh OK\.\s*$"))return "mesh-ok-reported";
         return "undetermined";
     }
 
     internal static void SelfTest()
     {
-        if(QualityStatus(0,"Failed 1 mesh checks.\n")!="checks-failed"||QualityStatus(0,"Mesh OK.\n")!="mesh-ok-reported"||QualityStatus(0,"End\n")!="undetermined"||QualityStatus(1,"Mesh OK.\n")!="command-failed")throw new InvalidOperationException("Quality receipt self-test failed.");
+        if(QualityStatus(0,"Failed 1 mesh checks.\n")!="checks-failed"||QualityStatus(0,"Mesh OK.\n")!="mesh-ok-reported"||QualityStatus(0,"End\n")!="undetermined"||QualityStatus(1,"Mesh OK.\n")!="command-failed"||QualityStatus(0,"Mesh OK.\n[truncated]")!="undetermined"||QualityStatus(0,"Mesh OK.\nFailed 2 mesh checks.\n")!="checks-failed")throw new InvalidOperationException("Quality receipt self-test failed.");
         const string valid = """
             {"axes":[{"points":[0,1,2],"counts":[2,3],"grading":[1,1]},{"points":[0,1],"counts":[4],"grading":[1]},{"points":[0,1],"counts":[5],"grading":[1]}],"patches":["xMin","xMax","yMin","yMax","zMin","zMax"],"zones":[{"ijk":[0,0,0],"name":"metal"},{"ijk":[1,0,0],"name":"mold"}]}
             """;
@@ -395,6 +396,17 @@ internal static class NativeCartesianMesh
                 using var stream=new StreamReader(p);var buffer=new char[limit];int count=await stream.ReadBlockAsync(buffer.AsMemory(),token);
                 return Clean(new string(buffer,0,count))+(stream.Peek()!=-1?"\n[truncated]":"");
             }
+            // Determine quality from the complete bounded log, not the first
+            // 48k characters returned for display. A truncated positive
+            // marker can never certify the rest of the run.
+            async Task<string> ReportedQuality(string file,int? exit)
+            {
+                if(exit is null)return "not-run";
+                if(exit!=0)return "command-failed";
+                var path=Path.Combine(dir,file);var info=new FileInfo(path);
+                if(!info.Exists||info.Length>16*1024*1024||(info.Attributes&FileAttributes.ReparsePoint)!=0)return "undetermined";
+                return QualityStatus(exit,await File.ReadAllTextAsync(path,token));
+            }
             int? Exit(string name){var p=Path.Combine(dir,name);return File.Exists(p)&&new FileInfo(p).Length<32&&int.TryParse(File.ReadAllText(p),out var x)?x:null;}
             var bm=snappy?Exit("snappyHexMesh.exit"):Exit("generation.exit");var cm=Exit("checkMesh.exit");
             var detected=(await Small("detected-version.txt",128))?.Trim();
@@ -440,7 +452,7 @@ internal static class NativeCartesianMesh
                     if(splitError!=null)break;
                     var captured=await ReadSets(poly,64*1024*1024-splitBytes);splitBytes+=captured.Bytes;
                     var regionLog=await Small("checkMesh."+name+".log",48000);
-                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=QualityStatus(Exit("checkMesh."+name+".exit"),regionLog??""),checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings };
+                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit")),checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings };
                 }
                 if(splitError!=null)regions.Clear();
                 // Combined and separated meshes are different snapshots. Do not
@@ -461,7 +473,7 @@ internal static class NativeCartesianMesh
                 }
                 if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;}
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=QualityStatus(cm,(await Small("checkMesh.log",48000))??""),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
