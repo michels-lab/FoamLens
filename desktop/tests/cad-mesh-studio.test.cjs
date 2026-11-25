@@ -64,6 +64,18 @@ const offset=ms.geometricMetric(skewed,'internalFaceOffset');assert(Math.abs(off
 const metricBins=ms.metricHistogram([0,1,2].map((value,id)=>({value,id})),2);assert.deepEqual(metricBins.map(b=>b.rows.map(r=>r.id)),[[0],[1,2]]);
 assert.deepEqual(ms.metricHistogram([],2),[]);assert.equal(ms.metricHistogram([{id:0,value:5},{id:1,value:5}]).length,1);assert.throws(()=>ms.metricHistogram([{id:0,value:NaN}]));assert.throws(()=>ms.metricHistogram([],1));
 console.log('Geometric edge ratio, internal centroid offset and non-overlapping histogram bins PASS');
+const mapMesh={points:Array.from({length:100},(_,i)=>[i,0,0])};
+const mapMetric={kind:'pointSet',values:mapMesh.points.map((_,id)=>({id,value:id===97?999:id===98?-1:id}))};
+const qualityProjection=ms.qualityMap(mapMesh,mapMetric,null,10);
+assert.equal(qualityProjection.points.length,10);assert.equal(qualityProjection.omitted,90);assert.equal(qualityProjection.min,-1);assert.equal(qualityProjection.max,999);
+assert(qualityProjection.points.some(p=>p.id===97));assert(qualityProjection.points.some(p=>p.id===98));
+assert.equal(new Set(qualityProjection.points.map(p=>p.id)).size,10);
+const pickedQuality=ms.qualityMap(mapMesh,mapMetric,[mapMetric.values[5]],3);
+assert.equal(pickedQuality.points[0].color,ms.metricColor(5,-1,999));assert.deepEqual(pickedQuality.points[0].point,[5,0,0]);
+assert.equal(ms.qualityMap(mapMesh,mapMetric,[]).total,0);assert.equal(ms.qualityMap(mapMesh,mapMetric,null,1).points[0].id,97);
+assert.match(ms.metricColor(2,2,2),/^#[0-9a-f]{6}$/);assert.throws(()=>ms.metricColor(NaN,0,1));assert.throws(()=>ms.qualityMap(mapMesh,mapMetric,null,0));
+console.log('Quality map preserves extrema, exact IDs, stable scale and bounded samples PASS');
+
 
 
 const msh41=['$MeshFormat','4.1 0 8','$EndMeshFormat','$PhysicalNames','4','3 101 "metal"','3 102 "mold"','2 201 "contact"','2 202 "interface alias"','$EndPhysicalNames','$Entities','0 0 1 2','3 1 0 0 1 1 1 2 201 202 0','1 0 0 0 1 1 1 1 101 0','2 1 0 0 2 1 1 1 102 0','$EndEntities','$Nodes','2 12 10 120','3 1 0 8','10 20 30 40 50 60 70 80','0 0 0','1 0 0','1 1 0','0 1 0','0 0 1','1 0 1','1 1 1','0 1 1','3 2 0 4','90 100 110 120','2 0 0','2 1 0','2 0 1','2 1 1','$EndNodes','$Elements','3 3 1001 3003','3 1 5 1','1001 10 20 30 40 50 60 70 80','3 2 5 1','2002 20 90 100 30 60 110 120 70','2 3 3 1','3003 20 30 70 60','$EndElements'].join('\n');
