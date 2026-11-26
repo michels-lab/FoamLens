@@ -132,11 +132,13 @@ function pvFloatWidth(grid){return Math.max(1,Math.floor(grid.clientWidth||grid.
 function pvFloatSet(view,r){
   const grid=pvEl('fcViewGrid');if(!grid||!pvViews[view.id])return;
   const rect=pvFloatRect(r,pvFloatWidth(grid));pvFloating[view.id]=rect;
-  for(const [key,value] of Object.entries(rect))view.style.setProperty('--pvFloat'+key.toUpperCase(),key==='z'?String(value):value+'px');
+  let changed=false;
+  const apply=(node,key,value)=>{if(node.style.getPropertyValue(key)!==value){node.style.setProperty(key,value);changed=true}};
+  for(const [key,value] of Object.entries(rect))apply(view,'--pvFloat'+key.toUpperCase(),key==='z'?String(value):value+'px');
   const live=[...grid.children].filter(v=>pvViews[v.id]&&!v.classList.contains('hidden'));
   const bottom=Math.max(0,...live.map(v=>{const q=pvFloating[v.id];return q?q.y+(pvFloatMinimized.has(v.id)?48:q.h):0}));
-  grid.style.setProperty('--pvFloatExtent',Math.max(480,window.innerHeight-210,bottom+12)+'px');
-  pvRedraw()
+  apply(grid,'--pvFloatExtent',Math.max(480,window.innerHeight-210,bottom+12)+'px');
+  if(changed)pvRedraw()
 }
 function pvFloatFront(view){
   if(!pvFloatActive(view.parentElement)||!pvFloating[view.id])return;
@@ -319,7 +321,7 @@ function pvAudit(){
   const grid=pvEl('fcViewGrid'),
     elements=grid?[...grid.children].filter(x=>pvViews[x.id]&&!x.classList.contains('hidden')&&x.getBoundingClientRect().width>0):[],
     views=elements.map(pvMeasure),
-    gridLayout=pvGridRowAudit(grid?.getBoundingClientRect?.(),elements.map(x=>({id:x.id,rect:x.getBoundingClientRect?.()})),pvEl('fieldViewPanel')?.getBoundingClientRect?.()?.width,pvDeckMode),
+    gridLayout=document.fullscreenElement?{state:'fullscreen',expectedColumns:0,visibleCount:1,rows:1,issues:[]}:pvGridRowAudit(grid?.getBoundingClientRect?.(),elements.map(x=>({id:x.id,rect:x.getBoundingClientRect?.()})),pvEl('fieldViewPanel')?.getBoundingClientRect?.()?.width,pvDeckMode),
     counts={};for(const v of views)counts[v.state]=(counts[v.state]||0)+1;
   const report={schema:'foamlens/field-f2-layout/1',capturedUtc:new Date().toISOString(),
     environment:{innerCssPx:{width:window.innerWidth,height:window.innerHeight},
@@ -428,6 +430,7 @@ function pvMountViewport(viewport){
   const mini=document.createElement('button');mini.type='button';mini.className='pvFloatMin';mini.textContent=pvFocusLabel('Minimize','Minimizar');
   mini.onclick=()=>{if(!pvFloatActive(viewport.parentElement))return;if(pvFloatMinimized.has(viewport.id))pvFloatMinimized.delete(viewport.id);else pvFloatMinimized.add(viewport.id);pvFloatApply(viewport.parentElement,[...viewport.parentElement.children].filter(v=>pvViews[v.id]&&!v.classList.contains('hidden')));mini.textContent=pvFloatMinimized.has(viewport.id)?pvFocusLabel('Restore','Restaurar'):pvFocusLabel('Minimize','Minimizar')};
   div.append(mini);toolbar.appendChild(div);
+  const restore=document.createElement('button');restore.type='button';restore.className='pvFloatRestore';restore.textContent=pvFocusLabel('Restore view','Restaurar vista')+' '+pvViews[viewport.id];restore.onclick=()=>mini.click();viewport.appendChild(restore);
   const exit=document.createElement('button');exit.type='button';exit.className='pvFullExit';exit.textContent=pvFocusLabel('Exit full screen (Esc)','Salir de pantalla completa (Esc)');exit.onclick=()=>pvToggleFullscreen(viewport);scene.appendChild(exit);
   const resize=document.createElement('button');resize.type='button';resize.className='pvFloatResize';resize.textContent='↘';resize.setAttribute('aria-label',pvFocusLabel('Resize floating view','Redimensionar vista flotante'));viewport.appendChild(resize);
   pvFloatBind(toolbar.querySelector('.fcMoveHandle'),viewport);pvFloatBind(resize,viewport,true);
@@ -540,14 +543,15 @@ function pvStyles(){
     '#fcViewGrid.pvFloating>.pvViewport .fcViewToolbar{min-height:0!important;max-height:42%;overflow:auto;flex:0 1 auto}',
     '#fcViewGrid.pvFloating>.pvViewport .fcViewportScene{flex:1 1 auto!important;height:auto!important;min-height:100px!important}',
     '#fcViewGrid.pvFloating>.pvViewport .fcViewportCaption{flex:0 1 auto;max-height:26%;overflow:auto}',
-    '#fcViewGrid .pvFloatResize,#fcViewGrid .pvFloatMin,.pvFullExit{display:none}',
+    '#fcViewGrid .pvFloatResize,#fcViewGrid .pvFloatMin,#fcViewGrid .pvFloatRestore,.pvFullExit{display:none}',
     '#fcViewGrid.pvFloating .pvFloatMin{display:inline-flex}',
     '#fcViewGrid.pvFloating .pvFloatResize{display:block;position:absolute;bottom:2px;right:2px;z-index:15;cursor:nwse-resize;touch-action:none;width:28px;height:28px}',
     '#fcViewGrid.pvFloating .fcMoveHandle{cursor:move;touch-action:none}',
     '#fcViewGrid.pvFloating .pvGrip,#fcViewGrid.pvFloating .pvSizeMenu{display:none!important}',
     '#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized{height:48px!important}',
     '#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .fcViewportScene,#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .fcViewportCaption,#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .pvFloatResize{display:none!important}',
-    '#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .fcViewToolbar{max-height:none;height:48px;overflow:auto}',
+    '#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .fcViewToolbar{display:none!important}',
+    '#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .pvFloatRestore{display:block;flex:1;min-height:42px;cursor:pointer;text-align:left;padding:8px 14px;color:var(--text);background:var(--panel2);border:0}',
     '#fcViewGrid>.pvViewport:fullscreen{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;display:flex!important;flex-direction:column;background:var(--panel);overflow:hidden!important;z-index:2147483647!important}',
     '#fcViewGrid>.pvViewport:fullscreen .fcViewToolbar,#fcViewGrid>.pvViewport:fullscreen .pvGrip,#fcViewGrid>.pvViewport:fullscreen .pvFloatResize{display:none!important}',
     '#fcViewGrid>.pvViewport:fullscreen .fcViewportScene{display:block!important;flex:1 1 auto!important;width:100%!important;height:auto!important;min-height:0!important}',
@@ -641,7 +645,7 @@ function pvDiscover(){
   return true
 }
 function pvInstall(){
-  pvHeights=pvLoad();pvLoadDeck();pvFloatLoad();document.addEventListener('fullscreenchange',pvFullscreenSync);let attempts=0;
+  pvHeights=pvLoad();pvLoadDeck();pvFloatLoad();document.addEventListener('fullscreenchange',pvFullscreenSync);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.fullscreenElement){e.preventDefault();document.exitFullscreen().catch(()=>{})}},true);let attempts=0;
   (function seek(){if(pvDiscover())return;if(attempts++<900)requestAnimationFrame(seek)})();
   window.addEventListener('resize',()=>{
     for(const [id,value] of Object.entries(pvHeights)){const el=pvEl(id);

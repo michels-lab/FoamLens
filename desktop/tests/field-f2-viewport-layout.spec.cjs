@@ -210,3 +210,20 @@ console.log('Granada #149 PASS: independent A–D heights/focus, 1024/1280/1920 
     'A readout must not be incorrectly counted as a canvas overlay');
   console.log('Granada Field metric caption audit PASS: narrow layout, real XYZ/legend clipping and no false canvas collisions');
 }
+
+// Floating geometry operates on original view IDs without changing source ownership.
+{
+ const floats=new Function(moduleSrc.slice(start,end)+';return {rect:pvFloatRect,move:pvFloatMove}')();
+ const r=floats.rect({x:130,y:100,w:500,h:560,z:2},1200);
+ assert.deepStrictEqual(r,{x:130,y:100,w:500,h:560,z:2});
+ assert.deepStrictEqual(floats.move(r,240,180,1200),{x:370,y:280,w:500,h:560,z:2});
+ assert.deepStrictEqual(floats.move(r,-900,-900,1200),{x:0,y:0,w:500,h:560,z:2});
+ assert.deepStrictEqual(floats.move(r,100,80,1200,true),{x:130,y:100,w:600,h:640,z:2});
+ assert.equal(floats.rect(r,280).w,280);assert.equal(floats.rect(r,280).x,0);
+ assert.equal(floats.move(r,2000,0,1200,true).w,1070);
+ assert.equal(floats.move(r,-2000,-2000,1200,true).h,300);
+ assert(moduleSrc.includes('requestFullscreen()')&&moduleSrc.includes('document.exitFullscreen()'));
+ assert(moduleSrc.includes('pvFloatApply(grid,views)')&&moduleSrc.includes('foamlens.field.floating.geometry.v1'));
+ assert(native.includes('ContainsFullScreenElementChanged')&&native.includes('Screen.FromControl(this).Bounds')&&native.includes('WindowState = _viewFullscreenPriorState'));
+ console.log('Floating geometry and native fullscreen contract PASS');
+}
