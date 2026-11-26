@@ -1,3 +1,11 @@
+## Desktop v1.8.25 — Floating Field and WSL preflight (2026-11-25)
+
+- Opt-in freely positioned Field view windows, eight-direction resize, stacking, minimize/restore, persistent geometry and return to docked layout.
+- Separate native monitor fullscreen and central maximize, with restoration of prior WinForms window geometry.
+- Shared workspace sizing and removal of implicit empty Field columns; preserve intentional scientific scrolling.
+- Read-only default WSL Foundation 13/14 tool preflight. No solver run or source case modification.
+- Exact #383 Windows, QuickCup and Field/core Foundation passed; owner visual and physical acceptance pending. Refined snappy remains diagnostic-only (#148). Selected distro routing remains in the separate G-C candidate. Publication pending.
+
 ## Desktop v1.8.24 — GRANADA CAD and native Mesh Studio (2026-11-25)
 
 - Curved blockMesh import, arc editing, SI round-trip export, Cartesian plans, native topology and exact region/entity selection.
