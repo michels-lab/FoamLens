@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 533; classified: 529; readable documents: 114; above read cap: 1; findings: 2.
+Tracked: 533; classified: 529; readable documents: 114; above read cap: 1; findings: 3.
 
 ## File roles
 
@@ -29,6 +29,7 @@ Tracked: 533; classified: 529; readable documents: 114; above read cap: 1; findi
 
 ## Findings (human review required)
 
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 4 implementation/config paths changed since this log's last commit; examples: .michelslab/project-progress.json, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/frontend/index.html. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 9d86eca58684a638)
 - **REVIEW / UNKNOWN_PURPOSE** tools/native-quality/Make/files: No reliable purpose category from path. Next: Declare role after reviewing usage (ID d9f5be2807d4a759)
 - **REVIEW / UNKNOWN_PURPOSE** tools/native-quality/Make/options: No reliable purpose category from path. Next: Declare role after reviewing usage (ID 80ac214ba57179dd)
 

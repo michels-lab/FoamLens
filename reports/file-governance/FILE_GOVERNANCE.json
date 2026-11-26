@@ -24,11 +24,12 @@
     "workflow": 67
   },
   "finding_counts": {
+    "POTENTIAL_UNLOGGED_CHANGES": 1,
     "UNKNOWN_PURPOSE": 2
   },
-  "finding_total": 2,
-  "inventory_fingerprint": "ceb1e95a999f267cbde50837b8ea5a8b79d181bb35c3bbc5e977d40ce04e7ace",
-  "evidence_fingerprint": "f0923749992f951f5b1a1232e732bf1e15b3526f20a1c0bf2517074599ad90b1",
+  "finding_total": 3,
+  "inventory_fingerprint": "30f5f8926f2604a137ff04438054b93266d9d8d28613fe555a9d201bbfa3cb2f",
+  "evidence_fingerprint": "1e57ad6c1e3f6a7499e175680eb68ffeb19590641d515363ca10890540170ac9",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -595,7 +596,7 @@
       "role": "config",
       "purpose": "machine-readable configuration",
       "certainty": "rule",
-      "blob": "af6bd72b91f18c855d02bbef3ee6acd93fbcb183"
+      "blob": "a9557289ab7414e331a440705d34c9d9b28e2464"
     },
     {
       "path": ".michelslab/project.yml",
@@ -616,7 +617,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "b9341dcecde779af70f0d0a9e5bf92c5e77cf42f"
+      "blob": "cf979cad71d5372bc1fe94329a4721cbd5cd9133"
     },
     {
       "path": "LICENSE",
@@ -637,7 +638,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "0a08db6a623f419d9a4882a3551be57094792aaf"
+      "blob": "60647206672fb741bb02f3b82bf46133066a5a60"
     },
     {
       "path": "desktop/LICENSE.txt",
@@ -651,7 +652,7 @@
       "role": "index",
       "purpose": "navigation/onboarding",
       "certainty": "rule",
-      "blob": "50cad28ed16bf7393f4aee87d44b17eed51ccc1c"
+      "blob": "8df6ed1d0f7face0f4a9648afdf144853c6c3076"
     },
     {
       "path": "desktop/developer/build-developer.ps1",
@@ -665,7 +666,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "3cc51e00aa79e3c204b6f0333960b6167d6625a3"
+      "blob": "bc68534334a8cd54634feb8b7ef2ab43ca8882fc"
     },
     {
       "path": "desktop/installer/FoamLensDeveloper.iss",
@@ -707,7 +708,7 @@
       "role": "build_script",
       "purpose": "platform build/project/installer script",
       "certainty": "inferred",
-      "blob": "150bc7e4aea74752e387978e50a73a228462b86d"
+      "blob": "ce253f7ff41e90c1a1019112ff7b4c89d8fc29ae"
     },
     {
       "path": "desktop/src/FoamLensDesktop/NativeCadOcctConverter.cs",
@@ -833,7 +834,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "8eadb9e3016a8b0f7852d341a8f01010f3463916"
+      "blob": "68a200438b513101bad17bcc169e1efa5ed032e3"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
@@ -3735,6 +3736,15 @@
     }
   ],
   "findings": [
+    {
+      "id": "9d86eca58684a638",
+      "code": "POTENTIAL_UNLOGGED_CHANGES",
+      "severity": "review",
+      "path": "docs/GIT_AUDIT_LOG.md",
+      "observation": "4 implementation/config paths changed since this log's last commit; examples: .michelslab/project-progress.json, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/frontend/index.html",
+      "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
+      "state": "REVIEW_REQUIRED"
+    },
     {
       "id": "d9f5be2807d4a759",
       "code": "UNKNOWN_PURPOSE",
