@@ -28,8 +28,8 @@
     "UNKNOWN_PURPOSE": 2
   },
   "finding_total": 3,
-  "inventory_fingerprint": "30f5f8926f2604a137ff04438054b93266d9d8d28613fe555a9d201bbfa3cb2f",
-  "evidence_fingerprint": "1e57ad6c1e3f6a7499e175680eb68ffeb19590641d515363ca10890540170ac9",
+  "inventory_fingerprint": "dd065f148a2f0c821b7c6dec41f4d3e685e3a98b83959a9a4f42e472fdb6f0ef",
+  "evidence_fingerprint": "90d45d8984b430d5d48216b640d6284ecae7ff3bfcabe490987e1d90a78603ec",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -596,7 +596,7 @@
       "role": "config",
       "purpose": "machine-readable configuration",
       "certainty": "rule",
-      "blob": "a9557289ab7414e331a440705d34c9d9b28e2464"
+      "blob": "d012179f9f7c5271801955f29cda7a9d96ecadb4"
     },
     {
       "path": ".michelslab/project.yml",
@@ -736,7 +736,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "41ba25dcf70405baee88bccafe036b6552a90460"
+      "blob": "993948cbf1dc0b64d9d292c6797bb610e7effc3d"
     },
     {
       "path": "desktop/src/FoamLensDesktop/NativeCaseCatalog.cs",
@@ -771,7 +771,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "9c57273b5ed3f4c6c524f827ae570b44ca759143"
+      "blob": "ed33828c86c327819ee266baf1873f54df6c4ce9"
     },
     {
       "path": "desktop/src/FoamLensDesktop/TrustedEmbeddedFrontendExtensions.cs",
@@ -834,7 +834,7 @@
       "role": "web_ui",
       "purpose": "local HTML documentation or web interface",
       "certainty": "inferred",
-      "blob": "68a200438b513101bad17bcc169e1efa5ed032e3"
+      "blob": "c36cc68d76e2c0a6ca489337bcdee3639d891b82"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-field-mapping.js",
@@ -1023,7 +1023,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "e6dfd8b23434e8845a0186fcc69a7756fef9fc56"
+      "blob": "8e1cdef791cc7254a0097aab4672c3def1d8dc40"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js",
@@ -1065,7 +1065,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "b52d0bee50522d3fe4b0d76170cdbf5a9f64671d"
+      "blob": "3d1936414eba6d18b60a6c69be248ba5ee4c0a70"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v19-auto-update.js",
@@ -1135,7 +1135,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "1766d93b6c7594e102b2ce5d12eae0a948c041e1"
+      "blob": "85933c6bcc384c021e036dbc73f4d773e733fbe0"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-granada-g23-data-analysis.js",
@@ -1219,7 +1219,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "d28eb47a29abdb1d55d00855f5c9eb6d680cb73f"
+      "blob": "ae36f0abf70c1ec0b5d152c2912b16143c4c0588"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v25-granada-field-source-dock.js",
@@ -1415,7 +1415,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "6f9110d545dbf0b4142b60c50c925c0880b8024b"
+      "blob": "f010e5befe8654d0935b1267d2d3067f68429285"
     },
     {
       "path": "desktop/tests/coupling-audit.test.cjs",
@@ -1548,7 +1548,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ac3766eba992c4106df6c36bb612c2986feecad3"
+      "blob": "78a0df273098593b7ff21a7f7b07b5590d88da6a"
     },
     {
       "path": "desktop/tests/field-loop-playback.test.cjs",
@@ -2290,7 +2290,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "fe9386ff7e7a05f039bd6917da44c03c86408c4e"
+      "blob": "b2b61a3917f74e788c9a1866f7412c4a237a6bf6"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -2836,7 +2836,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "d87341d34fd1f21d4e85635437d8fbbd0f84f312"
+      "blob": "9d5e5bcec3fbbe7fe4bdd828a4a5d054529c3746"
     },
     {
       "path": "docs/QUICKCUP_RESEARCH_INTEROPERABILITY_2026-10-20.md",
@@ -2969,7 +2969,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "f4bf8ca89221227dbeb5d2b780e60de25b7dbf5f"
+      "blob": "542dec098217036fd91e814b0d2ecc348f267384"
     },
     {
       "path": "tools/capture_gpu_hardware_inventory.ps1",
@@ -3737,11 +3737,11 @@
   ],
   "findings": [
     {
-      "id": "9d86eca58684a638",
+      "id": "ab5d23cf9702cceb",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "4 implementation/config paths changed since this log's last commit; examples: .michelslab/project-progress.json, desktop/installer/FoamLens.iss, desktop/src/FoamLensDesktop/FoamLensDesktop.csproj, desktop/src/FoamLensDesktop/frontend/index.html",
+      "observation": "10 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/NativeCartesianMesh.cs, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/src/FoamLensDesktop/frontend/v18-context-help-resize.js, desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     },

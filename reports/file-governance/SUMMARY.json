@@ -28,8 +28,8 @@
     "UNKNOWN_PURPOSE": 2
   },
   "finding_total": 3,
-  "inventory_fingerprint": "30f5f8926f2604a137ff04438054b93266d9d8d28613fe555a9d201bbfa3cb2f",
-  "evidence_fingerprint": "1e57ad6c1e3f6a7499e175680eb68ffeb19590641d515363ca10890540170ac9",
+  "inventory_fingerprint": "dd065f148a2f0c821b7c6dec41f4d3e685e3a98b83959a9a4f42e472fdb6f0ef",
+  "evidence_fingerprint": "90d45d8984b430d5d48216b640d6284ecae7ff3bfcabe490987e1d90a78603ec",
   "untracked_audited": false,
   "ignored_audited": false,
   "binary_contents_audited": false,
