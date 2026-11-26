@@ -15,30 +15,19 @@ internal static class NativeCadSurfaceCheck
     internal const int MaxStlBytes = 4 * 1024 * 1024;
     private const int MaxLogCharacters = 24000;
 
-    // Fixed shell program, never interpolated with WebView input.
-    // The default WSL distribution is used; no package installs are performed.
-    private const string WslScript =
-        "set -eu\n" +
-        "if ! command -v surfaceCheck >/dev/null 2>&1; then\n" +
-        "  for profile in /opt/openfoam14/etc/bashrc /opt/openfoam13/etc/bashrc " +
-        "/usr/lib/openfoam/openfoam14/etc/bashrc /usr/lib/openfoam/openfoam13/etc/bashrc " +
-        "\"$HOME/OpenFOAM/OpenFOAM-14/etc/bashrc\" \"$HOME/OpenFOAM/OpenFOAM-13/etc/bashrc\"; do\n" +
-        "    if [ -r \"$profile\" ]; then\n" +
-        "      . \"$profile\" >/dev/null 2>&1 || true\n" +
-        "      if command -v surfaceCheck >/dev/null 2>&1; then break; fi\n" +
-        "    fi\n" +
-        "  done\n" +
-        "fi\n" +
-        "if ! command -v surfaceCheck >/dev/null 2>&1; then\n" +
-        "  echo 'FoamLens: OpenFOAM surfaceCheck is unavailable in the default WSL distribution.' >&2\n" +
-        "  exit 127\n" +
-        "fi\n" +
-        "cd \"$(dirname \"$1\")\"\n" +
-        "surfaceCheck -checkSelfIntersection \"$1\"\n";
+    // Share the exact Foundation loader with native meshing, rather than
+    // accepting whatever surfaceCheck happens to appear first in PATH.
+    private static string WslScript => NativeCartesianMesh.FoundationLoader()+"""
+        command -v surfaceCheck >/dev/null || exit 127
+        cd "$(dirname "$1")"
+        surfaceCheck -checkSelfIntersection "$1"
+        """;
 
     internal sealed record Report(
         string Utility,
         string Runner,
+        string Distribution,
+        string RequestedVersion,
         bool Executed,
         int ExitCode,
         int TriangleCount,
@@ -92,11 +81,11 @@ internal static class NativeCadSurfaceCheck
         if (!WslScript.Contains("surfaceCheck -checkSelfIntersection \"$1\"",
                 StringComparison.Ordinal) ||
             WslScript.Contains("eval ", StringComparison.Ordinal) ||
-            WslScript.Contains("snappyHexMesh", StringComparison.Ordinal))
+            WslScript.Contains("snappyHexMesh -case", StringComparison.Ordinal))
             throw new InvalidOperationException("CAD WSL command allowlist drifted.");
     }
 
-    internal static async Task<Report> RunAsync(string base64, CancellationToken cancellationToken)
+    internal static async Task<Report> RunAsync(string base64, CancellationToken cancellationToken,string version="14",string? requestedDistribution=null)
     {
         if (string.IsNullOrWhiteSpace(base64) ||
             base64.Length > ((MaxStlBytes + 2) / 3 * 4) + 8)
@@ -106,12 +95,14 @@ internal static class NativeCadSurfaceCheck
         try { data = Convert.FromBase64String(base64); }
         catch (FormatException) { throw new ArgumentException("Invalid binary STL transfer encoding."); }
         var triangleCount = ValidateBinaryStl(data);
+        if(version is not ("13" or "14"))throw new ArgumentException("Select Foundation OpenFOAM 13 or 14.");
 
         var wsl = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "wsl.exe");
         if (!File.Exists(wsl))
             throw new NotSupportedException(
                 "WSL is not installed. OpenFOAM surfaceCheck requires an installed default WSL distribution.");
 
+        var distribution=NativeCartesianMesh.ResolveDistribution(requestedDistribution,NativeCartesianMesh.InstalledDistributions());
         var directory = Path.Combine(Path.GetTempPath(), "foamlens-cad-check-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
@@ -121,17 +112,17 @@ internal static class NativeCadSurfaceCheck
 
             // Translate via WSL's own wslpath, not guessed /mnt/c or shell quoting.
             var translation = await RunProcessAsync(wsl, directory,
-                new[] { "--exec", "wslpath", "-a", file }, TimeSpan.FromSeconds(15),
+                NativeCartesianMesh.WslArgs(distribution,"wslpath","-a",file), TimeSpan.FromSeconds(15),
                 cancellationToken);
             var linuxPath = translation.Stdout.Trim();
             if (translation.ExitCode != 0 || !linuxPath.StartsWith("/", StringComparison.Ordinal) ||
                 linuxPath.Contains('\n') || linuxPath.Contains('\r'))
                 throw new NotSupportedException(
-                    "Default WSL distribution or Windows-to-WSL file mapping is unavailable.");
+                    "Selected WSL distribution or Windows-to-WSL file mapping is unavailable.");
 
             var result = await RunProcessAsync(wsl, directory,
-                new[] { "--exec", "/bin/bash", "-lc", WslScript,
-                    "foamlens-cad-surfacecheck", linuxPath },
+                NativeCartesianMesh.WslArgs(distribution,"/bin/bash","-lc",WslScript,
+                    "foamlens-cad-surfacecheck",linuxPath,version),
                 TimeSpan.FromSeconds(75), cancellationToken);
 
             string Clean(string message) =>
@@ -141,7 +132,9 @@ internal static class NativeCadSurfaceCheck
 
             return new Report(
                 Utility: "surfaceCheck -checkSelfIntersection",
-                Runner: "Default WSL distribution (local OpenFOAM)",
+                Runner: "Selected WSL distribution (Foundation OpenFOAM)",
+                Distribution: distribution,
+                RequestedVersion: version,
                 Executed: result.ExitCode != 127,
                 ExitCode: result.ExitCode,
                 TriangleCount: triangleCount,

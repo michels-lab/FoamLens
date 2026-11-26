@@ -4547,7 +4547,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         var operation = BeginOperation(requestId);
         try
         {
-            var report = await NativeCadSurfaceCheck.RunAsync(data, operation.Token);
+            var report = await NativeCadSurfaceCheck.RunAsync(data, operation.Token,RequiredString(root,"version"),NativeCartesianMesh.RequestedDistribution(root));
             Reply(requestId, true, report, null);
         }
         catch (OperationCanceledException)
@@ -4570,7 +4570,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         {
             Log("Native CAD surfaceCheck failed: " + ex);
             Reply(requestId, false, null,
-                "Local surfaceCheck invocation failed. Verify the default WSL distribution " +
+                "Local surfaceCheck invocation failed. Verify the selected WSL distribution " +
                 "and OpenFOAM environment. The original case was not modified.");
         }
         finally

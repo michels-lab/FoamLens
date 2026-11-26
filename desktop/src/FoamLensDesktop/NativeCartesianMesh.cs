@@ -458,18 +458,19 @@ internal static class NativeCartesianMesh
         """;
     // Reuse the exact Foundation loader used by generation. No case directory,
     // mesher, solver, package install or arbitrary command is accepted here.
-    internal static string ProbeScript()
+    internal static string FoundationLoader()
     {
         const string marker = "if [ \"$3\" = gmshToFoam ]; then";
         int end=Script.IndexOf(marker,StringComparison.Ordinal);
         if(end<0)throw new InvalidOperationException("Foundation loader boundary missing.");
-        return Script[..end]+"""
+        return Script[..end];
+    }
+    internal static string ProbeScript()=>FoundationLoader()+"""
         printf 'project=%s\nversion=%s\n' "$WM_PROJECT" "$WM_PROJECT_VERSION"
         for tool in blockMesh checkMesh surfaceCheck gmshToFoam splitMeshRegions snappyHexMesh surfaceFeatures foamPostProcess wmake timeout; do
           if command -v "$tool" >/dev/null 2>&1; then printf '%s=available\n' "$tool"; else printf '%s=missing\n' "$tool"; fi
         done
         """;
-    }
 
     internal sealed record WslDistribution(string Name,bool IsDefault);
     internal static WslDistribution[] InstalledDistributions()

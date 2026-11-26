@@ -753,7 +753,7 @@ function cgNativeSurfaceCheckRequest(bytes){
     },110000);
     try{
       webview.postMessage({
-        type:'runCadSurfaceCheck',requestId,stlBase64:cgBytesToBase64(bytes)
+        type:'runCadSurfaceCheck',requestId,stlBase64:cgBytesToBase64(bytes),version:document.getElementById('cgNativeVersion')?.value||'14',distribution:document.getElementById('cgNativeDistribution')?.value||''
       })
     }catch(error){finish(error)}
   });
@@ -787,6 +787,7 @@ function cgRefreshNativeCheck(){
     cgUi('Run the installed OpenFOAM surfaceCheck on a temporary selected STL (max 4 MiB).',
        'Ejecutar surfaceCheck instalado en una copia STL temporal seleccionada (máx. 4 MiB).');
   if(cancel)cancel.disabled=!cgNativeCheckBusy;
+  for(const id of ['cgNativeVersion','cgNativeDistribution','cgNativeListWsl']){const control=document.getElementById(id);if(control)control.disabled=cgNativeCheckBusy||!cgNativeCheckAvailable()}
   if(exportBtn)exportBtn.disabled=!cgLastNativeCheck
 }
 async function cgRunNativeSurfaceCheck(){
@@ -799,8 +800,8 @@ async function cgRunNativeSurfaceCheck(){
   cgNativeCheckBusy=true;cgLastNativeCheck=null;
   cgRefreshNativeCheck();
   if(output)output.textContent=cgUi(
-    'Running installed surfaceCheck in default WSL on a temporary STL. The original OpenFOAM case is not written.',
-    'Ejecutando surfaceCheck instalado en WSL predeterminado sobre un STL temporal. No se escribe en el caso OpenFOAM.');
+    'Running selected Foundation surfaceCheck in WSL on a temporary STL. The original OpenFOAM case is not written.',
+    'Ejecutando surfaceCheck Foundation seleccionado en WSL sobre un STL temporal. No se escribe en el caso OpenFOAM.');
   try{
     const task=cgNativeSurfaceCheckRequest(selected.bytes);
     cgNativeCheckCancel=task.cancel;
@@ -819,8 +820,9 @@ async function cgRunNativeSurfaceCheck(){
       report.executed?
         cgUi('OpenFOAM surfaceCheck executed; review output (not CFD certification).',
              'Se ejecutó surfaceCheck; revisa el resultado (NO es certificación CFD).'):
-        cgUi('OpenFOAM surfaceCheck was NOT executed in the default WSL distribution.',
-             'NO se ejecutó surfaceCheck en la distribución WSL predeterminada.'),
+        cgUi('OpenFOAM surfaceCheck was NOT executed in the selected WSL distribution.',
+             'NO se ejecutó surfaceCheck en la distribución WSL seleccionada.'),
+      'Foundation: '+(report.requestedVersion||'—')+' · WSL: '+(report.distribution||'—'),
       'Exit code: '+report.exitCode,
       'Surface: '+selected.model.name+' / '+selected.part+' · '+selected.triangles+' triangles',
       'Original units: '+selected.model.unit+' → meters',
@@ -1300,10 +1302,10 @@ function cgInstall(){
     '<button class="btn primary" id="cgExportOpenFoamPrep" type="button" disabled>'+
       cgUi('Prepare OpenFOAM geometry ZIP','Preparar ZIP de geometría OpenFOAM')+'</button></div>'+
     '<p id="cgOpenFoamPrepPreview" class="cgNotice" aria-live="polite"></p>'+
-    '<div class="cgTools"><button id="cgSurfaceCheckRun" class="btn primary" type="button" disabled>Run real OpenFOAM surfaceCheck (WSL)</button>'+
+    '<div class="cgTools"><label>Foundation <select id="cgNativeVersion"><option value="14">14</option><option value="13">13</option></select></label><label>WSL <select id="cgNativeDistribution"><option value="">'+cgUi('Default distribution','Distribución predeterminada')+'</option></select></label><button class="btn soft" type="button" id="cgNativeListWsl">'+cgUi('Refresh WSL list','Actualizar lista WSL')+'</button><button id="cgSurfaceCheckRun" class="btn primary" type="button" disabled>Run real OpenFOAM surfaceCheck (WSL)</button>'+
     '<button id="cgSurfaceCheckCancel" class="btn soft" type="button" disabled>Cancel check</button>'+
     '<button id="cgSurfaceCheckExport" class="btn soft" type="button" disabled>Export actual check report JSON</button></div>'+
-    '<pre id="cgSurfaceCheckOutput" aria-live="polite" class="cgNotice">Requires OpenFOAM installed in the default WSL distribution. Only an explicitly selected, unit-confirmed STL is checked.</pre>'+
+    '<pre id="cgSurfaceCheckOutput" aria-live="polite" class="cgNotice">Requires the selected Foundation version installed in the selected WSL distribution. Only an explicitly selected, unit-confirmed STL is checked.</pre>'+
     '<p class="cgNotice">Triangulated geometry is not a volumetric mesh. STEP/IGES conversion uses the installed OpenCascade kernel ONLY when available, and original assembly labels may be lost. surfaceCheck is an optional separate native action; no checkMesh, snappyHexMesh or CFD solver is run. Keep the original source file.</p></div>';
   document.body.appendChild(sheet);
   let cgReturnFocus=launch;
@@ -1321,6 +1323,11 @@ function cgInstall(){
   document.getElementById('cgPartsShowAll').onclick=()=>cgChangePartSelection('show');
   document.getElementById('cgPartsHideAll').onclick=()=>cgChangePartSelection('hide');
   document.getElementById('cgRestoreVisibility').onclick=()=>cgChangePartSelection('restore');
+  document.getElementById('cgNativeListWsl').onclick=async()=>{
+    if(cgNativeCheckBusy||!cgNativeCheckAvailable())return;cgNativeCheckBusy=true;cgRefreshNativeCheck();
+    const output=document.getElementById('cgSurfaceCheckOutput');try{const task=flMeshNativeRequest('listFoamWslDistributions',{});cgNativeCheckCancel=task.cancel;const r=await task.promise;output.textContent=flWslOptions(document.getElementById('cgNativeDistribution'),r,cgUi)+' · '+cgUi('installed WSL distributions','distribuciones WSL instaladas')}catch(e){output.textContent=String(e.message||e)}finally{cgNativeCheckBusy=false;cgNativeCheckCancel=null;cgRefreshNativeCheck()}
+  };
+  for(const id of ['cgNativeVersion','cgNativeDistribution'])document.getElementById(id).onchange=()=>{cgLastNativeCheck=null;document.getElementById('cgSurfaceCheckOutput').textContent='';cgRefreshNativeCheck()};
   document.getElementById('cgSurfaceCheckRun').onclick=()=>void cgRunNativeSurfaceCheck();
   document.getElementById('cgSurfaceCheckCancel').onclick=()=>cgNativeCheckCancel?.();
   document.getElementById('cgSurfaceCheckExport').onclick=cgExportNativeCheckReport;

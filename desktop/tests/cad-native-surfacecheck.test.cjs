@@ -74,6 +74,7 @@ const create=(mode='success',bridgeEnabled=true)=>{
  await a.api.cgRunNativeSurfaceCheck();
  const requests=a.messages.filter(m=>m.type==='runCadSurfaceCheck');
  assert.strictEqual(requests.length,1,'native CAD must submit an explicit request');
+ assert.strictEqual(requests[0].version,'14');assert.strictEqual(requests[0].distribution,'');
  assert(!('command' in requests[0])&&!('path' in requests[0]),
    'browser may send ONLY bounded STL, never shell or source path');
  const data=Buffer.from(requests[0].stlBase64,'base64');
@@ -126,7 +127,7 @@ const create=(mode='success',bridgeEnabled=true)=>{
  assert.strictEqual(cancel.listeners.size,0);
 
  assert(host.includes('case "runCadSurfaceCheck":'));
- assert(host.includes('NativeCadSurfaceCheck.RunAsync(data, operation.Token)'));
+ assert(host.includes('NativeCadSurfaceCheck.RunAsync(data, operation.Token,RequiredString(root,"version"),NativeCartesianMesh.RequestedDistribution(root))'));
  assert(host.includes('case "cancelOperation":'));
  assert(native.includes('surfaceCheck -checkSelfIntersection \\"$1\\"')||
    native.includes('surfaceCheck -checkSelfIntersection \"$1\"'));
@@ -135,7 +136,7 @@ const create=(mode='success',bridgeEnabled=true)=>{
  assert(native.includes('Path.GetTempPath()'));
  assert(native.includes('Directory.Delete(directory, recursive: true)'));
  assert(native.includes('start.ArgumentList.Add(arg)'));
- assert(native.includes('--exec'));
+ assert(native.includes('NativeCartesianMesh.WslArgs(distribution'));assert(native.includes('NativeCartesianMesh.FoundationLoader()'));
  assert(!native.includes('argumentsFromBrowser'));
  console.log('CAD native surfaceCheck PASS: real UI request, metric unit scaling, cancellation, native report, error/size/bridge gates');
 })().catch(e=>{console.error(e);process.exitCode=1});
