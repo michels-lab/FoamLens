@@ -4238,6 +4238,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "runGmshMesh":
                     await HandleRunCartesianMeshAsync(root, requestId, true);
                     break;
+                case "listFoamWslDistributions":
+                    Reply(requestId,true,new {schema="foamlens/wsl-distributions/1",distributions=NativeCartesianMesh.InstalledDistributions()},null);
+                    break;
                 case "probeFoamMeshEnvironment":
                     await HandleProbeFoamMeshEnvironmentAsync(root, requestId);
                     break;
@@ -4504,7 +4507,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         try
         {
             if(root.GetRawText().Length>4096)throw new ArgumentException("Preflight request too large.");
-            var report=await NativeCartesianMesh.ProbeAsync(RequiredString(root,"version"),operation.Token);
+            var report=await NativeCartesianMesh.ProbeAsync(RequiredString(root,"version"),operation.Token,NativeCartesianMesh.RequestedDistribution(root));
             Reply(requestId,true,report,null);
         }
         catch(OperationCanceledException){Reply(requestId,false,null,"WSL preflight cancelled.");}
