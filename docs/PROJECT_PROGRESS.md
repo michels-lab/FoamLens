@@ -1,3 +1,7 @@
+## 2026-11-25 — v1.8.24 published; G-C preflight candidate
+
+Official release [v1.8.24](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.24), published 2026-11-26 01:52:13 UTC (Nov 25 Mexico). Source 9eeeb9c4c2f800f44ac6a736967b8958bf5f5869; publisher [45737560786](https://github.com/michels-lab/FoamLens/actions/runs/45737560786) SUCCESS, independent actual public binary/checksum audit [45738655721](https://github.com/michels-lab/FoamLens/actions/runs/45738655721) SUCCESS. Setup and Portable with SHA256 sidecars. Block 3 source delivered; owner real C3D04/C3D05 and strict refined snappy 4.3 remain open. Historical 8/15=53%, V2 N/D. New [PR #383](https://github.com/michels-lab/FoamLens/pull/383) implements explicit read-only default WSL Foundation 13/14 tool preflight (same environment loader, 10 tools, cancellation, stale-response guard, native CI fixture). Source b88df9f67f260053848c960856df862b1525f267, JS syntax checked, exact native/Windows CI pending; no distro selection or actual owner WSL validation yet. No new release claim.
+
 # FoamLens — avance global verificable
 
 ## 2026-11-25 — Granada block 3 closure: complete JS scripts and PR event recovery
