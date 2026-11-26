@@ -14,6 +14,14 @@ var suite=args.Length>2?args[2]:"all";
 if(suite is not ("all" or "core" or "snappy"))throw new ArgumentException("Invalid suite");
 if(version is not ("13" or "14"))throw new ArgumentException("version");
 Directory.CreateDirectory(output);
+if(suite!="snappy"){
+    var probe=await NativeCadSurfaceCheck.RunProcessAsync("/bin/bash",output,new[]{"-lc",NativeCartesianMesh.ProbeScript(),"foamlens-wsl-probe","unused",version},TimeSpan.FromSeconds(30),CancellationToken.None);
+    File.WriteAllText(Path.Combine(output,"environment-preflight.log"),probe.Stdout+"\n"+probe.Stderr);
+    var lines=probe.Stdout.Split('\n',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries);
+    if(probe.ExitCode!=0||probe.Truncated||!lines.Contains("project=OpenFOAM")||!lines.Contains("version="+version)||new[]{"blockMesh","checkMesh","gmshToFoam","splitMeshRegions","timeout"}.Any(t=>!lines.Contains(t+"=available")))throw new InvalidOperationException("Foundation environment preflight failed.");
+    if(Directory.Exists(Path.Combine(output,"constant"))||Directory.Exists(Path.Combine(output,"system")))throw new InvalidOperationException("Preflight wrote case staging directories.");
+    Console.WriteLine("PASS native Foundation environment preflight "+version);
+}
 var patches=new[]{"xMin","xMax","yMin","yMax","zMin","zMax"};
 object Axis(double[] p,int[] n)=>new{points=p,counts=n,grading=n.Select(_=>1).ToArray()};
 var axes=new[]{Axis(new[]{0.0,0.5,1.0},new[]{4,4}),Axis(new[]{0.0,1.0},new[]{8}),Axis(new[]{0.0,1.0},new[]{8})};
