@@ -15,7 +15,15 @@ function pvFloatRect(raw,width){
     w:rw,h:clamp(finite(raw?.h,540),300,1400),z:clamp(finite(raw?.z,1),1,10000)};
 }
 function pvFloatMove(rect,dx,dy,width,resize=false){
-  return pvFloatRect(resize?{...rect,w:Math.min(width-rect.x,rect.w+dx),h:rect.h+dy}:{...rect,x:rect.x+dx,y:rect.y+dy},width)
+  if(!resize)return pvFloatRect({...rect,x:rect.x+dx,y:rect.y+dy},width);
+  const edge=resize===true?'se':resize,w=Math.max(1,Math.floor(Number(width)||1)),minW=Math.min(320,w);
+  const a=pvFloatRect(rect,w),clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
+  let left=a.x,right=a.x+a.w,top=a.y,bottom=a.y+a.h;
+  if(edge.includes('w'))left=clamp(left+dx,0,right-minW);
+  if(edge.includes('e'))right=clamp(right+dx,left+minW,w);
+  if(edge.includes('n'))top=clamp(top+dy,Math.max(0,bottom-1400),Math.min(2400,bottom-300));
+  if(edge.includes('s'))bottom=clamp(bottom+dy,top+300,top+1400);
+  return pvFloatRect({...a,x:left,y:top,w:right-left,h:bottom-top},w)
 }
 function pvDeckColumns(mode,count,width){
   if(!Number.isFinite(count)||count<1)return 1;
@@ -124,9 +132,10 @@ function pvFloatLoad(){
   try{const p=JSON.parse(localStorage.getItem(pvFloatKey)||'{}');if(p.schema!==1)return;
     pvFloating=Object.fromEntries(Object.entries(p.rects||{}).filter(([id,r])=>pvViews[id]&&r&&['x','y','w','h','z'].every(k=>Number.isFinite(r[k]))).map(([id,r])=>[id,pvFloatRect(r,10000)]));
     pvFloatZ=Math.max(1,...Object.values(pvFloating).map(r=>r.z));
+    pvFloatMinimized=new Set((Array.isArray(p.minimized)?p.minimized:[]).filter(id=>pvViews[id]));
   }catch{pvFloating={}}
 }
-function pvFloatSave(){try{localStorage.setItem(pvFloatKey,JSON.stringify({schema:1,rects:pvFloating}))}catch{}}
+function pvFloatSave(){try{localStorage.setItem(pvFloatKey,JSON.stringify({schema:1,rects:pvFloating,minimized:[...pvFloatMinimized]}))}catch{}}
 function pvFloatActive(grid){return !!grid&&pvDeckMode==='floating'&&!pvFocus&&!document.fullscreenElement}
 function pvFloatWidth(grid){return Math.max(1,Math.floor(grid.clientWidth||grid.getBoundingClientRect().width||1))}
 function pvFloatSet(view,r){
@@ -148,10 +157,12 @@ function pvFloatFront(view){
 function pvFloatApply(grid,views){
   const active=pvFloatActive(grid);if(grid.classList.contains('pvFloating')!==active)grid.classList.toggle('pvFloating',active);
   if(!active){grid.style.removeProperty('--pvFloatExtent');return}
-  const width=pvFloatWidth(grid);if(width<2)return;
+  if(grid.getBoundingClientRect().width<2)return;
+  const width=pvFloatWidth(grid);
   views.forEach((v,i)=>{const rect=pvFloating[v.id]||{x:Math.min(i*32,width-320),y:i*30,w:Math.min(width,Math.max(420,Math.floor(width*.65))),h:560,z:i+1};
     pvFloatZ=Math.max(pvFloatZ,rect.z);pvFloatSet(v,rect);
     if(v.classList.contains('pvFloatMinimized')!==pvFloatMinimized.has(v.id))v.classList.toggle('pvFloatMinimized',pvFloatMinimized.has(v.id));
+    const mini=v.querySelector('.pvFloatMin'),label=pvFloatMinimized.has(v.id)?pvFocusLabel('Restore','Restaurar'):pvFocusLabel('Minimize','Minimizar');if(mini&&mini.textContent!==label)mini.textContent=label;
   })
 }
 function pvFloatBind(handle,view,resize=false){
@@ -186,7 +197,7 @@ async function pvToggleFullscreen(view){
 }
 function pvFullscreenSync(){
   const full=document.fullscreenElement;
-  if(full&&pvViews[full.id]){full.querySelector('.pvFullExit')?.focus?.({preventScroll:true});pvRedraw()}
+  if(full&&pvViews[full.id]){pvEl('fcViewGrid')?.classList.remove('pvFloating');full.querySelector('.pvFullExit')?.focus?.({preventScroll:true});pvRedraw()}
   else{pvApplyDeck();pvRedraw()}
 }
 function pvSave(){try{localStorage.setItem(pvKey,JSON.stringify({schema:1,heights:pvHeights}))}catch{}}
@@ -428,12 +439,14 @@ function pvMountViewport(viewport){
   const full=document.createElement('button');full.type='button';full.dataset.pvControl='fullscreen';
   full.textContent=pvFocusLabel('Full screen','Pantalla completa');full.title=full.textContent;full.onclick=()=>pvToggleFullscreen(viewport);div.append(full);
   const mini=document.createElement('button');mini.type='button';mini.className='pvFloatMin';mini.textContent=pvFocusLabel('Minimize','Minimizar');
-  mini.onclick=()=>{if(!pvFloatActive(viewport.parentElement))return;if(pvFloatMinimized.has(viewport.id))pvFloatMinimized.delete(viewport.id);else pvFloatMinimized.add(viewport.id);pvFloatApply(viewport.parentElement,[...viewport.parentElement.children].filter(v=>pvViews[v.id]&&!v.classList.contains('hidden')));mini.textContent=pvFloatMinimized.has(viewport.id)?pvFocusLabel('Restore','Restaurar'):pvFocusLabel('Minimize','Minimizar')};
+  mini.onclick=()=>{if(!pvFloatActive(viewport.parentElement))return;if(pvFloatMinimized.has(viewport.id))pvFloatMinimized.delete(viewport.id);else pvFloatMinimized.add(viewport.id);pvFloatSave();pvFloatApply(viewport.parentElement,[...viewport.parentElement.children].filter(v=>pvViews[v.id]&&!v.classList.contains('hidden')));mini.textContent=pvFloatMinimized.has(viewport.id)?pvFocusLabel('Restore','Restaurar'):pvFocusLabel('Minimize','Minimizar')};
   div.append(mini);toolbar.appendChild(div);
   const restore=document.createElement('button');restore.type='button';restore.className='pvFloatRestore';restore.textContent=pvFocusLabel('Restore view','Restaurar vista')+' '+pvViews[viewport.id];restore.onclick=()=>mini.click();viewport.appendChild(restore);
   const exit=document.createElement('button');exit.type='button';exit.className='pvFullExit';exit.textContent=pvFocusLabel('Exit full screen (Esc)','Salir de pantalla completa (Esc)');exit.onclick=()=>pvToggleFullscreen(viewport);scene.appendChild(exit);
-  const resize=document.createElement('button');resize.type='button';resize.className='pvFloatResize';resize.textContent='↘';resize.setAttribute('aria-label',pvFocusLabel('Resize floating view','Redimensionar vista flotante'));viewport.appendChild(resize);
-  pvFloatBind(toolbar.querySelector('.fcMoveHandle'),viewport);pvFloatBind(resize,viewport,true);
+  for(const [edge,en,es] of [['n','top','superior'],['s','bottom','inferior'],['w','left','izquierdo'],['e','right','derecho'],['nw','top left','superior izquierda'],['ne','top right','superior derecha'],['sw','bottom left','inferior izquierda'],['se','bottom right','inferior derecha']]){
+    const resize=document.createElement('button');resize.type='button';resize.className='pvFloatResize';resize.dataset.edge=edge;resize.textContent=edge==='se'?'↘':'';resize.setAttribute('aria-label',pvFocusLabel('Resize floating view: '+en,'Redimensionar vista flotante: '+es));viewport.appendChild(resize);pvFloatBind(resize,viewport,edge)
+  }
+  pvFloatBind(toolbar.querySelector('.fcMoveHandle'),viewport);
   viewport.addEventListener('pointerdown',()=>pvFloatFront(viewport),true);
   pvSyncFocusButtons();
   const grip=document.createElement('div');grip.className='pvGrip';grip.tabIndex=0;
@@ -502,7 +515,7 @@ function pvAlignToolbars(grid,views,cols){
 }
 function pvDeckLabels(){
   const bar=pvEl('pvDeckBar');if(!bar)return;
-  const pairs={pvDeckLabel:['Comparison layout','Disposición de comparación'],pvDeckModeLabel:['Arrangement','Distribución'],pvDeckHeightLabel:['Scene height','Altura de escena'],pvDeckReset:['Reset layout','Restablecer disposición'],pvDeckOrderReset:['Reset view order','Restablecer orden'],pvDeckDragHint:pvDeckMode==='floating'?['Drag view headers freely; resize from lower-right corner','Arrastra libremente las cabeceras; cambia tamaño desde la esquina inferior derecha']:['Drag view headers to reorder','Arrastra las cabeceras para reordenar']};
+  const pairs={pvDeckLabel:['Comparison layout','Disposición de comparación'],pvDeckModeLabel:['Arrangement','Distribución'],pvDeckHeightLabel:['Scene height','Altura de escena'],pvDeckReset:['Reset layout','Restablecer disposición'],pvDeckOrderReset:['Reset view order','Restablecer orden'],pvDeckDragHint:pvDeckMode==='floating'?['Drag view headers freely; resize from any edge or corner','Arrastra libremente las cabeceras; redimensiona desde cualquier borde o esquina']:['Drag view headers to reorder','Arrastra las cabeceras para reordenar']};
   for(const [id,[en,es]] of Object.entries(pairs)){const e=pvEl(id);if(e&&e.textContent!==pvFocusLabel(en,es))e.textContent=pvFocusLabel(en,es)}
   const modes=pvEl('pvDeckMode'),heights=pvEl('pvDeckHeight');
   const modeLabels=[['auto','Automatic','Automática'],['two','Two columns','Dos columnas'],['row','Widest safe row','Fila más amplia posible'],['floating','Floating windows','Ventanas flotantes']];
@@ -545,7 +558,13 @@ function pvStyles(){
     '#fcViewGrid.pvFloating>.pvViewport .fcViewportCaption{flex:0 1 auto;max-height:26%;overflow:auto}',
     '#fcViewGrid .pvFloatResize,#fcViewGrid .pvFloatMin,#fcViewGrid .pvFloatRestore,.pvFullExit{display:none}',
     '#fcViewGrid.pvFloating .pvFloatMin{display:inline-flex}',
-    '#fcViewGrid.pvFloating .pvFloatResize{display:block;position:absolute;bottom:2px;right:2px;z-index:15;cursor:nwse-resize;touch-action:none;width:28px;height:28px}',
+    '#fcViewGrid.pvFloating .pvFloatResize{display:block;position:absolute;z-index:15;touch-action:none;padding:0;border:0;background:transparent;border-radius:0}',
+    '#fcViewGrid.pvFloating .pvFloatResize:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;background:var(--panel2)}',
+    '#fcViewGrid.pvFloating .pvFloatResize:is([data-edge=n],[data-edge=s]){left:16px;right:16px;height:7px;cursor:ns-resize}',
+    '#fcViewGrid.pvFloating .pvFloatResize:is([data-edge=w],[data-edge=e]){top:16px;bottom:16px;width:7px;cursor:ew-resize}',
+    '#fcViewGrid.pvFloating .pvFloatResize[data-edge=n]{top:0}#fcViewGrid.pvFloating .pvFloatResize[data-edge=s]{bottom:0}#fcViewGrid.pvFloating .pvFloatResize[data-edge=w]{left:0}#fcViewGrid.pvFloating .pvFloatResize[data-edge=e]{right:0}',
+    '#fcViewGrid.pvFloating .pvFloatResize:is([data-edge=nw],[data-edge=ne],[data-edge=sw],[data-edge=se]){width:16px;height:16px}',
+    '#fcViewGrid.pvFloating .pvFloatResize[data-edge=nw]{top:0;left:0;cursor:nwse-resize}#fcViewGrid.pvFloating .pvFloatResize[data-edge=ne]{top:0;right:0;cursor:nesw-resize}#fcViewGrid.pvFloating .pvFloatResize[data-edge=sw]{bottom:0;left:0;cursor:nesw-resize}#fcViewGrid.pvFloating .pvFloatResize[data-edge=se]{bottom:0;right:0;cursor:nwse-resize;color:var(--text)}',
     '#fcViewGrid.pvFloating .fcMoveHandle{cursor:move;touch-action:none}',
     '#fcViewGrid.pvFloating .pvGrip,#fcViewGrid.pvFloating .pvSizeMenu{display:none!important}',
     '#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized{height:48px!important}',
@@ -564,7 +583,8 @@ function pvStyles(){
     '.pvDeckBar .btn{min-height:36px;white-space:normal;flex:0 1 auto}',
     '.pvDeckBar .smallnote{margin-left:auto;align-self:center}',
     '#fcViewGrid.pvFocus>.pvViewport:not(.pvFocusTarget){display:none!important}',
-    '#fcViewGrid.pvFocus>.pvFocusTarget{grid-column:1/-1!important}',
+    '#fcViewGrid.pvFocus>.pvFocusTarget{grid-column:1/-1!important;width:100%!important;max-width:none!important}',
+    '#fcViewGrid.pvFocus>.pvFocusTarget:not(:fullscreen) .fcViewportScene{height:max(340px,calc(100vh - 260px))!important}',
     '#fcViewGrid .pvActions{display:flex;flex-wrap:wrap;gap:4px;align-items:center}',
     '#fcViewGrid .pvSizeMenu{min-width:0;max-width:100%}',
     '#fcViewGrid .pvSizeMenu>summary{cursor:pointer;box-sizing:border-box;display:flex;align-items:center;min-height:30px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:var(--panel);font-size:10px;font-weight:750;white-space:nowrap}',
