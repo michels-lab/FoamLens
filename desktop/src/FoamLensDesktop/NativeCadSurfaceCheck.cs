@@ -20,7 +20,7 @@ internal static class NativeCadSurfaceCheck
     private static string WslScript => NativeCartesianMesh.FoundationLoader()+"""
         command -v surfaceCheck >/dev/null || exit 127
         cd "$(dirname "$1")"
-        surfaceCheck -checkSelfIntersection "$1"
+        timeout --kill-after=5s 65s surfaceCheck -checkSelfIntersection "$1"
         """;
 
     internal sealed record Report(
@@ -28,6 +28,7 @@ internal static class NativeCadSurfaceCheck
         string Runner,
         string Distribution,
         string RequestedVersion,
+        string InputSha256,
         bool Executed,
         int ExitCode,
         int TriangleCount,
@@ -103,6 +104,8 @@ internal static class NativeCadSurfaceCheck
                 "WSL is not installed. OpenFOAM surfaceCheck requires an installed default WSL distribution.");
 
         var distribution=NativeCartesianMesh.ResolveDistribution(requestedDistribution,NativeCartesianMesh.InstalledDistributions());
+        var preflight=await NativeCartesianMesh.ProbeSelectedAsync(wsl,distribution,version,cancellationToken);
+        NativeCartesianMesh.RequireTools(preflight,"surfaceCheck");
         var directory = Path.Combine(Path.GetTempPath(), "foamlens-cad-check-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
@@ -135,6 +138,7 @@ internal static class NativeCadSurfaceCheck
                 Runner: "Selected WSL distribution (Foundation OpenFOAM)",
                 Distribution: distribution,
                 RequestedVersion: version,
+                InputSha256: Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data)).ToLowerInvariant(),
                 Executed: result.ExitCode != 127,
                 ExitCode: result.ExitCode,
                 TriangleCount: triangleCount,

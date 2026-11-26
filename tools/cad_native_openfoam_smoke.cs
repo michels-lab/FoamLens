@@ -17,8 +17,8 @@ Directory.CreateDirectory(output);
 if(suite!="snappy"){
     var probe=await NativeCadSurfaceCheck.RunProcessAsync("/bin/bash",output,new[]{"-lc",NativeCartesianMesh.ProbeScript(),"foamlens-wsl-probe","unused",version},TimeSpan.FromSeconds(30),CancellationToken.None);
     File.WriteAllText(Path.Combine(output,"environment-preflight.log"),probe.Stdout+"\n"+probe.Stderr);
-    var lines=probe.Stdout.Split('\n',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries);
-    if(probe.ExitCode!=0||probe.Truncated||!lines.Contains("project=OpenFOAM")||!lines.Contains("version="+version)||new[]{"blockMesh","checkMesh","gmshToFoam","splitMeshRegions","timeout"}.Any(t=>!lines.Contains(t+"=available")))throw new InvalidOperationException("Foundation environment preflight failed.");
+    var parsed=NativeCartesianMesh.ParsePreflight(probe,version);
+    NativeCartesianMesh.RequireTools(parsed,"blockMesh",true);NativeCartesianMesh.RequireTools(parsed,"gmshToFoam",true);NativeCartesianMesh.RequireTools(parsed,"surfaceCheck");
     if(Directory.Exists(Path.Combine(output,"constant"))||Directory.Exists(Path.Combine(output,"system")))throw new InvalidOperationException("Preflight wrote case staging directories.");
     Console.WriteLine("PASS native Foundation environment preflight "+version);
 }

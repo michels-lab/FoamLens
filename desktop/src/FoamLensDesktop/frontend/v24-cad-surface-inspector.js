@@ -750,7 +750,7 @@ function cgNativeSurfaceCheckRequest(bytes){
     timer=setTimeout(()=>{
       cancel();
       finish(new Error('Native surfaceCheck did not respond before timeout.'));
-    },110000);
+    },150000);
     try{
       webview.postMessage({
         type:'runCadSurfaceCheck',requestId,stlBase64:cgBytesToBase64(bytes),version:document.getElementById('cgNativeVersion')?.value||'14',distribution:document.getElementById('cgNativeDistribution')?.value||''
