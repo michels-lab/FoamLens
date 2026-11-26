@@ -4,7 +4,19 @@
 const pvViews={fvViewport:'A',fcViewport:'B',fcExtra3Viewport:'C',fcExtra4Viewport:'D',fcDifferenceViewport:'Δ'};
 const pvKey='foamlens.field.f2.viewheights.v1';
 const pvDeckKey='foamlens.field.comparison.deck.v1';
-const pvDeckModes=['auto','two','row'];
+const pvDeckModes=['auto','two','row','floating'];
+// Local CSS-pixel coordinates; floating positions never change scientific source identity.
+function pvFloatRect(raw,width){
+  const w=Math.max(1,Math.floor(Number(width)||1)),minW=Math.min(320,w);
+  const finite=(value,fallback)=>Number.isFinite(Number(value))?Number(value):fallback;
+  const clamp=(n,a,b)=>Math.round(Math.max(a,Math.min(b,n)));
+  const rw=clamp(finite(raw?.w,Math.min(640,w)),minW,w);
+  return{x:clamp(finite(raw?.x,0),0,Math.max(0,w-rw)),y:clamp(finite(raw?.y,0),0,2400),
+    w:rw,h:clamp(finite(raw?.h,540),300,1400),z:clamp(finite(raw?.z,1),1,10000)};
+}
+function pvFloatMove(rect,dx,dy,width,resize=false){
+  return pvFloatRect(resize?{...rect,w:Math.min(width-rect.x,rect.w+dx),h:rect.h+dy}:{...rect,x:rect.x+dx,y:rect.y+dy},width)
+}
 function pvDeckColumns(mode,count,width){
   if(!Number.isFinite(count)||count<1)return 1;
   if(width<700)return 1;
@@ -87,7 +99,7 @@ function pvGridRowAudit(grid,items,panelWidth,deckMode='auto'){
   // after its padding/borders. The audit must use the same breakpoint basis.
   const n=active.length,width=Number.isFinite(pvNumber(panelWidth))&&panelWidth>0?
     Number(panelWidth):rect.width;
-  const expectedColumns=pvDeckColumns(deckMode,n,width);
+  const expectedColumns=deckMode==='floating'?0:pvDeckColumns(deckMode,n,width);
   const tops=[];
   for(const entry of active){
     const top=entry.rect.top;
@@ -96,7 +108,7 @@ function pvGridRowAudit(grid,items,panelWidth,deckMode='auto'){
   const rows=tops.length,issues=[];
   for(const item of active)if(item.rect.left<rect.left-4||item.rect.right>rect.right+4)
     issues.push({type:'viewport-overflows-grid',severity:'error',view:item.id});
-  if(n&&rows>Math.ceil(n/Math.max(1,expectedColumns)))
+  if(deckMode!=='floating'&&n&&rows>Math.ceil(n/Math.max(1,expectedColumns)))
     issues.push({type:n===4&&expectedColumns===4?'wide-quad-wrapped':'unexpected-extra-grid-row',
       severity:'error',expectedColumns,rows});
   return{state:issues.length?'layout-conflict':'no-observed-conflict',
@@ -106,6 +118,75 @@ function pvGridRowAudit(grid,items,panelWidth,deckMode='auto'){
 function pvEl(id){return document.getElementById(id)}
 let pvHeights={},pvFocus=null,pvFrame=0,pvObserver=null,pvObservedGrid=null,pvEscapeGrid=null,pvLast=null;
 let pvDeckMode='auto',pvDeckHeight='balanced',pvDeckRO=null,pvDeckPanel=null;
+const pvFloatKey='foamlens.field.floating.geometry.v1';
+let pvFloating={},pvFloatMinimized=new Set(),pvFloatZ=1;
+function pvFloatLoad(){
+  try{const p=JSON.parse(localStorage.getItem(pvFloatKey)||'{}');if(p.schema!==1)return;
+    pvFloating=Object.fromEntries(Object.entries(p.rects||{}).filter(([id,r])=>pvViews[id]&&r&&['x','y','w','h','z'].every(k=>Number.isFinite(r[k]))).map(([id,r])=>[id,pvFloatRect(r,10000)]));
+    pvFloatZ=Math.max(1,...Object.values(pvFloating).map(r=>r.z));
+  }catch{pvFloating={}}
+}
+function pvFloatSave(){try{localStorage.setItem(pvFloatKey,JSON.stringify({schema:1,rects:pvFloating}))}catch{}}
+function pvFloatActive(grid){return !!grid&&pvDeckMode==='floating'&&!pvFocus&&!document.fullscreenElement}
+function pvFloatWidth(grid){return Math.max(1,Math.floor(grid.clientWidth||grid.getBoundingClientRect().width||1))}
+function pvFloatSet(view,r){
+  const grid=pvEl('fcViewGrid');if(!grid||!pvViews[view.id])return;
+  const rect=pvFloatRect(r,pvFloatWidth(grid));pvFloating[view.id]=rect;
+  for(const [key,value] of Object.entries(rect))view.style.setProperty('--pvFloat'+key.toUpperCase(),key==='z'?String(value):value+'px');
+  const live=[...grid.children].filter(v=>pvViews[v.id]&&!v.classList.contains('hidden'));
+  const bottom=Math.max(0,...live.map(v=>{const q=pvFloating[v.id];return q?q.y+(pvFloatMinimized.has(v.id)?48:q.h):0}));
+  grid.style.setProperty('--pvFloatExtent',Math.max(480,window.innerHeight-210,bottom+12)+'px');
+  pvRedraw()
+}
+function pvFloatFront(view){
+  if(!pvFloatActive(view.parentElement)||!pvFloating[view.id])return;
+  if(pvFloatZ>=9900){const entries=Object.entries(pvFloating).sort((a,b)=>a[1].z-b[1].z);pvFloatZ=0;for(const [id,r] of entries){r.z=++pvFloatZ;pvEl(id)?.style.setProperty('--pvFloatZ',String(r.z))}}
+  pvFloatSet(view,{...pvFloating[view.id],z:++pvFloatZ});pvFloatSave()
+}
+function pvFloatApply(grid,views){
+  const active=pvFloatActive(grid);if(grid.classList.contains('pvFloating')!==active)grid.classList.toggle('pvFloating',active);
+  if(!active){grid.style.removeProperty('--pvFloatExtent');return}
+  const width=pvFloatWidth(grid);if(width<2)return;
+  views.forEach((v,i)=>{const rect=pvFloating[v.id]||{x:Math.min(i*32,width-320),y:i*30,w:Math.min(width,Math.max(420,Math.floor(width*.65))),h:560,z:i+1};
+    pvFloatZ=Math.max(pvFloatZ,rect.z);pvFloatSet(v,rect);
+    if(v.classList.contains('pvFloatMinimized')!==pvFloatMinimized.has(v.id))v.classList.toggle('pvFloatMinimized',pvFloatMinimized.has(v.id));
+  })
+}
+function pvFloatBind(handle,view,resize=false){
+  if(!handle)return;let gesture=null;
+  handle.addEventListener('pointerdown',e=>{
+    if(!pvFloatActive(view.parentElement)||e.button!==0||e.isPrimary===false||!pvFloating[view.id])return;
+    e.preventDefault();e.stopImmediatePropagation();pvFloatFront(view);
+    gesture={id:e.pointerId,x:e.clientX,y:e.clientY,start:{...pvFloating[view.id]}};handle.setPointerCapture?.(e.pointerId)
+  },true);
+  handle.addEventListener('pointermove',e=>{
+    if(!gesture||gesture.id!==e.pointerId)return;e.preventDefault();e.stopImmediatePropagation();
+    pvFloatSet(view,pvFloatMove(gesture.start,e.clientX-gesture.x,e.clientY-gesture.y,pvFloatWidth(view.parentElement),resize))
+  },true);
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])handle.addEventListener(type,e=>{
+    if(!gesture||gesture.id!==e.pointerId)return;const g=gesture;gesture=null;e.stopImmediatePropagation();
+    if(type==='pointerup')pvFloatSet(view,pvFloatMove(g.start,e.clientX-g.x,e.clientY-g.y,pvFloatWidth(view.parentElement),resize));
+    else pvFloatSet(view,g.start);
+    pvFloatSave()
+  },true);
+  handle.addEventListener('keydown',e=>{
+    if(!pvFloatActive(view.parentElement)||!pvFloating[view.id]||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
+    e.preventDefault();e.stopImmediatePropagation();
+    const d=e.shiftKey?40:10;pvFloatSet(view,pvFloatMove(pvFloating[view.id],e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0,pvFloatWidth(view.parentElement),resize));pvFloatSave()
+  },true)
+}
+async function pvToggleFullscreen(view){
+  try{
+    if(document.fullscreenElement){await document.exitFullscreen();return}
+    if(typeof view.requestFullscreen!=='function')throw Error(pvFocusLabel('Fullscreen is unavailable','Pantalla completa no disponible'));
+    await view.requestFullscreen();
+  }catch(e){const status=pvEl('pvDeckStatus');if(status)status.textContent=String(e.message||e)}
+}
+function pvFullscreenSync(){
+  const full=document.fullscreenElement;
+  if(full&&pvViews[full.id]){full.querySelector('.pvFullExit')?.focus?.({preventScroll:true});pvRedraw()}
+  else{pvApplyDeck();pvRedraw()}
+}
 function pvSave(){try{localStorage.setItem(pvKey,JSON.stringify({schema:1,heights:pvHeights}))}catch{}}
 function pvLoad(){
   try{const x=JSON.parse(localStorage.getItem(pvKey)||'{}');
@@ -248,7 +329,7 @@ function pvAudit(){
     limitations:[
       'No other screen width, DPI scale, monitor or installed Windows Setup/Portable is measured unless independently run there.',
       'DOM overlays are classified inside the canvas scene and XYZ/legend annotations inside their own caption; neither classification proves OpenFOAM numerical accuracy.',
-      'The existing Field renderer owns camera, source, timeline, mesh and export state; this extension changes CSS panel height/focus only.',
+      'The existing Field renderer owns camera, source, timeline, mesh and export state; floating and fullscreen affect view geometry only.',
       'Canvas buffer differences may be transient during resizing or screenshot export.',
       'No case names, scientific values, private source paths, screenshots or file contents are saved.'
     ]};
@@ -342,7 +423,15 @@ function pvMountViewport(viewport){
     size.open=false;summary.focus()
   });
   div.append(size);
-  toolbar.appendChild(div);
+  const full=document.createElement('button');full.type='button';full.dataset.pvControl='fullscreen';
+  full.textContent=pvFocusLabel('Full screen','Pantalla completa');full.title=full.textContent;full.onclick=()=>pvToggleFullscreen(viewport);div.append(full);
+  const mini=document.createElement('button');mini.type='button';mini.className='pvFloatMin';mini.textContent=pvFocusLabel('Minimize','Minimizar');
+  mini.onclick=()=>{if(!pvFloatActive(viewport.parentElement))return;if(pvFloatMinimized.has(viewport.id))pvFloatMinimized.delete(viewport.id);else pvFloatMinimized.add(viewport.id);pvFloatApply(viewport.parentElement,[...viewport.parentElement.children].filter(v=>pvViews[v.id]&&!v.classList.contains('hidden')));mini.textContent=pvFloatMinimized.has(viewport.id)?pvFocusLabel('Restore','Restaurar'):pvFocusLabel('Minimize','Minimizar')};
+  div.append(mini);toolbar.appendChild(div);
+  const exit=document.createElement('button');exit.type='button';exit.className='pvFullExit';exit.textContent=pvFocusLabel('Exit full screen (Esc)','Salir de pantalla completa (Esc)');exit.onclick=()=>pvToggleFullscreen(viewport);scene.appendChild(exit);
+  const resize=document.createElement('button');resize.type='button';resize.className='pvFloatResize';resize.textContent='↘';resize.setAttribute('aria-label',pvFocusLabel('Resize floating view','Redimensionar vista flotante'));viewport.appendChild(resize);
+  pvFloatBind(toolbar.querySelector('.fcMoveHandle'),viewport);pvFloatBind(resize,viewport,true);
+  viewport.addEventListener('pointerdown',()=>pvFloatFront(viewport),true);
   pvSyncFocusButtons();
   const grip=document.createElement('div');grip.className='pvGrip';grip.tabIndex=0;
   grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','horizontal');
@@ -387,13 +476,14 @@ function pvApplyDeck(){
   for(const v of Array.from(grid.children).filter(x=>pvViews[x.id]))css(v,'--pvDeckHeight',height===null?null:height+'px');
   const count=pvEl('pvDeckStatus');
   if(count){const msg=pvFocus?pvFocusLabel('Focused view','Vista maximizada'):
-    n+' '+pvFocusLabel(n===1?'view':'views',n===1?'vista':'vistas')+' · '+cols+' '+pvFocusLabel(cols===1?'column':'columns',cols===1?'columna':'columnas');
+    n+' '+pvFocusLabel(n===1?'view':'views',n===1?'vista':'vistas')+' · '+(pvDeckMode==='floating'?pvFocusLabel('Floating','Flotante'):cols+' '+pvFocusLabel(cols===1?'column':'columns',cols===1?'columna':'columnas'));
     if(count.textContent!==msg)count.textContent=msg;
   }
   const mode=pvEl('pvDeckMode'),heightSelect=pvEl('pvDeckHeight');
   if(mode&&mode.value!==pvDeckMode)mode.value=pvDeckMode;
   if(heightSelect&&heightSelect.value!==pvDeckHeight)heightSelect.value=pvDeckHeight;
-  pvAlignToolbars(grid,views,cols);
+  pvFloatApply(grid,views);
+  pvAlignToolbars(grid,views,pvDeckMode==='floating'?1:cols);
   if(changed)pvRedraw()
 }
 function pvAlignToolbars(grid,views,cols){
@@ -409,10 +499,10 @@ function pvAlignToolbars(grid,views,cols){
 }
 function pvDeckLabels(){
   const bar=pvEl('pvDeckBar');if(!bar)return;
-  const pairs={pvDeckLabel:['Comparison layout','Disposición de comparación'],pvDeckModeLabel:['Arrangement','Distribución'],pvDeckHeightLabel:['Scene height','Altura de escena'],pvDeckReset:['Reset layout','Restablecer disposición'],pvDeckOrderReset:['Reset view order','Restablecer orden'],pvDeckDragHint:['Drag view headers to reorder','Arrastra las cabeceras para reordenar']};
+  const pairs={pvDeckLabel:['Comparison layout','Disposición de comparación'],pvDeckModeLabel:['Arrangement','Distribución'],pvDeckHeightLabel:['Scene height','Altura de escena'],pvDeckReset:['Reset layout','Restablecer disposición'],pvDeckOrderReset:['Reset view order','Restablecer orden'],pvDeckDragHint:pvDeckMode==='floating'?['Drag view headers freely; resize from lower-right corner','Arrastra libremente las cabeceras; cambia tamaño desde la esquina inferior derecha']:['Drag view headers to reorder','Arrastra las cabeceras para reordenar']};
   for(const [id,[en,es]] of Object.entries(pairs)){const e=pvEl(id);if(e&&e.textContent!==pvFocusLabel(en,es))e.textContent=pvFocusLabel(en,es)}
   const modes=pvEl('pvDeckMode'),heights=pvEl('pvDeckHeight');
-  const modeLabels=[['auto','Automatic','Automática'],['two','Two columns','Dos columnas'],['row','Widest safe row','Fila más amplia posible']];
+  const modeLabels=[['auto','Automatic','Automática'],['two','Two columns','Dos columnas'],['row','Widest safe row','Fila más amplia posible'],['floating','Floating windows','Ventanas flotantes']];
   const heightLabels=[['individual','Independent','Independiente'],['compact','Compact / equal','Compacta / igual'],['balanced','Balanced / equal','Equilibrada / igual'],['large','Large / equal','Grande / igual']];
   for(const [select,list] of [[modes,modeLabels],[heights,heightLabels]]){
     if(!select)continue;for(const [value,en,es] of list){const option=Array.from(select.options).find(x=>x.value===value);
@@ -422,14 +512,14 @@ function pvDeckLabels(){
 function pvMountDeck(grid){
   if(!grid?.parentElement||!pvEl('fieldViewPanel')||pvEl('pvDeckBar'))return;
   const bar=document.createElement('section');bar.id='pvDeckBar';bar.className='pvDeckBar';
-  bar.innerHTML='<strong id="pvDeckLabel"></strong><label class="pvDeckChoice"><span id="pvDeckModeLabel"></span><select id="pvDeckMode"><option value="auto"></option><option value="two"></option><option value="row"></option></select></label>'+
+  bar.innerHTML='<strong id="pvDeckLabel"></strong><label class="pvDeckChoice"><span id="pvDeckModeLabel"></span><select id="pvDeckMode"><option value="auto"></option><option value="two"></option><option value="row"></option><option value="floating"></option></select></label>'+
     '<label class="pvDeckChoice"><span id="pvDeckHeightLabel"></span><select id="pvDeckHeight"><option value="individual"></option><option value="compact"></option><option value="balanced"></option><option value="large"></option></select></label>'+
     '<button id="pvDeckReset" class="btn soft" type="button"></button><button id="pvDeckOrderReset" class="btn soft" type="button"></button><span id="pvDeckDragHint" class="smallnote"></span><span id="pvDeckStatus" class="smallnote" aria-live="polite"></span>';
   grid.parentElement.insertBefore(bar,grid);
-  pvEl('pvDeckMode').onchange=e=>{pvDeckMode=pvDeckModes.includes(e.target.value)?e.target.value:'auto';pvSaveDeck();pvApplyDeck()};
+  pvEl('pvDeckMode').onchange=e=>{pvDeckMode=pvDeckModes.includes(e.target.value)?e.target.value:'auto';pvSaveDeck();pvDeckLabels();pvApplyDeck()};
   pvEl('pvDeckHeight').onchange=e=>{pvDeckHeight=e.target.value;pvSaveDeck();pvApplyDeck()};
   pvEl('pvDeckReset').onclick=()=>{
-    pvDeckMode='auto';pvDeckHeight='balanced';pvHeights={};pvSave();pvSaveDeck();pvResetFocus();
+    pvDeckMode='auto';pvDeckHeight='balanced';pvHeights={};pvFloating={};pvFloatMinimized.clear();pvFloatSave();pvSave();pvSaveDeck();pvResetFocus();pvDeckLabels();
     for(const id of Object.keys(pvViews)){const v=pvEl(id);if(v){v.style.removeProperty('--pvHeight');v.style.removeProperty('--pvDeckHeight')}}
     pvApplyDeck()
   };
@@ -445,6 +535,24 @@ function pvStyles(){
     'body.appMode-field .sidebar,body.appMode-field .main,body.appMode-field #fwGrid{scrollbar-width:thin;scrollbar-color:var(--muted) var(--panel)}',
     '#fieldViewPanel.fcCompareMode #fcViewGrid[data-pv-deck-mode]:not(.pvFocus){grid-template-columns:repeat(var(--pvDeckColumns,2),minmax(0,1fr))!important;overflow-x:clip}',
     '#fcViewGrid[data-pv-deck-height=equal] .pvSizeMenu,#fcViewGrid[data-pv-deck-height=equal] .pvGrip{display:none!important}',
+    '#fcViewGrid.pvFloating:not(.pvFocus){display:block!important;position:relative;min-height:var(--pvFloatExtent,480px);overflow:visible!important;isolation:isolate}',
+    '#fcViewGrid.pvFloating:not(.pvFocus)>.pvViewport:not(.hidden){position:absolute!important;box-sizing:border-box;left:var(--pvFloatX,0px);top:var(--pvFloatY,0px);width:var(--pvFloatW,100%)!important;max-width:100%;height:var(--pvFloatH,560px);z-index:var(--pvFloatZ,1);display:flex!important;flex-direction:column;overflow:hidden;box-shadow:0 12px 28px rgba(0,0,0,.4);background:var(--panel)}',
+    '#fcViewGrid.pvFloating>.pvViewport .fcViewToolbar{min-height:0!important;max-height:42%;overflow:auto;flex:0 1 auto}',
+    '#fcViewGrid.pvFloating>.pvViewport .fcViewportScene{flex:1 1 auto!important;height:auto!important;min-height:100px!important}',
+    '#fcViewGrid.pvFloating>.pvViewport .fcViewportCaption{flex:0 1 auto;max-height:26%;overflow:auto}',
+    '#fcViewGrid .pvFloatResize,#fcViewGrid .pvFloatMin,.pvFullExit{display:none}',
+    '#fcViewGrid.pvFloating .pvFloatMin{display:inline-flex}',
+    '#fcViewGrid.pvFloating .pvFloatResize{display:block;position:absolute;bottom:2px;right:2px;z-index:15;cursor:nwse-resize;touch-action:none;width:28px;height:28px}',
+    '#fcViewGrid.pvFloating .fcMoveHandle{cursor:move;touch-action:none}',
+    '#fcViewGrid.pvFloating .pvGrip,#fcViewGrid.pvFloating .pvSizeMenu{display:none!important}',
+    '#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized{height:48px!important}',
+    '#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .fcViewportScene,#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .fcViewportCaption,#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .pvFloatResize{display:none!important}',
+    '#fcViewGrid.pvFloating>.pvViewport.pvFloatMinimized .fcViewToolbar{max-height:none;height:48px;overflow:auto}',
+    '#fcViewGrid>.pvViewport:fullscreen{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;display:flex!important;flex-direction:column;background:var(--panel);overflow:hidden!important;z-index:2147483647!important}',
+    '#fcViewGrid>.pvViewport:fullscreen .fcViewToolbar,#fcViewGrid>.pvViewport:fullscreen .pvGrip,#fcViewGrid>.pvViewport:fullscreen .pvFloatResize{display:none!important}',
+    '#fcViewGrid>.pvViewport:fullscreen .fcViewportScene{display:block!important;flex:1 1 auto!important;width:100%!important;height:auto!important;min-height:0!important}',
+    '#fcViewGrid>.pvViewport:fullscreen .fcViewportCaption{flex:0 1 auto;max-height:24vh;overflow:auto}',
+    '#fcViewGrid>.pvViewport:fullscreen .pvFullExit{display:block;position:absolute;right:12px;top:12px;z-index:30;padding:8px 12px;border-radius:8px;background:var(--panel);color:var(--text);border:1px solid var(--line)}',
     '.pvDeckBar{display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:10px 12px;margin:0 0 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}',
     '.pvDeckBar>strong{flex:0 1 auto;align-self:center;font-size:12px;color:var(--text)}',
     '.pvDeckChoice{display:grid;gap:4px;flex:1 1 160px;min-width:0;max-width:240px;font-size:11px;font-weight:700}',
@@ -505,7 +613,7 @@ function pvDiscover(){
   if(pvEscapeGrid!==grid){
     grid.addEventListener('keydown',e=>{
       if(e.key!=='Escape'||!pvFocus)return;
-      pvResetFocus();e.preventDefault?.();e.stopPropagation?.()
+      if(document.fullscreenElement)return;pvResetFocus();e.preventDefault?.();e.stopPropagation?.()
     });
     pvEscapeGrid=grid
   }
@@ -533,7 +641,7 @@ function pvDiscover(){
   return true
 }
 function pvInstall(){
-  pvHeights=pvLoad();pvLoadDeck();let attempts=0;
+  pvHeights=pvLoad();pvLoadDeck();pvFloatLoad();document.addEventListener('fullscreenchange',pvFullscreenSync);let attempts=0;
   (function seek(){if(pvDiscover())return;if(attempts++<900)requestAnimationFrame(seek)})();
   window.addEventListener('resize',()=>{
     for(const [id,value] of Object.entries(pvHeights)){const el=pvEl(id);
