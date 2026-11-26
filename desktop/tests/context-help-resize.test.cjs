@@ -18,7 +18,7 @@ test('only explicit Split receives a draggable divider',()=>{
   for(const token of [
     'uxSplitterA','role','separator','aria-orientation',
     "g.classList.contains('layout-split')",'pointerdown','pointermove','pointerup',
-    '--ux3d','--uxplot'
+    '--fwSplitFirst','fwSplitSchedule()'
   ])assert(resize.includes(token),'Missing Split divider token: '+token);
   assert(!resize.includes('uxSplitterB'),'Obsolete plot/controls divider still exists.');
   assert(!resize.includes('--uxcontrols'),'Inspector width is still encoded as a grid column.');
@@ -26,15 +26,18 @@ test('only explicit Split receives a draggable divider',()=>{
 
 test('3D focus has no splitter or controls column',()=>{
   assert(resize.includes(".fwGrid.uxResizable:not(.layout-split)>#uxSplitterA{display:none}"));
-  assert(resize.includes('grid-template-areas:"threeD splitA plot"'));
+  assert(!resize.includes('grid-template-areas:'),'Legacy divider must not create implicit grid tracks');
+  assert(!resize.includes('grid-area:threeD'),'3D must use the original Field placement');
+  assert(resize.includes('position:absolute;top:0;bottom:0;left:calc(var(--fwSplitFirst,0px) + 3px)'));
+  assert(resize.includes('[data-fw-split-arrangement="side"]:not(:has(>.fwPlotCard.companion-none))'));
   assert(!resize.includes('grid-template-areas:"threeD splitA plot splitB controls"'));
 });
 
 test('splitter drag keeps both scientific panes usable',()=>{
   for(const token of [
-    'hrClamp(uxDrag.a+d,280,total-280)',
-    'Math.max(280,Number(v.threeD))',
-    'Math.max(280,Number(v.plot))'
+    'hrClamp(100*(uxDrag.a+d)/total,30,75)',
+    'fwSplitPrefs.weight=\'custom\'',
+    'fwSplitSchedule()'
   ])assert(resize.includes(token),'Missing Split minimum-width safeguard: '+token);
 });
 
@@ -47,10 +50,9 @@ test('panel sizes use the v2 workspace persistence state',()=>{
 
 test('narrow layouts collapse Split vertically instead of forcing desktop widths',()=>{
   for(const token of [
-    "matchMedia('(max-width:900px)').matches",
+    "g.closest('.gfwCompact')",
     '@media(max-width:900px)',
-    '.uxWorkspaceSplitter{display:none!important}',
-    'grid-template-columns:1fr!important'
+    '.gfwCompact .fwGrid.uxResizable>#uxSplitterA{display:none!important}'
   ])assert(resize.includes(token),'Missing responsive Split safeguard: '+token);
 });
 

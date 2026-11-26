@@ -124,14 +124,14 @@ function fwSplitPlan(width,count,mode,weight,ratio=55){
   const desired=Math.round(usable*fraction);
   if(mode==='stack'||usable<min3D+minPlot||(mode==='auto'&&(desired<min3D||usable-desired<minPlot)))return{arrangement:'stack',columns:'minmax(0,1fr)',actual:null};
   const first=Math.max(min3D,Math.min(usable-minPlot,desired));
-  return{arrangement:'side',columns:'minmax(0,'+first+'px) minmax(0,1fr)',actual:Math.round(first/usable*100)}
+  return{arrangement:'side',columns:'minmax(0,'+first+'px) minmax(0,1fr)',actual:Math.round(first/usable*100),first}
 }
 function fwSplitApply(){
   const grid=document.getElementById('fwGrid'),card=document.getElementById('fwPlotCard');if(!grid||fwState.layout!=='split'||!card||card.hidden||card.classList.contains('companion-none'))return;
   const width=Math.floor(grid.getBoundingClientRect().width);if(width<=0)return;
   let count=1;try{if(document.getElementById('fcEnabled')?.checked)count=2+fcExtraViews.length}catch{}
   const p=fwSplitPlan(width,count,fwSplitPrefs.mode,fwSplitPrefs.weight,fwSplitPrefs.ratio),height={compact:340,medium:460,large:620}[fwSplitPrefs.height],key=p.arrangement+'|'+p.columns+'|'+height;
-  if(grid.dataset.fwSplitPlan!==key){grid.dataset.fwSplitPlan=key;grid.dataset.fwSplitArrangement=p.arrangement;grid.style.setProperty('--fwSplitColumns',p.columns);grid.style.setProperty('--fwProfileHeight',height+'px');fwScheduleRender({threeD:true,twoD:true})}
+  if(grid.dataset.fwSplitPlan!==key){grid.dataset.fwSplitPlan=key;grid.dataset.fwSplitArrangement=p.arrangement;grid.style.setProperty('--fwSplitColumns',p.columns);grid.style.setProperty('--fwSplitFirst',p.arrangement==='side'?p.first+'px':'0px');grid.style.setProperty('--fwProfileHeight',height+'px');fwScheduleRender({threeD:true,twoD:true})}
   const status=document.getElementById('fwSplitStatus');if(status){const label=p.arrangement==='side'?fwUi('Side by side','Lado a lado')+' · 3D '+p.actual+'% / '+fwUi('Profile','Perfil')+' '+(100-p.actual)+'%':fwUi('Stacked · full width','Apilado · ancho completo');if(status.textContent!==label)status.textContent=label}
   const ratio=document.getElementById('fwSplitRatio'),label=document.getElementById('fwSplitRatioLabel');if(ratio){ratio.disabled=fwSplitPrefs.mode==='stack';if(Number(ratio.value)!==fwSplitPrefs.ratio)ratio.value=String(fwSplitPrefs.ratio)}if(label)label.textContent=String(fwSplitPrefs.ratio)+'%';
 }
@@ -225,7 +225,7 @@ function fwCreateSurface(){
     .fwHeaderActions{display:flex;align-items:end;justify-content:flex-end;gap:7px;flex-wrap:wrap}.fwCompact{display:grid;gap:3px}.fwCompact label{font-size:11px;color:var(--muted);font-weight:700}.fwCompact select{min-width:120px}
     .fwSyncCheck{align-self:center;white-space:nowrap}.fwMultiHint{max-width:260px;align-self:center}.fwCompareConfig,.fwAnimationConfig{outline:1px solid color-mix(in srgb,var(--accent) 32%,transparent)}
     .fwProfilePickStatus{max-width:190px;align-self:center}.fwProfileOverlay{position:absolute;inset:0;width:100%;height:100%;z-index:22;pointer-events:none;overflow:visible}.fwProfileOverlay line{stroke:#fff2a6;stroke-width:2.5;stroke-dasharray:7 4;filter:drop-shadow(0 0 2px #000)}.fwProfileOverlay circle{fill:#ffbd2e;stroke:#111;stroke-width:2}.fwProfileOverlay text{font-size:11px;font-weight:900;fill:#fff7c9;stroke:#111;stroke-width:3;paint-order:stroke}.fwCompact input[type="number"]{width:82px}
-    .fwGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start;min-width:0}
+    .fwGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start;min-width:0;position:relative;width:100%;box-sizing:border-box}
     .fwGrid.layout-split{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
     #fwGrid.layout-split[data-fw-split-arrangement]:not(:has(>.fwPlotCard.companion-none)){grid-template-columns:var(--fwSplitColumns,minmax(0,1fr))!important}
     .fwSplitControls{display:none;flex-wrap:wrap;align-items:end;gap:6px;padding:8px;border-bottom:1px solid var(--line);min-width:0}.fwGrid.layout-split .fwSplitControls{display:flex}.fwSplitControls label{display:grid;gap:4px;flex:1 1 105px;min-width:0;font-size:11px;color:var(--muted)}.fwSplitControls select{min-width:0;width:100%;font-size:12px} .fwSplitControls .fwSplitRatioControl{flex:1 1 130px}.fwSplitRatioControl input{width:100%;min-width:0;accent-color:var(--accent)}.fwSplitControls .smallnote{flex:1 1 100%}.fwGrid.layout-split .fwCompanionHost{min-height:var(--fwProfileHeight,460px);overflow:hidden}.fwGrid.layout-split .fwCompanionHost .chartwrap{height:var(--fwProfileHeight,460px)!important;min-height:0!important}

@@ -11,8 +11,12 @@ function hrSizes(){
 }
 function hrApplySizes(v){
   const g=hrGrid();if(!g||!v)return false;
-  if(Number(v.threeD)>0)g.style.setProperty('--ux3d',Math.max(280,Number(v.threeD))+'px');
-  if(Number(v.plot)>0)g.style.setProperty('--uxplot',Math.max(280,Number(v.plot))+'px');
+  // Legacy session sizes are retained as a ratio, never absolute grid tracks.
+  // The modern Field planner owns the layout; no phantom implicit columns.
+  if(Number(v.threeD)>0&&Number(v.plot)>0&&typeof fwSplitPrefs!=='undefined'&&fwSplitPrefs.weight==='custom'){
+    fwSplitPrefs.ratio=hrClamp(100*Number(v.threeD)/(Number(v.threeD)+Number(v.plot)),30,75);
+    fwSplitSchedule();
+  }
   return true
 }
 function hrResetSizes(){const g=hrGrid();if(!g)return;for(const p of ['--ux3d','--uxplot'])g.style.removeProperty(p)}
@@ -25,15 +29,16 @@ function hrInstallSplitter(){
   const h=document.createElement('div');h.id='uxSplitterA';h.className='uxWorkspaceSplitter';h.tabIndex=0;h.setAttribute('role','separator');h.setAttribute('aria-orientation','vertical');h.setAttribute('aria-label',hrUi('Resize 3D / plot','Redimensionar 3D / gráfica'));h.title=hrUi('Resize 3D / plot','Redimensionar 3D / gráfica');
   const plot=document.querySelector('#fwGrid .fwPlotCard');plot?g.insertBefore(h,plot):g.appendChild(h);
   h.addEventListener('pointerdown',e=>{
-    if(matchMedia('(max-width:900px)').matches||!g.classList.contains('layout-split'))return;
+    if(!g.classList.contains('layout-split')||g.dataset.fwSplitArrangement!=='side'||g.querySelector('.fwPlotCard.companion-none')||g.closest('.gfwCompact'))return;
     e.preventDefault();const a=document.querySelector('.fw3DCard')?.getBoundingClientRect(),b=document.querySelector('.fwPlotCard')?.getBoundingClientRect();
     uxDrag={x:e.clientX,a:a?.width||0,b:b?.width||0};e.currentTarget.setPointerCapture?.(e.pointerId);document.body.classList.add('uxResizing')
   });
   window.addEventListener('pointermove',e=>{
-    if(!uxDrag)return;const g=hrGrid();if(!g?.classList.contains('layout-split'))return;const d=e.clientX-uxDrag.x,total=uxDrag.a+uxDrag.b,na=hrClamp(uxDrag.a+d,280,total-280),nb=total-na;
-    g.style.setProperty('--ux3d',na+'px');g.style.setProperty('--uxplot',nb+'px');try{fvRender()}catch{};try{draw()}catch{}
+    if(!uxDrag)return;const g=hrGrid();if(!g?.classList.contains('layout-split'))return;const d=e.clientX-uxDrag.x,total=uxDrag.a+uxDrag.b;if(total<=0||g.dataset.fwSplitArrangement!=='side'||g.closest('.gfwCompact'))return;
+    fwSplitPrefs.weight='custom';fwSplitPrefs.ratio=hrClamp(100*(uxDrag.a+d)/total,30,75);
+    const choice=document.getElementById('fwSplitWeight');if(choice)choice.value='custom';fwSplitSchedule();
   });
-  const end=()=>{if(!uxDrag)return;uxDrag=null;document.body.classList.remove('uxResizing');hrPersist()};
+  const end=()=>{if(!uxDrag)return;uxDrag=null;document.body.classList.remove('uxResizing');fwSplitSave();hrPersist()};
   window.addEventListener('pointerup',end);window.addEventListener('pointercancel',end);
   const saved=hrLoadState().panelSizes;if(saved)hrApplySizes(saved)
 }
@@ -57,7 +62,7 @@ function hrInstallHelp(){
   if(document.getElementById('hrHelpOverlay'))return;const overlay=document.createElement('div');overlay.id='hrHelpOverlay';overlay.className='hrHelpOverlay';overlay.setAttribute('aria-hidden','true');overlay.innerHTML='<section class="hrHelpDialog" role="dialog" aria-modal="true" aria-labelledby="hrHelpTitle"><div class="hrHelpHead"><div><span>'+hrUi('Contextual help','Ayuda contextual')+'</span><h2 id="hrHelpTitle">FoamLens</h2></div><button class="btn tiny" id="hrHelpClose" type="button" aria-label="'+hrUi('Close help','Cerrar ayuda')+'">×</button></div><div id="hrHelpBody"></div></section>';document.body.appendChild(overlay);document.getElementById('hrHelpClose').onclick=hrCloseHelp;overlay.addEventListener('click',e=>{if(e.target===overlay)hrCloseHelp()});document.addEventListener('keydown',e=>{if(e.key==='Escape')hrCloseHelp();if(e.key==='?'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){e.preventDefault();hrOpenHelp()}})
 }
 function hrInstallStyles(){
-  if(document.getElementById('hrWorkspaceStyles'))return;const style=document.createElement('style');style.id='hrWorkspaceStyles';style.textContent='.fwGrid.uxResizable.layout-split{grid-template-columns:minmax(280px,var(--ux3d,1fr)) 6px minmax(280px,var(--uxplot,1fr));grid-template-areas:"threeD splitA plot";column-gap:6px}.fwGrid.uxResizable>.fw3DCard{grid-area:threeD}.fwGrid.uxResizable>.fwPlotCard{grid-area:plot}.fwGrid.uxResizable>#uxSplitterA{grid-area:splitA}.fwGrid.uxResizable:not(.layout-split)>#uxSplitterA{display:none}.uxWorkspaceSplitter{width:6px;min-height:460px;border-radius:999px;background:color-mix(in srgb,var(--line) 78%,transparent);cursor:col-resize;align-self:stretch;position:relative}.uxWorkspaceSplitter:hover,.uxWorkspaceSplitter:focus{background:color-mix(in srgb,var(--accent) 55%,var(--line));outline:none}.uxWorkspaceSplitter:after{content:"";position:absolute;inset:0 -4px}body.uxResizing{user-select:none;cursor:col-resize!important}.hrHelpOverlay{position:fixed;inset:0;display:none;align-items:flex-start;justify-content:flex-end;padding:94px 18px 18px;background:rgba(4,10,18,.34);backdrop-filter:blur(5px);z-index:12050}.hrHelpOverlay.open{display:flex}.hrHelpDialog{width:min(440px,94vw);max-height:calc(100vh - 120px);overflow:auto;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 24px 80px rgba(0,0,0,.28);padding:15px}.hrHelpHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px}.hrHelpHead span{font-size:8px;color:var(--accent);font-weight:900;text-transform:uppercase;letter-spacing:.1em}.hrHelpHead h2{margin:2px 0 0;font-size:18px}.hrHelpCopy h3{margin:14px 0 5px;font-size:15px}.hrHelpCopy p,.hrHelpCopy li{font-size:9px;line-height:1.55;color:var(--muted)}.hrHelpCopy ol{padding-left:20px}.hrHelpTip{display:grid;gap:3px;margin-top:12px;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-size:9px}.hrHelpTip b{color:var(--accent)}@media(max-width:900px){.fwGrid.uxResizable,.fwGrid.uxResizable.layout-split{grid-template-columns:1fr!important;grid-template-areas:"threeD" "plot"!important;gap:12px}.uxWorkspaceSplitter{display:none!important}}';document.head.appendChild(style)
+  if(document.getElementById('hrWorkspaceStyles'))return;const style=document.createElement('style');style.id='hrWorkspaceStyles';style.textContent='.fwGrid.uxResizable>#uxSplitterA{display:none;position:absolute;top:0;bottom:0;left:calc(var(--fwSplitFirst,0px) + 3px);z-index:2;min-height:0}.fwGrid.uxResizable.layout-split[data-fw-split-arrangement="side"]:not(:has(>.fwPlotCard.companion-none))>#uxSplitterA{display:block}.gfwCompact .fwGrid.uxResizable>#uxSplitterA{display:none!important}.fwGrid.uxResizable:not(.layout-split)>#uxSplitterA{display:none}.uxWorkspaceSplitter{width:6px;min-height:460px;border-radius:999px;background:color-mix(in srgb,var(--line) 78%,transparent);cursor:col-resize;align-self:stretch;position:relative}.uxWorkspaceSplitter:hover,.uxWorkspaceSplitter:focus{background:color-mix(in srgb,var(--accent) 55%,var(--line));outline:none}.uxWorkspaceSplitter:after{content:"";position:absolute;inset:0 -4px}body.uxResizing{user-select:none;cursor:col-resize!important}.hrHelpOverlay{position:fixed;inset:0;display:none;align-items:flex-start;justify-content:flex-end;padding:94px 18px 18px;background:rgba(4,10,18,.34);backdrop-filter:blur(5px);z-index:12050}.hrHelpOverlay.open{display:flex}.hrHelpDialog{width:min(440px,94vw);max-height:calc(100vh - 120px);overflow:auto;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 24px 80px rgba(0,0,0,.28);padding:15px}.hrHelpHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px}.hrHelpHead span{font-size:8px;color:var(--accent);font-weight:900;text-transform:uppercase;letter-spacing:.1em}.hrHelpHead h2{margin:2px 0 0;font-size:18px}.hrHelpCopy h3{margin:14px 0 5px;font-size:15px}.hrHelpCopy p,.hrHelpCopy li{font-size:9px;line-height:1.55;color:var(--muted)}.hrHelpCopy ol{padding-left:20px}.hrHelpTip{display:grid;gap:3px;margin-top:12px;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-size:9px}.hrHelpTip b{color:var(--accent)}@media(max-width:900px){.fwGrid.uxResizable>#uxSplitterA{display:none!important}}';document.head.appendChild(style)
 }
 function hrInstall(){
   if(uxResizeInstalled)return true;if(!hrGrid())return false;uxResizeInstalled=true;hrInstallStyles();hrInstallSplitter();hrInstallHelp();window.FoamLensWorkspaceResize={getSizes:hrSizes,applySizes:hrApplySizes,resetSizes:hrResetSizes};window.FoamLensContextHelp={open:hrOpenHelp,close:hrCloseHelp,content:hrHelpContent};return true
