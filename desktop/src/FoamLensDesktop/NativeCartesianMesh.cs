@@ -451,6 +451,36 @@ internal static class NativeCartesianMesh
         done < expected-regions.txt
         exit 0
         """;
+    // Reuse the exact Foundation loader used by generation. No case directory,
+    // mesher, solver, package install or arbitrary command is accepted here.
+    internal static string ProbeScript()
+    {
+        const string marker = "if [ \"$3\" = gmshToFoam ]; then";
+        int end=Script.IndexOf(marker,StringComparison.Ordinal);
+        if(end<0)throw new InvalidOperationException("Foundation loader boundary missing.");
+        return Script[..end]+"""
+        printf 'project=%s\nversion=%s\n' "$WM_PROJECT" "$WM_PROJECT_VERSION"
+        for tool in blockMesh checkMesh surfaceCheck gmshToFoam splitMeshRegions snappyHexMesh surfaceFeatures foamPostProcess wmake timeout; do
+          if command -v "$tool" >/dev/null 2>&1; then printf '%s=available\n' "$tool"; else printf '%s=missing\n' "$tool"; fi
+        done
+        """;
+    }
+
+    internal static async Task<object> ProbeAsync(string version, CancellationToken token)
+    {
+        if(version is not ("13" or "14"))throw new ArgumentException("Select Foundation OpenFOAM 13 or 14.");
+        var wsl=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"wsl.exe");
+        if(!File.Exists(wsl))throw new NotSupportedException("WSL is unavailable.");
+        var output=await NativeCadSurfaceCheck.RunProcessAsync(wsl,Path.GetTempPath(),
+            new[]{"--exec","/bin/bash","-lc",ProbeScript(),"foamlens-wsl-probe","unused",version},TimeSpan.FromSeconds(30),token);
+        var names=new[]{"blockMesh","checkMesh","surfaceCheck","gmshToFoam","splitMeshRegions","snappyHexMesh","surfaceFeatures","foamPostProcess","wmake","timeout"};
+        var lines=output.Stdout.Split('\n',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries);
+        bool matched=output.ExitCode==0&&!output.Truncated&&lines.Count(x=>x=="project=OpenFOAM")==1&&lines.Count(x=>x=="version="+version)==1;
+        var tools=names.ToDictionary(n=>n,n=>matched&&lines.Count(x=>x==n+"=available")==1&&lines.Count(x=>x==n+"=missing")==0);
+        return new {schema="foamlens/wsl-foundation-preflight/1",requestedVersion=version,matched,
+            runner="default WSL distribution",tools,exitCode=output.ExitCode,outputTruncated=output.Truncated,stderr=output.Stderr,
+            originalCaseModified=false};
+    }
     internal static async Task<object> RunAsync(JsonElement root, CancellationToken token, bool gmsh = false)
     {
         var version=root.GetProperty("version").GetString();

@@ -4199,6 +4199,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "runGmshMesh":
                     await HandleRunCartesianMeshAsync(root, requestId, true);
                     break;
+                case "probeFoamMeshEnvironment":
+                    await HandleProbeFoamMeshEnvironmentAsync(root, requestId);
+                    break;
                 case "runCartesianMesh":
                     await HandleRunCartesianMeshAsync(root, requestId);
                     break;
@@ -4454,6 +4457,23 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         {
             EndOperation(requestId, operation);
         }
+    }
+
+    private async Task HandleProbeFoamMeshEnvironmentAsync(JsonElement root, string requestId)
+    {
+        var operation=BeginOperation(requestId);
+        try
+        {
+            if(root.GetRawText().Length>4096)throw new ArgumentException("Preflight request too large.");
+            var report=await NativeCartesianMesh.ProbeAsync(RequiredString(root,"version"),operation.Token);
+            Reply(requestId,true,report,null);
+        }
+        catch(OperationCanceledException){Reply(requestId,false,null,"WSL preflight cancelled.");}
+        catch(ArgumentException ex){Reply(requestId,false,null,ex.Message);}
+        catch(NotSupportedException ex){Reply(requestId,false,null,ex.Message);}
+        catch(TimeoutException ex){Reply(requestId,false,null,ex.Message);}
+        catch(Exception ex){Log("Native WSL preflight failed: "+ex.GetType().Name);Reply(requestId,false,null,"WSL preflight failed; no case modified.");}
+        finally{EndOperation(requestId,operation);}
     }
 
     private async Task HandleRunCartesianMeshAsync(JsonElement root, string requestId, bool gmsh = false)
