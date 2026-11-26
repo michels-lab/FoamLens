@@ -9,10 +9,10 @@
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "Block 3 source integrated in main; v1.8.24 release intent, publication pending",
-  "source_pr": "https://github.com/michels-lab/FoamLens/pull/381",
-  "source_head_sha": "fb1aea5478588267a4d4eb914abfe1c4ee747686",
-  "latest_verified_stable": "v1.8.23",
+  "phase": "v1.8.24 published and independently verified; G-C 4.1 WSL preflight candidate #383",
+  "source_pr": "https://github.com/michels-lab/FoamLens/pull/383",
+  "source_head_sha": "b88df9f67f260053848c960856df862b1525f267",
+  "latest_verified_stable": "v1.8.24",
   "release_hold": false,
   "owner_physical_acceptance": false,
   "milestones": [
@@ -151,22 +151,24 @@
       ]
     }
   ],
-  "next_step": "Verify exact release-source Windows publisher and downloaded checksums; owner C3D04/C3D05 acceptance; strict refined snappy 4.3 tracked #148.",
-  "limitations": "Historical 8/15; V2 N/D. Exact PR Windows and Foundation core passed; both strict refined snappy suites failed and remain diagnostic-only. No physical acceptance or v1.8.24 publication yet.",
+  "next_step": "Validate exact native/Windows CI for #383; add explicit distribution selection and staging evidence; resolve strict snappy 4.3; owner acceptance.",
+  "limitations": "Historical 8/15, V2 N/D. v1.8.24 official verified; physical acceptance pending; preflight candidate not published, strict snappy remains diagnostic-only.",
   "last_granada": {
     "as_of": "2026-11-25",
     "progress_before": 53,
     "progress_after": 53,
     "verified_milestones": 8,
     "total_milestones": 15,
-    "source_code_sha": "fb1aea5478588267a4d4eb914abfe1c4ee747686",
-    "scope": "Merge #381 native CAD core and prepare stable v1.8.24",
+    "source_code_sha": "b88df9f67f260053848c960856df862b1525f267",
+    "scope": "Official stable v1.8.24 verified; start G-C 4.1 WSL preflight",
     "evidence": [
       "https://github.com/michels-lab/FoamLens/commit/fb1aea5478588267a4d4eb914abfe1c4ee747686",
       "https://github.com/michels-lab/FoamLens/actions/runs/45586465969",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45586465447"
+      "https://github.com/michels-lab/FoamLens/actions/runs/45586465447",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45737560786",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45738655721"
     ],
-    "pending": "Verify exact release-source Windows publisher and downloaded checksums; owner C3D04/C3D05 acceptance; strict refined snappy 4.3 tracked #148."
+    "pending": "Validate exact native/Windows CI for #383; add explicit distribution selection and staging evidence; resolve strict snappy 4.3; owner acceptance."
   },
   "roadmap_v2": {
     "document": "docs/IMPLEMENTATION_ROADMAP_V2_2026-11-24.md",
@@ -176,13 +178,11 @@
     "progress_percent": null,
     "verified_deliverables": null,
     "status": "baseline inventory pending; historical 8/15 unchanged",
-    "active_operation": "G-A/G-B",
+    "active_operation": "G-C",
     "active_deliverables": [
-      "3.1",
-      "3.2",
-      "3.3",
-      "3.4",
-      "3.5"
+      "4.1",
+      "4.2",
+      "4.3"
     ],
     "deferred": [
       "2.1–2.3 until G-F",
@@ -191,15 +191,16 @@
     ],
     "open_prs_at_planning": 13,
     "block3_candidate": {
-      "status": "Integrated in main; exact PR Windows and Foundation 13/14 core passed; release and real owner cases pending",
+      "status": "Published stable v1.8.24; independently verified; owner physical acceptance pending",
       "code_test_sha": "d81b16acd8bbbfeea7fabd43a5d49a3a020782e3",
       "evidence": [
         "https://github.com/michels-lab/FoamLens/commit/fb1aea5478588267a4d4eb914abfe1c4ee747686",
         "https://github.com/michels-lab/FoamLens/actions/runs/45586465969",
-        "https://github.com/michels-lab/FoamLens/actions/runs/45586465447"
+        "https://github.com/michels-lab/FoamLens/actions/runs/45586465447",
+        "https://github.com/michels-lab/FoamLens/actions/runs/45737560786",
+        "https://github.com/michels-lab/FoamLens/actions/runs/45738655721"
       ],
       "pending": [
-        "v1.8.24 official publication",
         "owner real C3D04/C3D05",
         "4.3 strict refined snappy remains diagnostic-only"
       ]
