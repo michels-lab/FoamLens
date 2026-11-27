@@ -70,3 +70,8 @@ Estados: M = mantenimiento/base disponible, P = parcial/candidato o función exi
 
 ## Seguimiento y definición de terminado
 Cada GRANADA cubre 3–6 paquetes relacionados si viable; no dedicar una operación solo a pruebas/documentación cuando haya código disponible. No saltar gates de publicación. Reportar ID, estado pendiente/código/CI/integrado/publicado/aceptado, SHA y siguiente paso. Si un paquete espera CI, datos locales o hardware, aparcarlo con punto de reentrada y seguir independiente. No reabrir antiguos QA-only sin necesidad ni eliminar código único. Mantener .michelslab/project-progress.json para el master: baseline 8/15 y roadmap V2 separado, sin redefinir denominador de manera silenciosa. Validación manual agrupada por flujo funcional. Mantener UI contextual y no romper baseline v1.8.23.
+
+
+## Requisito transversal permanente — escalabilidad (2026-11-27)
+
+Por mandato del propietario, todos los bloques nuevos o revisados deben seguir el contrato de escalabilidad en [AGENTS.md](../AGENTS.md#owner-mandate--scalable-scientific-processing-2026-11-27). El objetivo es eliminar topes arbitrarios mediante procesamiento por bloques, almacenamiento compacto y uso adaptativo de RAM/disco; los límites existentes siguen siendo salvaguardas temporales, no límites científicos. Las vistas previas pueden reducirse explícitamente, nunca los resultados completos sin consentimiento. G-H sigue separado como campaña de medición; ninguna escala se considera validada hasta tener evidencia real.
