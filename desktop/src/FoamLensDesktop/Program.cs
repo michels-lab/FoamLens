@@ -4238,6 +4238,9 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "runGmshMesh":
                     await HandleRunCartesianMeshAsync(root, requestId, true);
                     break;
+                case "listFoamWslDistributions":
+                    Reply(requestId,true,new {schema="foamlens/wsl-distributions/1",distributions=NativeCartesianMesh.InstalledDistributions()},null);
+                    break;
                 case "probeFoamMeshEnvironment":
                     await HandleProbeFoamMeshEnvironmentAsync(root, requestId);
                     break;
@@ -4504,7 +4507,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         try
         {
             if(root.GetRawText().Length>4096)throw new ArgumentException("Preflight request too large.");
-            var report=await NativeCartesianMesh.ProbeAsync(RequiredString(root,"version"),operation.Token);
+            var report=await NativeCartesianMesh.ProbeAsync(RequiredString(root,"version"),operation.Token,NativeCartesianMesh.RequestedDistribution(root));
             Reply(requestId,true,report,null);
         }
         catch(OperationCanceledException){Reply(requestId,false,null,"WSL preflight cancelled.");}
@@ -4544,7 +4547,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         var operation = BeginOperation(requestId);
         try
         {
-            var report = await NativeCadSurfaceCheck.RunAsync(data, operation.Token);
+            var report = await NativeCadSurfaceCheck.RunAsync(data, operation.Token,RequiredString(root,"version"),NativeCartesianMesh.RequestedDistribution(root));
             Reply(requestId, true, report, null);
         }
         catch (OperationCanceledException)
@@ -4567,7 +4570,7 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         {
             Log("Native CAD surfaceCheck failed: " + ex);
             Reply(requestId, false, null,
-                "Local surfaceCheck invocation failed. Verify the default WSL distribution " +
+                "Local surfaceCheck invocation failed. Verify the selected WSL distribution " +
                 "and OpenFOAM environment. The original case was not modified.");
         }
         finally

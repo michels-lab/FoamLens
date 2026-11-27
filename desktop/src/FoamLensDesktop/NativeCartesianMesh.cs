@@ -83,6 +83,18 @@ internal static class NativeCartesianMesh
 
     internal static void SelfTest()
     {
+        var fixture=new NativeCadSurfaceCheck.ProcessOutput(0,"project=OpenFOAM\nversion=14\nblockMesh=available\ncheckMesh=available\ntimeout=available\n","",false);
+        var probe=ParsePreflight(fixture,"14");RequireTools(probe,"blockMesh");
+        foreach(var invalid in new[]{ParsePreflight(fixture,"13"),ParsePreflight(fixture with {Truncated=true},"14"),ParsePreflight(fixture with {Stdout=fixture.Stdout+"version=13\n"},"14"),ParsePreflight(fixture with {Stdout=fixture.Stdout+"checkMesh=missing\n"},"14")})
+        {bool denied=false;try{RequireTools(invalid,"blockMesh");}catch(NotSupportedException){denied=true;}if(!denied)throw new InvalidOperationException("Invalid preflight accepted.");}
+        bool splitDenied=false;try{RequireTools(probe,"blockMesh",true);}catch(NotSupportedException){splitDenied=true;}if(!splitDenied)throw new InvalidOperationException("Missing splitMeshRegions accepted.");
+        var hashDir=Path.Combine(Path.GetTempPath(),"foamlens-input-test-"+Guid.NewGuid().ToString("N"));
+        try{Directory.CreateDirectory(hashDir);File.WriteAllText(Path.Combine(hashDir,"source.msh"),"abc");var h=HashStagingInputs(hashDir,CancellationToken.None).GetAwaiter().GetResult();if(h.Length!=1||h[0].Path!="source.msh"||h[0].Bytes!=3||h[0].Sha256!="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")throw new InvalidOperationException("Staging SHA256 mismatch.");}finally{Directory.Delete(hashDir,true);}
+        var installed=new[]{new WslDistribution("Ubuntu 24.04",true),new WslDistribution("Ubuntu-26.04",false)};
+        if(ResolveDistribution(null,installed)!="Ubuntu 24.04"||ResolveDistribution("Ubuntu-26.04",installed)!="Ubuntu-26.04")throw new InvalidOperationException("WSL selection failed.");
+        if(!WslArgs("Ubuntu 24.04","wslpath","-a","a b").SequenceEqual(new[]{"--distribution","Ubuntu 24.04","--exec","wslpath","-a","a b"}))throw new InvalidOperationException("WSL argument boundary failed.");
+        foreach(var invalid in new[]{"--exec","Ubuntu\nother","Unknown"}){bool denied=false;try{ResolveDistribution(invalid,installed);}catch(NotSupportedException){denied=true;}if(!denied)throw new InvalidOperationException("Unregistered WSL selection accepted.");}
+        if(!CommandPlan("gmshToFoam",true,false).Any(x=>x.StartsWith("splitMeshRegions"))||CommandPlan("blockMesh",false,false).Any(x=>x.StartsWith("snappyHexMesh")))throw new InvalidOperationException("Command preview mismatch.");
         if(QualityStatus(0,"Failed 1 mesh checks.\n")!="checks-failed"||QualityStatus(0,"Mesh OK.\n")!="mesh-ok-reported"||QualityStatus(0,"End\n")!="undetermined"||QualityStatus(1,"Mesh OK.\n")!="command-failed"||QualityStatus(0,"Mesh OK.\n[truncated]")!="undetermined"||QualityStatus(0,"Mesh OK.\nFailed 2 mesh checks.\n")!="checks-failed")throw new InvalidOperationException("Quality receipt self-test failed.");
         const string valid = """
             {"axes":[{"points":[0,1,2],"counts":[2,3],"grading":[1,1]},{"points":[0,1],"counts":[4],"grading":[1]},{"points":[0,1],"counts":[5],"grading":[1]}],"patches":["xMin","xMax","yMin","yMax","zMin","zMax"],"zones":[{"ijk":[0,0,0],"name":"metal"},{"ijk":[1,0,0],"name":"mold"}]}
@@ -453,32 +465,124 @@ internal static class NativeCartesianMesh
         """;
     // Reuse the exact Foundation loader used by generation. No case directory,
     // mesher, solver, package install or arbitrary command is accepted here.
-    internal static string ProbeScript()
+    internal static string FoundationLoader()
     {
         const string marker = "if [ \"$3\" = gmshToFoam ]; then";
         int end=Script.IndexOf(marker,StringComparison.Ordinal);
         if(end<0)throw new InvalidOperationException("Foundation loader boundary missing.");
-        return Script[..end]+"""
+        return Script[..end];
+    }
+    internal static string ProbeScript()=>FoundationLoader()+"""
         printf 'project=%s\nversion=%s\n' "$WM_PROJECT" "$WM_PROJECT_VERSION"
         for tool in blockMesh checkMesh surfaceCheck gmshToFoam splitMeshRegions snappyHexMesh surfaceFeatures foamPostProcess wmake timeout; do
           if command -v "$tool" >/dev/null 2>&1; then printf '%s=available\n' "$tool"; else printf '%s=missing\n' "$tool"; fi
         done
         """;
-    }
 
-    internal static async Task<object> ProbeAsync(string version, CancellationToken token)
+    internal sealed record WslDistribution(string Name,bool IsDefault);
+    internal static WslDistribution[] InstalledDistributions()
+    {
+        if(!OperatingSystem.IsWindows())throw new NotSupportedException("WSL inventory requires Windows.");
+        using var root=Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Lxss");
+        if(root is null)return Array.Empty<WslDistribution>();
+        var defaultId=root.GetValue("DefaultDistribution") as string;
+        var result=new List<WslDistribution>();
+        foreach(string key in root.GetSubKeyNames())
+        {
+            if(!Guid.TryParse(key,out var id))continue;
+            using var entry=root.OpenSubKey(key);
+            if(entry?.GetValue("DistributionName") is string name&&ValidDistributionName(name))
+                result.Add(new WslDistribution(name,Guid.TryParse(defaultId,out var selected)&&selected==id));
+        }
+        return result.OrderByDescending(x=>x.IsDefault).ThenBy(x=>x.Name,StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+    internal static bool ValidDistributionName(string name)=>name.Length is >0 and <=256&&!name.StartsWith('-')&&!name.Any(char.IsControl);
+    internal static string ResolveDistribution(string? requested,IEnumerable<WslDistribution> inventory)
+    {
+        var all=inventory.ToArray();
+        var matches=string.IsNullOrEmpty(requested)?all.Where(x=>x.IsDefault):all.Where(x=>string.Equals(x.Name,requested,StringComparison.Ordinal));
+        var selected=matches.ToArray();
+        if(selected.Length!=1||!ValidDistributionName(selected[0].Name))throw new NotSupportedException("WSL distribution unavailable or ambiguous. Refresh the installed distribution list.");
+        return selected[0].Name;
+    }
+    internal static string? RequestedDistribution(JsonElement root)
+    {
+        if(!root.TryGetProperty("distribution",out var value)||value.ValueKind==JsonValueKind.Null)return null;
+        if(value.ValueKind!=JsonValueKind.String)throw new ArgumentException("Invalid WSL distribution.");
+        var name=value.GetString()!;
+        if(name.Length>0&&!ValidDistributionName(name))throw new ArgumentException("Invalid WSL distribution.");
+        return name;
+    }
+    internal static string[] WslArgs(string distribution,params string[] args)
+    {
+        if(!ValidDistributionName(distribution))throw new ArgumentException("Invalid WSL distribution.");
+        return new[]{"--distribution",distribution,"--exec"}.Concat(args).ToArray();
+    }
+    internal static string[] CommandPlan(string utility,bool split,bool features)
+    {
+        var commands=new List<string>{utility=="gmshToFoam"?"gmshToFoam -case <staging> <staging>/source.msh":"blockMesh -case <staging>"};
+        if(utility=="snappyHexMesh"){commands.Add("surfaceCheck -checkSelfIntersection <staged STL> (each surface)");if(features)commands.Add("surfaceFeatures -case <staging>");commands.Add("snappyHexMesh -case <staging>");}
+        commands.Add("checkMesh -case <staging> -allTopology -allGeometry -writeSets -writeSurfaces");
+        if(split){commands.Add("splitMeshRegions -case <staging> (Foundation-version-specific cellZones options)");commands.Add("checkMesh -case <staging> -region <region> (each region)");}
+        commands.Add("foamPostProcess writeCellVolumes; packaged wmake quality helper (when available)");
+        return commands.ToArray();
+    }
+    internal sealed record Preflight(bool Matched,Dictionary<string,bool> Tools,int ExitCode,bool OutputTruncated,string Stderr);
+    internal static Preflight ParsePreflight(NativeCadSurfaceCheck.ProcessOutput output,string version)
+    {
+        var names=new[]{"blockMesh","checkMesh","surfaceCheck","gmshToFoam","splitMeshRegions","snappyHexMesh","surfaceFeatures","foamPostProcess","wmake","timeout"};
+        var lines=output.Stdout.Split('\n',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries);
+        bool matched=output.ExitCode==0&&!output.Truncated&&lines.Count(x=>x=="project=OpenFOAM")==1&&lines.Count(x=>x=="version="+version)==1&&lines.Count(x=>x.StartsWith("version=",StringComparison.Ordinal))==1&&lines.Count(x=>x.StartsWith("project=",StringComparison.Ordinal))==1;
+        var tools=names.ToDictionary(n=>n,n=>matched&&lines.Count(x=>x==n+"=available")==1&&lines.Count(x=>x==n+"=missing")==0);
+        return new Preflight(matched,tools,output.ExitCode,output.Truncated,output.Stderr);
+    }
+    internal static string[] RequiredTools(string utility,bool split,bool features)
+    {
+        var required=new List<string>{"timeout"};
+        if(utility=="surfaceCheck")required.Add("surfaceCheck");
+        else
+        {
+            required.Add(utility=="gmshToFoam"?"gmshToFoam":"blockMesh");
+            required.Add("checkMesh");
+            if(utility=="snappyHexMesh"){required.Add("surfaceCheck");required.Add("snappyHexMesh");if(features)required.Add("surfaceFeatures");}
+            if(split)required.Add("splitMeshRegions");
+        }
+        return required.ToArray();
+    }
+    internal static void RequireTools(Preflight probe,string utility,bool split=false,bool features=false)
+    {
+        if(!probe.Matched)throw new NotSupportedException("Requested Foundation OpenFOAM environment could not be verified. No case staged.");
+        var missing=RequiredTools(utility,split,features).Where(t=>!probe.Tools.TryGetValue(t,out bool available)||!available).ToArray();
+        if(missing.Length>0)throw new NotSupportedException("Required native tools missing: "+string.Join(", ",missing)+". No case staged.");
+    }
+    internal static async Task<Preflight> ProbeSelectedAsync(string wsl,string distribution,string version,CancellationToken token)
+    {
+        if(version is not ("13" or "14"))throw new ArgumentException("Select Foundation OpenFOAM 13 or 14.");
+        var output=await NativeCadSurfaceCheck.RunProcessAsync(wsl,Path.GetTempPath(),WslArgs(distribution,"/bin/bash","-lc",ProbeScript(),"foamlens-wsl-probe","unused",version),TimeSpan.FromSeconds(30),token);
+        return ParsePreflight(output,version);
+    }
+    internal sealed record StagedInput(string Path,long Bytes,string Sha256);
+    internal static async Task<StagedInput[]> HashStagingInputs(string dir,CancellationToken token)
+    {
+        var entries=new List<StagedInput>();
+        foreach(string file in Directory.EnumerateFiles(dir,"*",SearchOption.AllDirectories).OrderBy(x=>x,StringComparer.Ordinal))
+        {
+            token.ThrowIfCancellationRequested();
+            var info=new FileInfo(file);if((info.Attributes&FileAttributes.ReparsePoint)!=0)throw new InvalidOperationException("Linked staging input rejected.");
+            using var stream=File.OpenRead(file);
+            entries.Add(new StagedInput(Path.GetRelativePath(dir,file).Replace('\\','/'),stream.Length,Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(stream,token)).ToLowerInvariant()));
+        }
+        return entries.ToArray();
+    }
+    internal static async Task<object> ProbeAsync(string version, CancellationToken token,string? requestedDistribution=null)
     {
         if(version is not ("13" or "14"))throw new ArgumentException("Select Foundation OpenFOAM 13 or 14.");
         var wsl=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"wsl.exe");
         if(!File.Exists(wsl))throw new NotSupportedException("WSL is unavailable.");
-        var output=await NativeCadSurfaceCheck.RunProcessAsync(wsl,Path.GetTempPath(),
-            new[]{"--exec","/bin/bash","-lc",ProbeScript(),"foamlens-wsl-probe","unused",version},TimeSpan.FromSeconds(30),token);
-        var names=new[]{"blockMesh","checkMesh","surfaceCheck","gmshToFoam","splitMeshRegions","snappyHexMesh","surfaceFeatures","foamPostProcess","wmake","timeout"};
-        var lines=output.Stdout.Split('\n',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries);
-        bool matched=output.ExitCode==0&&!output.Truncated&&lines.Count(x=>x=="project=OpenFOAM")==1&&lines.Count(x=>x=="version="+version)==1;
-        var tools=names.ToDictionary(n=>n,n=>matched&&lines.Count(x=>x==n+"=available")==1&&lines.Count(x=>x==n+"=missing")==0);
-        return new {schema="foamlens/wsl-foundation-preflight/1",requestedVersion=version,matched,
-            runner="default WSL distribution",tools,exitCode=output.ExitCode,outputTruncated=output.Truncated,stderr=output.Stderr,
+        var distribution=ResolveDistribution(requestedDistribution,InstalledDistributions());
+        var probe=await ProbeSelectedAsync(wsl,distribution,version,token);
+        return new {schema="foamlens/wsl-foundation-preflight/1",requestedVersion=version,matched=probe.Matched,
+            runner="selected local WSL distribution",distribution,tools=probe.Tools,exitCode=probe.ExitCode,outputTruncated=probe.OutputTruncated,stderr=probe.Stderr,
             originalCaseModified=false};
     }
     internal static async Task<object> RunAsync(JsonElement root, CancellationToken token, bool gmsh = false)
@@ -499,6 +603,11 @@ internal static class NativeCartesianMesh
         long exportLimit=gmsh||snappy?48*1024*1024:MaxOutput;
         var wsl=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"wsl.exe");
         if(!File.Exists(wsl))throw new NotSupportedException("WSL is unavailable.");
+        var distribution=ResolveDistribution(RequestedDistribution(root),InstalledDistributions());
+        var features=snappy&&BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys) is not null;
+        var commands=CommandPlan(utility,split,features);
+        var preflight=await ProbeSelectedAsync(wsl,distribution,version,token);
+        RequireTools(preflight,utility,split,features);
         var dir=Path.Combine(Path.GetTempPath(),"foamlens-blockmesh-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(dir,"system"));Directory.CreateDirectory(Path.Combine(dir,"constant"));
         try
@@ -517,10 +626,13 @@ internal static class NativeCartesianMesh
                 var target=Path.Combine(sourceDir,asset);Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 using var file=File.Create(target);await stream.CopyToAsync(file,token);
             }
-            var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","wslpath","-a",dir},TimeSpan.FromSeconds(15),token);
+            var stagingInputs=await HashStagingInputs(dir,token);
+            var stagingControlDict=await File.ReadAllTextAsync(Path.Combine(dir,"system","controlDict"),token);
+            var expectedRegionInput=split?await File.ReadAllTextAsync(Path.Combine(dir,"expected-regions.txt"),token):null;
+            var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,WslArgs(distribution,"wslpath","-a",dir),TimeSpan.FromSeconds(15),token);
             var linux=translated.Stdout.Trim();
             if(translated.ExitCode!=0 || !linux.StartsWith("/") || linux.Contains('\n') || linux.Contains('\r'))throw new NotSupportedException("WSL path mapping failed.");
-            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?2600:snappy?1040:520),token);
+            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,WslArgs(distribution,"/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"),TimeSpan.FromSeconds(split?2600:snappy?1040:520),token);
             string Clean(string s)=>s.Replace(linux,"<temporary case>",StringComparison.Ordinal).Replace(dir,"<temporary case>",StringComparison.OrdinalIgnoreCase);
             async Task<string?> Small(string file,int limit)
             {
@@ -639,7 +751,7 @@ internal static class NativeCartesianMesh
                 }
                 if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;total+=captured.Bytes;var volumes=await ReadVolumes(null,exportLimit-total);nativeQualityFields=volumes.Fields;nativeVolumeStatus=volumes.Status;total+=volumes.Bytes;var quality=await ReadQuality(null,exportLimit-total);nativeMetrics=quality.Metrics;nativeMetricsStatus=quality.Status;nativeMetricsManifest=quality.Manifest;}
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
