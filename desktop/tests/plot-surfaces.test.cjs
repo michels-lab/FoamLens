@@ -110,7 +110,7 @@ for(const name of passed)console.log('  ✓ '+name);
 
 const fesStart=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_START */'),fesEnd=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_END */');
 assert(fesStart>=0&&fesEnd>fesStart);
-const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable};')();
+const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget};')();
 const source={caseId:'a',region:'metal',field:'T',association:'volume',component:'value',unit:'K',time_s:0,paths:['0/metal/T'],dimensions:[0,0,0,1,0,0,0],meshId:'mesh-A'};
 const mesh={cellCount:4,cellCenters:[0,0,0,1,0,0,2,1,0,3,1,0]};
 const input={mesh,source,values:[0,100,200,null]};
@@ -180,4 +180,12 @@ test('resample finds containing cell, rejects outside and incompatible source',(
  const outside=fes.fesResample({...a,mesh:cube(2,.5)},b);assert(outside.valid);assert.strictEqual(outside.coverage.unmatched,1);assert.strictEqual(outside.rows[0].b,null);assert.strictEqual(outside.metrics,null);
  assert(!fes.fesResample(a,{...b,source:{...b.source,time_s:1}}).valid);assert(!fes.fesResample(a,{...b,source:{...b.source,region:'mold'}}).valid);assert(!fes.fesResample(a,{...b,source:{...b.source,dimensions:[0,1,0,0,0,0,0]}}).valid);
  const overlap=fes.fesCellTree([...fes.fesBuildCells(cube()),{...fes.fesBuildCells(cube())[0],id:1}]);assert.deepStrictEqual(fes.fesLocate(overlap,[.5,.5,.5]),[0,1]);
+});
+
+test('larger physical budgets are explicit and compact traversal does not retain cells',()=>{
+ assert.strictEqual(fes.fesPhysicalBudget('integral',1000000),1000000);assert.strictEqual(fes.fesPhysicalBudget('resample',500000),500000);assert.strictEqual(fes.fesPhysicalBudget('resample',1000000),null);assert.strictEqual(fes.fesPhysicalBudget('integral',1000001),null);
+ let seen=[];const built=fes.fesBuildCells(cube(),{limit:1000000,retain:false,onCell:c=>seen.push(c.volume)});assert.strictEqual(built,true);assert.deepStrictEqual(seen,[1]);
+ const input={mesh:cube(),values:[10],source};const a=fes.fesIntegrate(input,null,1000000);assert(a.valid);assert.strictEqual(a.cellBudget,1000000);assert.strictEqual(a.integral,10);assert(!fes.fesIntegrate(input,null,0).valid);
+ const b=fes.fesResample(input,input,500000);assert(b.valid);assert.strictEqual(b.cellBudgetPerMesh,500000);assert.strictEqual(b.rows[0].difference,0);assert(!fes.fesResample(input,input,1000000).valid);
+ assert(surfaces.includes('new Int32Array(starts[n])'));assert(surfaces.includes('retain:false,onCell:c=>rowFor(c.id,c)'));
 });

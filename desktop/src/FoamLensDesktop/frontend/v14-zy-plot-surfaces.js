@@ -302,15 +302,21 @@ function fesComparable(a,b){
 const fesSub=(a,b)=>a.map((v,i)=>v-b[i]),fesDot=(a,b)=>a.reduce((q,v,i)=>q+v*b[i],0),fesCross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 // Strict convex, closed, consistently oriented, planar-faced cells only.
 // No absolute determinant threshold in metres: normalize by each cell's extent.
-function fesBuildCells(mesh){
+function fesPhysicalBudget(kind,raw){const n=fesNum(raw??250000),max=kind==='integral'?1000000:kind==='resample'?500000:0;return Number.isSafeInteger(n)&&n>=1&&n<=max?n:null}
+function fesBuildCells(mesh,{limit=250000,retain=true,selection=null,onCell=null}={}){
  const n=mesh?.cellCount,owners=mesh?.owners,neighbours=mesh?.neighbours,offsets=mesh?.faceOffsets,indices=mesh?.facePoints;
- if(!Number.isSafeInteger(n)||n<1||n>100000||!owners||!neighbours||!offsets||!indices||offsets.length!==owners.length+1||neighbours.length>owners.length||offsets[0]!==0||offsets.at(-1)!==indices.length)return null;
- const refs=Array.from({length:n},()=>[]);
- for(let i=0;i<owners.length;i++){const o=owners[i],q=i<neighbours.length?neighbours[i]:-1;if(!Number.isSafeInteger(o)||o<0||o>=n||(i<neighbours.length&&(!Number.isSafeInteger(q)||q<0||q>=n||q===o)))return null;refs[o].push([i,false]);if(q>=0)refs[q].push([i,true])}
- const cells=new Array(n).fill(null);
+ if(!fesPhysicalBudget('integral',limit)||!Number.isSafeInteger(n)||n<1||n>limit||!owners||!neighbours||!offsets||!indices||owners.length+neighbours.length>20000000||indices.length>80000000||offsets.length!==owners.length+1||neighbours.length>owners.length||offsets[0]!==0||offsets.at(-1)!==indices.length)return null;
+ // Compact CSR adjacency: one signed face reference per incident cell, rather than millions of nested arrays.
+ const starts=new Uint32Array(n+1);
+ for(let i=0;i<owners.length;i++){const o=owners[i],q=i<neighbours.length?neighbours[i]:-1;if(!Number.isSafeInteger(o)||o<0||o>=n||(i<neighbours.length&&(!Number.isSafeInteger(q)||q<0||q>=n||q===o)))return null;starts[o+1]++;if(q>=0)starts[q+1]++}
+ for(let i=1;i<=n;i++)starts[i]+=starts[i-1];
+ const cursor=starts.slice(0,n),refs=new Int32Array(starts[n]);
+ for(let i=0;i<owners.length;i++){refs[cursor[owners[i]]++]=i+1;if(i<neighbours.length)refs[cursor[neighbours[i]]++]=-(i+1)}
+ const cells=retain?new Array(n).fill(null):null;
  for(let ci=0;ci<n;ci++){
+  if(selection&&!selection.has(ci))continue;
   const faces=[],points=new Map(),edges=new Map();let bad=false;
-  for(const [fi,reverse] of refs[ci]){
+  for(let ri=starts[ci];ri<starts[ci+1];ri++){const code=refs[ri],fi=Math.abs(code)-1,reverse=code<0;
    const a=offsets[fi],b=offsets[fi+1];if(!Number.isSafeInteger(a)||!Number.isSafeInteger(b)||a<0||b-a<3||b>indices.length){bad=true;break}
    const ids=Array.from(indices.slice(a,b));if(reverse)ids.reverse();if(new Set(ids).size!==ids.length){bad=true;break}
    for(let j=0;j<ids.length;j++){const id=ids[j],next=ids[(j+1)%ids.length],p=fesXYZ(mesh.points,id);if(!p){bad=true;break}points.set(id,p);const k=Math.min(id,next)+':'+Math.max(id,next),e=edges.get(k)||[0,0];e[0]++;e[1]+=id<next?1:-1;edges.set(k,e)}
@@ -329,9 +335,9 @@ function fesBuildCells(mesh){
    planes.push({unit,d})
   }
   const volume=v6/6*scale**3;if(bad||!(v6>1e-14)||!Number.isFinite(volume)||volume<=0)continue;
-  cells[ci]={id:ci,lo,hi,scale,planes,volume}
+  const cell={id:ci,lo,hi,scale,planes,volume};if(retain)cells[ci]=cell;if(onCell)onCell(cell)
  }
- return cells
+ return retain?cells:true
 }
 function fesCellTree(cells){
  const build=xs=>{if(!xs.length)return null;const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const c of xs)for(let k=0;k<3;k++){lo[k]=Math.min(lo[k],c.lo[k]);hi[k]=Math.max(hi[k],c.hi[k])}
@@ -342,32 +348,38 @@ function fesLocate(tree,p){
  if(!Array.isArray(p)||p.length!==3||!p.every(Number.isFinite))return [];
  const out=[],inside=b=>p.every((v,k)=>v>=b.lo[k]&&v<=b.hi[k]),walk=b=>{if(!b||!inside(b))return;if(b.cells){for(const c of b.cells){if(!inside(c))continue;const q=p.map((v,k)=>(v-c.lo[k])/c.scale);if(c.planes.every(a=>fesDot(a.unit,q)<=a.d+1e-10))out.push(c.id)}}else{walk(b.left);walk(b.right)}};walk(tree);return out
 }
-function fesIntegrate(input,ids=null){
- const fail=reason=>({valid:false,reason}),{mesh,values,source}=input||{},dims=fesDimensions(source?.dimensions);
- if(!dims||source.association!=='volume'||values?.length!==mesh?.cellCount)return fail('volume-field-with-dimensions-required');
- const cells=fesBuildCells(mesh);if(!cells)return fail('unsupported-topology-or-limit');
- const selection=ids===null?Array.from({length:cells.length},(_,i)=>i):ids;
- if(!Array.isArray(selection)||!selection.length||new Set(selection).size!==selection.length||selection.some(i=>!Number.isSafeInteger(i)||i<0||i>=cells.length))return fail('invalid-selection');
- let volume=0,sum=0,missingGeometry=0,missingValue=0;
- for(const i of selection){if(!cells[i]){missingGeometry++;continue}if(!Number.isFinite(values[i])){missingValue++;continue}volume+=cells[i].volume;sum+=values[i]*cells[i].volume}
- if(missingGeometry||missingValue||!(volume>0)||!Number.isFinite(sum)||!Number.isFinite(volume)||!Number.isFinite(sum/volume))return{valid:false,reason:'incomplete-or-invalid-integration',coverage:{selected:selection.length,missingGeometry,missingValue}};
- dims[1]+=3;return{valid:true,schema:'foamlens/volume-integral/1',source,coverage:{selected:selection.length,missingGeometry,missingValue},selection:ids===null?'all':ids.slice(),volume_m3:volume,integral:sum,weightedMean:sum/volume,integralDimensions:dims,method:'Cell-centred piecewise constant value times signed closed convex planar polyhedral volume; no partial integral or volume clipping.'}
+function fesIntegrate(input,ids=null,rawLimit=250000){
+ const fail=reason=>({valid:false,reason}),{mesh,values,source}=input||{},dims=fesDimensions(source?.dimensions),limit=fesPhysicalBudget('integral',rawLimit),n=mesh?.cellCount;
+ if(!dims||source.association!=='volume'||values?.length!==n||!Number.isSafeInteger(n)||n<1)return fail('volume-field-with-dimensions-required');
+ if(!limit||n>limit)return fail('integration-cell-budget-exceeded');
+ const selection=ids===null?null:new Set(Array.isArray(ids)?ids:[]);
+ if(ids!==null&&(!Array.isArray(ids)||!ids.length||selection.size!==ids.length||ids.some(i=>!Number.isSafeInteger(i)||i<0||i>=n)))return fail('invalid-selection');
+ const selected=selection?selection.size:n;let volume=0,sum=0,validGeometry=0,missingValue=0,cv=0,cs=0;
+ const built=fesBuildCells(mesh,{limit,retain:false,selection,onCell:c=>{validGeometry++;const v=values[c.id];if(!Number.isFinite(v)){missingValue++;return}const y=c.volume-cv,t=volume+y;cv=(t-volume)-y;volume=t;const z=v*c.volume-cs,u=sum+z;cs=(u-sum)-z;sum=u}});
+ if(!built)return fail('unsupported-topology-or-budget');
+ const missingGeometry=selected-validGeometry;
+ if(missingGeometry||missingValue||!(volume>0)||!Number.isFinite(sum)||!Number.isFinite(volume)||!Number.isFinite(sum/volume))return{valid:false,reason:'incomplete-or-invalid-integration',coverage:{selected,missingGeometry,missingValue}};
+ dims[1]+=3;return{valid:true,schema:'foamlens/volume-integral/1',source,coverage:{selected,missingGeometry,missingValue},selection:ids===null?'all':ids.slice(),cellBudget:limit,volume_m3:volume,integral:sum,weightedMean:sum/volume,integralDimensions:dims,method:'Cell-centred piecewise constant value times signed closed convex planar polyhedral volume; compact adjacency and compensated streaming sum; no partial integral or volume clipping.'}
 }
-function fesResample(a,b){
- const fail=reason=>({valid:false,reason});
+function fesResample(a,b,rawLimit=250000){
+ const fail=reason=>({valid:false,reason}),limit=fesPhysicalBudget('resample',rawLimit);
  if(!fesComparable(a?.source,b?.source))return fail('incompatible-field-time-region-dimensions');
- if(a.values?.length!==a.mesh?.cellCount||b.values?.length!==b.mesh?.cellCount||!Number.isSafeInteger(a.mesh?.cellCount)||a.mesh.cellCount<1||a.mesh.cellCount>100000)return fail('field-count-or-limit');
- const ac=fesBuildCells(a.mesh),bc=fesBuildCells(b.mesh);if(!ac||!bc||bc.some(c=>!c))return fail('unverified-source-topology');
- const tree=fesCellTree(bc),rows=[],coverage={target:a.mesh.cellCount,matched:0,unmatched:0,ambiguous:0,invalid:0};let abs=0,sq=0,bias=0;
- for(let i=0;i<a.mesh.cellCount;i++){
-  const p=fesXYZ(a.mesh.cellCenters,i),av=a.values[i];let bv=null,sourceCell=null,difference=null,status='invalid';
-  if(p&&ac[i]&&fesLocate(fesCellTree([ac[i]]),p).length===1&&Number.isFinite(av)){
+ const na=a.mesh?.cellCount,nb=b.mesh?.cellCount;
+ if(a.values?.length!==na||b.values?.length!==nb||![na,nb].every(n=>Number.isSafeInteger(n)&&n>0))return fail('field-count-mismatch');
+ if(!limit||na>limit||nb>limit)return fail('resample-cell-budget-exceeded');
+ const bc=fesBuildCells(b.mesh,{limit});if(!bc||bc.some(c=>!c))return fail('unverified-source-topology');
+ const tree=fesCellTree(bc),rows=new Array(na),coverage={target:na,matched:0,unmatched:0,ambiguous:0,invalid:0};let abs=0,sq=0,bias=0;
+ const rowFor=(i,cell)=>{const p=fesXYZ(a.mesh.cellCenters,i),av=a.values[i];let bv=null,sourceCell=null,difference=null,status='invalid';
+  if(p&&cell&&fesLocate({lo:cell.lo,hi:cell.hi,cells:[cell]},p).length===1&&Number.isFinite(av)){
    const ids=fesLocate(tree,p);if(!ids.length)status='unmatched';else if(ids.length!==1)status='ambiguous';else if(Number.isFinite(b.values[ids[0]])&&Number.isFinite(b.values[ids[0]]-av)){sourceCell=ids[0];bv=b.values[sourceCell];difference=bv-av;status='matched';abs+=Math.abs(difference);sq+=difference*difference;bias+=difference}
   }
-  coverage[status]++;rows.push({targetCell:i,point_m:p,a:Number.isFinite(av)?av:null,b:bv,sourceCell,difference,status})
- }
+  coverage[status]++;rows[i]={targetCell:i,point_m:p,a:Number.isFinite(av)?av:null,b:bv,sourceCell,difference,status}
+ };
+ // Only source B geometry is retained; A is validated and sampled cell by cell.
+ if(!fesBuildCells(a.mesh,{limit,retain:false,onCell:c=>rowFor(c.id,c)}))return fail('unverified-target-topology');
+ for(let i=0;i<na;i++)if(!rows[i])rowFor(i,null);
  const n=coverage.matched,metrics=n&&[abs,sq,bias].every(Number.isFinite)?{mae:abs/n,rmse:Math.sqrt(sq/n),bias:bias/n}:null;
- return {valid:true,schema:'foamlens/mesh-resample/1',target:a.source,source:b.source,coverage,metrics,rows,method:'B cell-constant values at A cell centres; strict convex planar cells; no extrapolation, no boundary tie-breaking, no conservative transfer. Metrics unweighted over matched points only.'}
+ return {valid:true,schema:'foamlens/mesh-resample/1',target:a.source,source:b.source,coverage,metrics,rows,cellBudgetPerMesh:limit,method:'B cell-constant values at A cell centres; strict convex planar cells; no extrapolation, no boundary tie-breaking, no conservative transfer. Metrics unweighted over matched points only.'}
 }
 /* FOAMLENS_ENTITY_SELECTION_CORE_END */
 let fesResult=null,fesPage=0,fesSelected=null,fesStages=[],fesStageSource=null,fesClipResult=null;
@@ -471,7 +483,7 @@ function fesPhysicalCases(){const sel=fesE('fesPhysicalCase'),old=sel.value;sel.
 function fesPhysicalIntegrate(){
  fesPhysicalClear();const a=fesSource();if(!a){fesPhysicalShow({valid:false,reason:'source-not-ready'});return}
  let ids=null;if(fesE('fesPhysicalScope').value==='selection'){if(!fesResult||JSON.stringify(fesResult.source)!==JSON.stringify({...a.source,dimensions:Array.isArray(a.source.dimensions)?a.source.dimensions:typeof a.source.dimensions==='string'?a.source.dimensions:null})){fesPhysicalShow({valid:false,reason:'selection-source-mismatch'});return}ids=fesResult.rows.map(r=>r.id)}
- fesPhysicalShow(fesIntegrate(a,ids))
+ fesPhysicalShow(fesIntegrate(a,ids,fesE('fesIntegralBudget').value))
 }
 async function fesPhysicalResample(){
  fesPhysicalClear();const seq=fesPhysicalSeq,a=fesSource(),id=fesE('fesPhysicalCase').value,c=(typeof cases!=='undefined'?cases:[]).find(c=>String(c.id)===id);
@@ -482,7 +494,7 @@ async function fesPhysicalResample(){
  try{const g=groups[0],time=a.source.time_s,data=await fvLoadFrameData(c,g,a.source.region,time,a.source.component,{includeBoundary:false});if(seq!==fesPhysicalSeq)return;
  const current=fesSource();if(!current||current.mesh!==a.mesh||current.values!==a.values||JSON.stringify(current.source)!==JSON.stringify(a.source)){fesPhysicalShow({valid:false,reason:'target-changed-during-load'});return}
  const dimensions=data.parsed?.dimensions,paths=fesLayoutPaths(data.layout);if(!paths.length){fesPhysicalShow({valid:false,reason:'source-path-unavailable'});return}
- const b={mesh:data.mesh,values:data.fieldValues,source:{caseId:String(c.id),caseName:String(c.name||c.id),region:a.source.region,field:g.name,association:data.storage,component:a.source.component,time_s:time,dimensions,unit:dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(dimensions):'',paths,meshId:data.meshInfo.key,decomposed:!!data.mesh.decomposed}};fesPhysicalShow(fesResample(a,b))
+ const b={mesh:data.mesh,values:data.fieldValues,source:{caseId:String(c.id),caseName:String(c.name||c.id),region:a.source.region,field:g.name,association:data.storage,component:a.source.component,time_s:time,dimensions,unit:dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(dimensions):'',paths,meshId:data.meshInfo.key,decomposed:!!data.mesh.decomposed}};fesPhysicalShow(fesResample(a,b,fesE('fesResampleBudget').value))
  }catch(e){if(seq===fesPhysicalSeq)fesPhysicalShow({valid:false,reason:String(e?.message||e)})}
 }
 function fesPhysicalExport(){
@@ -490,8 +502,8 @@ function fesPhysicalExport(){
  if(typeof downloadText==='function'){downloadText(name,data,'application/json');return}const url=URL.createObjectURL(new Blob([data],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
 function fesMountPhysical(box){
- const el=document.createElement('details');el.className='analysisExt';el.innerHTML='<summary><strong data-fl-en="Volume integration / mesh resample" data-fl-es="Integración volumétrica / remuestreo">Volume integration / mesh resample</strong></summary><p class="smallnote" data-fl-en="Cell-centred fields, verified closed convex planar cells only (up to 100000). Resample B onto A at identical physical time and region; no extrapolation." data-fl-es="Campos centrados en celdas, solo celdas convexas cerradas y planas verificadas (hasta 100000). Remuestreo B sobre A a igual tiempo físico y región; sin extrapolación.">Cell-centred fields, verified closed convex planar cells only (up to 100000). Resample B onto A at identical physical time and region; no extrapolation.</p><div class="field"><label data-fl-en="Integration scope" data-fl-es="Alcance de integración">Integration scope</label><select id="fesPhysicalScope"><option value="all" data-fl-en="Entire Field A" data-fl-es="Todo Field A">Entire Field A</option><option value="selection" data-fl-en="Current extracted entities" data-fl-es="Entidades extraídas actuales">Current extracted entities</option></select></div><button class="btn primary" type="button" id="fesPhysicalIntegral" data-fl-en="Integrate variables" data-fl-es="Integrar variables">Integrate variables</button><div class="field"><label data-fl-en="Source case B" data-fl-es="Caso fuente B">Source case B</label><select id="fesPhysicalCase"></select></div><div class="extActions"><button class="btn soft" type="button" id="fesPhysicalRefresh" data-fl-en="Refresh cases" data-fl-es="Actualizar casos">Refresh cases</button><button class="btn primary" type="button" id="fesPhysicalResample" data-fl-en="Resample B → A" data-fl-es="Remuestrear B → A">Resample B → A</button><button class="btn soft" type="button" id="fesPhysicalExport">JSON</button></div><p class="smallnote" id="fesPhysicalStatus" aria-live="polite"></p>';
- box.querySelector('.extSectionBody').append(el);el.addEventListener('toggle',()=>{if(el.open)fesPhysicalCases()});fesE('fesPhysicalRefresh').onclick=fesPhysicalCases;fesE('fesPhysicalCase').onchange=fesPhysicalClear;fesE('fesPhysicalScope').onchange=fesPhysicalClear;fesE('fesPhysicalIntegral').onclick=fesPhysicalIntegrate;fesE('fesPhysicalResample').onclick=fesPhysicalResample;fesE('fesPhysicalExport').onclick=fesPhysicalExport;fesPhysicalClear()
+ const el=document.createElement('details');el.className='analysisExt';el.innerHTML='<summary><strong data-fl-en="Volume integration / mesh resample" data-fl-es="Integración volumétrica / remuestreo">Volume integration / mesh resample</strong></summary><p class="smallnote" data-fl-en="Cell-centred fields, verified closed convex planar cells. Configurable cell budgets; larger settings can consume substantial memory. Resample B onto A at identical physical time and region; no extrapolation." data-fl-es="Campos centrados en celdas, celdas convexas cerradas y planas verificadas. Límites configurables; los mayores pueden consumir mucha memoria. Remuestreo B sobre A a igual tiempo físico y región; sin extrapolación.">Cell-centred fields, verified closed convex planar cells. Configurable cell budgets; larger settings can consume substantial memory. Resample B onto A at identical physical time and region; no extrapolation.</p><div class="field"><label data-fl-en="Integration scope" data-fl-es="Alcance de integración">Integration scope</label><select id="fesPhysicalScope"><option value="all" data-fl-en="Entire Field A" data-fl-es="Todo Field A">Entire Field A</option><option value="selection" data-fl-en="Current extracted entities" data-fl-es="Entidades extraídas actuales">Current extracted entities</option></select></div><div class="field"><label data-fl-en="Integration cell budget" data-fl-es="Límite de celdas para integración">Integration cell budget</label><select id="fesIntegralBudget"><option value="100000">100,000</option><option value="250000" selected>250,000</option><option value="500000">500,000</option><option value="1000000">1,000,000</option></select></div><button class="btn primary" type="button" id="fesPhysicalIntegral" data-fl-en="Integrate variables" data-fl-es="Integrar variables">Integrate variables</button><div class="field"><label data-fl-en="Source case B" data-fl-es="Caso fuente B">Source case B</label><select id="fesPhysicalCase"></select></div><div class="field"><label data-fl-en="Resample cell budget per mesh" data-fl-es="Límite de remuestreo por malla">Resample cell budget per mesh</label><select id="fesResampleBudget"><option value="100000">100,000</option><option value="250000" selected>250,000</option><option value="500000">500,000</option></select></div><div class="extActions"><button class="btn soft" type="button" id="fesPhysicalRefresh" data-fl-en="Refresh cases" data-fl-es="Actualizar casos">Refresh cases</button><button class="btn primary" type="button" id="fesPhysicalResample" data-fl-en="Resample B → A" data-fl-es="Remuestrear B → A">Resample B → A</button><button class="btn soft" type="button" id="fesPhysicalExport">JSON</button></div><p class="smallnote" id="fesPhysicalStatus" aria-live="polite"></p>';
+ box.querySelector('.extSectionBody').append(el);el.addEventListener('toggle',()=>{if(el.open)fesPhysicalCases()});fesE('fesPhysicalRefresh').onclick=fesPhysicalCases;fesE('fesPhysicalCase').onchange=fesPhysicalClear;fesE('fesPhysicalScope').onchange=fesPhysicalClear;fesE('fesIntegralBudget').onchange=fesPhysicalClear;fesE('fesResampleBudget').onchange=fesPhysicalClear;fesE('fesPhysicalIntegral').onclick=fesPhysicalIntegrate;fesE('fesPhysicalResample').onclick=fesPhysicalResample;fesE('fesPhysicalExport').onclick=fesPhysicalExport;fesPhysicalClear()
 }
 function fesMount(){
  if(fesE('fesPanel'))return true;const host=fesE('fieldViewControls');if(!host)return false;
