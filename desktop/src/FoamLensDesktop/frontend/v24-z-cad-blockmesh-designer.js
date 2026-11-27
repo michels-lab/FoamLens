@@ -145,7 +145,7 @@ function flMeshRegionEntries(r){
  if(r.splitLog)entries.push({name:'logs/splitMeshRegions.log',data:r.splitLog});
  return entries;
 }
-function flMeshReportMeta(r){const {regions,sets,nativeQualityFields,nativeVolumeLog,nativeMetrics,nativeMetricsLog,nativeQualityBuildLog,...rest}=r;return {...rest,nativeVolumeCount:Object.keys(nativeQualityFields||{}).length,nativeMetricCount:Object.keys(nativeMetrics||{}).length,setCount:Object.keys(sets||{}).length,regions:Object.fromEntries(Object.entries(regions||{}).map(([k,v])=>[k,{expectedCells:v.expectedCells,checkMeshExit:v.checkMeshExit,qualityStatus:v.qualityStatus||'undetermined',fileCount:Object.keys(v.files||{}).length,setCount:Object.keys(v.sets||{}).length,setWarnings:v.setWarnings||[],nativeVolumeStatus:v.nativeVolumeStatus||'not-run',nativeVolumeCount:Object.keys(v.nativeQualityFields||{}).length,nativeMetricsStatus:v.nativeMetricsStatus||'not-run',nativeMetricCount:Object.keys(v.nativeMetrics||{}).length}]))}}
+function flMeshReportMeta(r){const {regions,sets,nativeQualityFields,nativeVolumeLog,nativeMetrics,nativeMetricsLog,nativeQualityBuildLog,...rest}=r;return {...rest,nativeVolumeCount:Object.keys(nativeQualityFields||{}).length,nativeMetricCount:Object.keys(nativeMetrics||{}).length,setCount:Object.keys(sets||{}).length,regions:Object.fromEntries(Object.entries(regions||{}).map(([k,v])=>[k,{expectedCells:v.expectedCells,checkMeshExit:v.checkMeshExit,qualityStatus:v.qualityStatus||'undetermined',nativeConcaveCells:v.nativeConcaveCells??null,fileCount:Object.keys(v.files||{}).length,setCount:Object.keys(v.sets||{}).length,setWarnings:v.setWarnings||[],nativeVolumeStatus:v.nativeVolumeStatus||'not-run',nativeVolumeCount:Object.keys(v.nativeQualityFields||{}).length,nativeMetricsStatus:v.nativeMetricsStatus||'not-run',nativeMetricCount:Object.keys(v.nativeMetrics||{}).length}]))}}
 function flHasNativeMesh(r){return !!r?.meshGenerated&&(Object.keys(r.files||{}).length>0||Object.keys(r.regions||{}).length>0)}
 function flRegionStatus(r){return r.splitRequested?' · split '+(r.splitExit??'—')+' · '+Object.keys(r.regions||{}).length+' regions · '+Object.entries(r.regions||{}).map(([name,v])=>name+': '+(v.qualityStatus||'undetermined')).join(' | ')+' · '+(r.splitError||'') : ''}
 function cmbUniformBackgroundPreview(p,cfg,advanced){
@@ -169,14 +169,22 @@ function cmbSnappyPlanEstimate(p,cfg,hasBoxes,hasOverrides,uniformSelected,snapE
  return result
 }
 function cmbSnappyDefects(r){
- if(r?.generationUtility!=='snappyHexMesh'||r.qualityStatus!=='checks-failed'||typeof r.checkMeshLog!=='string')return null;
+ if(r?.generationUtility!=='snappyHexMesh'||r.qualityStatus!=='checks-failed')return null;
+ if(Object.hasOwn(r,'nativeConcaveCells'))return {concaveCells:Number.isSafeInteger(r.nativeConcaveCells)&&r.nativeConcaveCells>0?r.nativeConcaveCells:null};
+ if(typeof r.checkMeshLog!=='string'||r.checkMeshLog.includes('[truncated]'))return {concaveCells:null};
  const matches=[...r.checkMeshLog.matchAll(/^[ \t]*\*{3}Concave cells \(using face planes\) found, number of cells:[ \t]*(\d+)[ \t\r]*$/gm)];
  const count=matches.length===1?Number(matches[0][1]):null;
  return {concaveCells:Number.isSafeInteger(count)&&count>0?count:null}
 }
+function cmbLayerReceiptMatches(payload,r){
+ const expected=Object.fromEntries((payload.snappy?.surfaceSettings||[]).filter(v=>v.layers>0).map(v=>['flSurface_'+String(v.id).padStart(3,'0'),v.layers]));
+ const actual=r.requestedSurfaceLayers;
+ if(actual==null)return Object.keys(expected).length===0;
+ return typeof actual==='object'&&!Array.isArray(actual)&&Object.keys(actual).length===Object.keys(expected).length&&Object.entries(expected).every(([k,v])=>Object.hasOwn(actual,k)&&actual[k]===v)
+}
 function cmbNativePlanReceipt(p,payload,r){
  const schema=payload.snappy?'foamlens/native-snappy-mesh/1':'foamlens/native-cartesian-mesh/1';
- if(r?.schema!==schema||r.originalCaseModified!==false||r.stagingIsolated!==true)return false;
+ if(r?.schema!==schema||r.originalCaseModified!==false||r.stagingIsolated!==true||!cmbLayerReceiptMatches(payload,r))return false;
  if(payload.snappy?.uniformBackground){
   const u=cmbUniformBackgroundPreview(p,payload.snappy,payload.snappy);
   return r.plannedCells===u.cells&&r.originalBackgroundCells===p.cellCount&&r.uniformBackgroundLevel===u.level&&r.snappyDiagnosticOnly===true
@@ -253,6 +261,7 @@ function cmbMount(){
    const r=await nativeTask.promise;if(token!==revision)return;if(!cmbNativePlanReceipt(p,payload,r)||!flWslReceiptMatches(r,version,payload.distribution))throw Error('Unexpected native report');
    nativeReport=r;nativeSurface=surface;const count=Object.keys(r.files||{}).length;el('cmbNativeStatus').textContent='Foundation '+(r.version||'—')+' · '+r.generationUtility+' exit '+(r.generationExit??'—')+' · checkMesh exit '+(r.checkMeshExit??'—')+' ('+(r.qualityStatus||'undetermined')+') · '+count+' mesh files'+flRegionStatus(r)+' · '+(r.exportError||cgUi('Review logs; no quality certification.','Revisa logs; sin certificación de calidad.'));
    if(r.uniformBackgroundLevel!=null)el('cmbNativeStatus').textContent+=' · '+tr('Uniform background','Fondo uniforme')+' L'+r.uniformBackgroundLevel+' · '+r.originalBackgroundCells+' → '+r.plannedCells+' '+tr('planned cells','celdas planificadas');if(r.generationUtility==='snappyHexMesh')el('cmbNativeStatus').textContent+=' · '+tr('DIAGNOSTIC ONLY','SOLO DIAGNÓSTICO');if(r.qualityStatus==='checks-failed')el('cmbNativeStatus').textContent+=' · '+tr('Not solver-ready. Inspect defect sets before changing refinement or snapping.','No apta para solver. Inspecciona conjuntos de defectos antes de cambiar refinamiento o snap.');
+   const requestedLayers=Object.entries(r.requestedSurfaceLayers||{});if(requestedLayers.length)el('cmbNativeStatus').textContent+=' · '+cgUi('Requested layers (coverage unverified): ','Capas solicitadas (cobertura sin verificar): ')+requestedLayers.map(([name,n])=>name+': '+n).join(' | ');
    const defects=cmbSnappyDefects(r);if(defects?.concaveCells!=null)el('cmbNativeStatus').textContent+=' · '+cgUi('Native concave cells: ','Celdas cóncavas nativas: ')+defects.concaveCells.toLocaleString()+' · '+cgUi('For a separate comparison, consider uniform background + explicit sharp-edge snap if eligible; preserve this failed result first.','Para una comparación separada, considera fondo uniforme + ajuste explícito de aristas si es compatible; conserva primero este resultado fallido.');
    el('cmbNativeLogs').textContent=[r.stderr,r.stdout,r.blockMeshLog,r.surfaceCheckLog,r.snappyLog,r.checkMeshLog,r.splitLog].filter(Boolean).join('\n\n');
   }catch(e){if(token===undefined||token===revision)el('cmbNativeStatus').textContent=e.message}finally{nativeTask=null;buttons()}};

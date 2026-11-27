@@ -87,6 +87,34 @@ internal static class NativeCartesianMesh
         return "undetermined";
     }
 
+    // The UI log is only a preview; capture the exact count from the full
+    // bounded native receipt. Missing or ambiguous counts are never zero.
+    internal static (string Status,long? ConcaveCells) QualityEvidence(int? exit,string log)
+    {
+        string status=QualityStatus(exit,log);
+        if(status!="checks-failed"||log.Contains("[truncated]",StringComparison.Ordinal))return(status,null);
+        var end=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*End[ \t\r]*$");
+        var failed=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*Failed[ \t]+\d+[ \t]+mesh checks?\.[ \t\r]*$");
+        var concave=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*\*{3}Concave cells \(using face planes\) found, number of cells:[ \t]*(\d+)[ \t\r]*$");
+        if(end.Count!=1||failed.Count!=1||concave.Count!=1||concave[0].Index>=failed[0].Index||failed[0].Index>=end[0].Index||
+           !string.IsNullOrWhiteSpace(log[(end[0].Index+end[0].Length)..])||
+           !long.TryParse(concave[0].Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long count)||count<=0)return(status,null);
+        return(status,count);
+    }
+
+    // Called only after BuildSnappy validated the effective request. Layer
+    // requests are not measured extrusion coverage.
+    internal static Dictionary<string,int> RequestedSurfaceLayers(JsonElement root)
+    {
+        var result=new Dictionary<string,int>(StringComparer.Ordinal);
+        if(root.GetProperty("snappy").TryGetProperty("surfaceSettings",out var settings))
+            foreach(var cfg in settings.EnumerateArray()){
+                int count=cfg.GetProperty("layers").GetInt32();
+                if(count>0)result.Add("flSurface_"+cfg.GetProperty("id").GetInt32().ToString("D3",CultureInfo.InvariantCulture),count);
+            }
+        return result;
+    }
+
     internal static void SelfTest()
     {
         var fixture=new NativeCadSurfaceCheck.ProcessOutput(0,"project=OpenFOAM\nversion=14\nblockMesh=available\ncheckMesh=available\ntimeout=available\n","",false);
@@ -108,6 +136,13 @@ internal static class NativeCartesianMesh
         foreach(var failure in new[]{"Failed 1 mesh checks.\n","Mesh OK.\nFailed 2 mesh checks.\nEnd\n","FOAM FATAL IO ERROR\nMesh OK.\nEnd\n","Mesh OK.\nFOAM aborting\nEnd\n","Floating point exception\nMesh OK.\nEnd\n","SIGFPE: arithmetic fault\nMesh OK.\nEnd\n","SIGSEGV\nMesh OK.\nEnd\n","sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE). unexpected trailing text\nMesh OK.\nEnd\n","sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).\nSIGFPE\nMesh OK.\nEnd\n"})
             if(QualityStatus(0,failure)!="checks-failed")throw new InvalidOperationException("Negative native quality evidence accepted.");
         if(QualityStatus(1,"Mesh OK.\nEnd\n")!="command-failed"||QualityStatus(null,"Mesh OK.\nEnd\n")!="not-run")throw new InvalidOperationException("Quality receipt command status ignored.");
+        const string defect=" ***Concave cells (using face planes) found, number of cells: 144\nFailed 1 mesh checks.\nEnd\n";
+        if(QualityEvidence(0,defect)!=("checks-failed",144L)||
+           QualityEvidence(0,new string('x',50000)+"\n"+defect).ConcaveCells!=144L)
+            throw new InvalidOperationException("Full native concavity evidence lost.");
+        foreach(var bad in new[]{defect+defect,defect+"[truncated]",defect.Replace("144","0"),defect.Replace("144","99999999999999999999999"),defect.Replace("End\n",""),defect.Replace("Failed 1 mesh checks.\n","")})
+            if(QualityEvidence(0,bad).ConcaveCells!=null)throw new InvalidOperationException("Ambiguous concavity count accepted.");
+        if(QualityEvidence(1,defect).ConcaveCells!=null||QualityEvidence(null,defect).ConcaveCells!=null)throw new InvalidOperationException("Concavity evidence exit ignored.");
         const string valid = """
             {"axes":[{"points":[0,1,2],"counts":[2,3],"grading":[1,1]},{"points":[0,1],"counts":[4],"grading":[1]},{"points":[0,1],"counts":[5],"grading":[1]}],"patches":["xMin","xMax","yMin","yMax","zMin","zMax"],"zones":[{"ijk":[0,0,0],"name":"metal"},{"ijk":[1,0,0],"name":"mold"}]}
             """;
@@ -166,6 +201,8 @@ internal static class NativeCartesianMesh
         uniformLayers["snappy"]!["surfaceSettings"]=JsonNode.Parse("[{\"id\":1,\"minLevel\":1,\"maxLevel\":1,\"layers\":1}]");
         var preparedLayers=PrepareSnappyBackground(JsonSerializer.SerializeToElement(uniformLayers));
         var layerDict=BuildSnappy(preparedLayers.Input,cells*8).Dictionary;
+        var layerRequests=RequestedSurfaceLayers(preparedLayers.Input);
+        if(layerRequests.Count!=1||layerRequests.GetValueOrDefault("flSurface_001")!=1)throw new InvalidOperationException("Uniform layer request identity lost.");
         if(!layerDict.Contains("level (0 0)")||!layerDict.Contains("addLayers true;")||!layerDict.Contains("nSurfaceLayers 1;"))
             throw new InvalidOperationException("Uniform layer transform failed.");
         foreach(var kind in new[]{"level","duplicate","disabled","id"}){
@@ -752,13 +789,13 @@ internal static class NativeCartesianMesh
             // Determine quality from the complete bounded log, not the first
             // 48k characters returned for display. A truncated positive
             // marker can never certify the rest of the run.
-            async Task<string> ReportedQuality(string file,int? exit)
+            async Task<(string Status,long? ConcaveCells)> ReportedQuality(string file,int? exit)
             {
-                if(exit is null)return "not-run";
-                if(exit!=0)return "command-failed";
+                if(exit is null)return ("not-run",null);
+                if(exit!=0)return ("command-failed",null);
                 var path=Path.Combine(dir,file);var info=new FileInfo(path);
-                if(!info.Exists||info.Length>16*1024*1024||(info.Attributes&FileAttributes.ReparsePoint)!=0)return "undetermined";
-                return QualityStatus(exit,await File.ReadAllTextAsync(path,token));
+                if(!info.Exists||info.Length>16*1024*1024||(info.Attributes&FileAttributes.ReparsePoint)!=0)return ("undetermined",null);
+                return QualityEvidence(exit,await File.ReadAllTextAsync(path,token));
             }
             int? Exit(string name){var p=Path.Combine(dir,name);return File.Exists(p)&&new FileInfo(p).Length<32&&int.TryParse(File.ReadAllText(p),out var x)?x:null;}
             var bm=snappy?Exit("snappyHexMesh.exit"):Exit("generation.exit");var cm=Exit("checkMesh.exit");
@@ -838,7 +875,8 @@ internal static class NativeCartesianMesh
                     if(splitError!=null)break;
                     var captured=await ReadSets(poly,64*1024*1024-splitBytes);splitBytes+=captured.Bytes;
                     var regionLog=await Small("checkMesh."+name+".log",48000);var volumes=await ReadVolumes(name,64*1024*1024-splitBytes);splitBytes+=volumes.Bytes;var quality=await ReadQuality(name,64*1024*1024-splitBytes);splitBytes+=quality.Bytes;
-                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit")),checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings,nativeQualityFields=volumes.Fields,nativeVolumeStatus=volumes.Status,nativeVolumeLog=await Small("nativeVolumes."+name+".log",12000),nativeMetrics=quality.Metrics,nativeMetricsStatus=quality.Status,nativeMetricsManifest=quality.Manifest,nativeMetricsLog=await Small("nativeQuality."+name+".log",12000) };
+                    var regionEvidence=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit"));
+                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=regionEvidence.Status,nativeConcaveCells=regionEvidence.ConcaveCells,checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings,nativeQualityFields=volumes.Fields,nativeVolumeStatus=volumes.Status,nativeVolumeLog=await Small("nativeVolumes."+name+".log",12000),nativeMetrics=quality.Metrics,nativeMetricsStatus=quality.Status,nativeMetricsManifest=quality.Manifest,nativeMetricsLog=await Small("nativeQuality."+name+".log",12000) };
                 }
                 if(splitError!=null)regions.Clear();
                 // Combined and separated meshes are different snapshots. Do not
@@ -859,7 +897,8 @@ internal static class NativeCartesianMesh
                 }
                 if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;total+=captured.Bytes;var volumes=await ReadVolumes(null,exportLimit-total);nativeQualityFields=volumes.Fields;nativeVolumeStatus=volumes.Status;total+=volumes.Bytes;var quality=await ReadQuality(null,exportLimit-total);nativeMetrics=quality.Metrics;nativeMetricsStatus=quality.Status;nativeMetricsManifest=quality.Manifest;}
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,uniformBackgroundLevel=background.UniformLevel,originalBackgroundCells=background.OriginalCells,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
+            var combinedEvidence=await ReportedQuality("checkMesh.log",cm);
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,uniformBackgroundLevel=background.UniformLevel,originalBackgroundCells=background.OriginalCells,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=combinedEvidence.Status,nativeConcaveCells=combinedEvidence.ConcaveCells,requestedSurfaceLayers=snappy?RequestedSurfaceLayers(root):null,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }

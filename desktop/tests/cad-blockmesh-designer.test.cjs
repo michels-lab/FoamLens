@@ -113,5 +113,14 @@ assert.deepEqual(uniform(ub,ucfg,{...empty,surfaceSettings:[uniformLayer],snapEn
 for(const surfaceSettings of [[{...uniformLayer,maxLevel:2}],[uniformLayer,uniformLayer],[{...uniformLayer,id:0}],[{...uniformLayer,layers:9}]])assert.throws(()=>uniform(ub,ucfg,{...empty,surfaceSettings,snapEnabled:true}));
 assert.throws(()=>uniform(ub,ucfg,{...empty,surfaceSettings:[uniformLayer],snapEnabled:false}));
 assert.equal(recovery.estimate(ub,ucfg,false,[uniformLayer],true,true,true).uniform.cells,1920);
-assert.equal(receipt(ub,{snappy:{...request.snappy,surfaceSettings:[uniformLayer],snapEnabled:true}},nativeReceipt),true);
+const layerRequest={snappy:{...request.snappy,surfaceSettings:[uniformLayer],snapEnabled:true}};
+assert.equal(receipt(ub,layerRequest,{...nativeReceipt,requestedSurfaceLayers:{flSurface_001:1}}),true);
+assert.equal(receipt(ub,layerRequest,nativeReceipt),false);
+for(const requestedSurfaceLayers of [{flSurface_001:2},{flSurface_002:1},{flSurface_001:1,flSurface_002:1},[]])assert.equal(receipt(ub,layerRequest,{...nativeReceipt,requestedSurfaceLayers}),false);
 console.log('Uniform matching surface layers and receipt compatibility PASS');
+
+assert.deepEqual(recovery.defects({...reject,checkMeshLog:'[truncated]',nativeConcaveCells:144}),{concaveCells:144});
+assert.deepEqual(recovery.defects({...reject,nativeConcaveCells:null}),{concaveCells:null});
+assert.deepEqual(recovery.defects({...reject,nativeConcaveCells:-1}),{concaveCells:null});
+assert.deepEqual(recovery.defects({...reject,checkMeshLog:reject.checkMeshLog+'[truncated]'}),{concaveCells:null});
+console.log('Full native defect evidence and exact requested layer receipt PASS');
