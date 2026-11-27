@@ -14,7 +14,7 @@ function taFinitePairs(s){
   const t=Array.isArray(s?.t)?s.t:[],y=Array.isArray(s?.y)?s.y:[],out=[];
   for(let i=0;i<Math.min(t.length,y.length);i++){const tx=taPhysicalNumber(t[i]),vy=taPhysicalNumber(y[i]);if(Number.isFinite(tx)&&Number.isFinite(vy))out.push({t:tx,y:vy})}
   out.sort((a,b)=>a.t-b.t);
-  const dedup=[];for(const p of out){if(dedup.length&&taAlmostEqual(dedup.at(-1).t,p.t))dedup[dedup.length-1]=p;else dedup.push(p)}
+  const dedup=[];for(const p of out){if(dedup.length&&dedup.at(-1).t===p.t){if(dedup.at(-1).y!==p.y)return []}else dedup.push(p)}
   return dedup
 }
 function taCommonTimeRange(items){
@@ -26,52 +26,79 @@ function taCommonTimeRange(items){
 function taNearestSample(pairs,t){
   t=taPhysicalNumber(t);if(!Number.isFinite(t))return{ok:false,reason:'invalid-time'};
   if(!pairs.length)return{ok:false,reason:'no-data'};
-  if(t<pairs[0].t&&!taAlmostEqual(t,pairs[0].t)||t>pairs.at(-1).t&&!taAlmostEqual(t,pairs.at(-1).t))return{ok:false,reason:'outside-range'};
+  if(t<pairs[0].t||t>pairs.at(-1).t)return{ok:false,reason:'outside-range'};
   let lo=0,hi=pairs.length-1;
-  while(lo<hi){const mid=(lo+hi)>>1;if(pairs[mid].t<t)lo=mid+1;else hi=mid}
+  while(lo<hi){const mid=lo+Math.floor((hi-lo)/2);if(pairs[mid].t<t)lo=mid+1;else hi=mid}
   const a=pairs[lo],b=lo>0?pairs[lo-1]:null,best=b&&Math.abs(b.t-t)<=Math.abs(a.t-t)?b:a;
-  return{ok:true,value:best.y,status:taAlmostEqual(best.t,t)?'native':'nearest',requestedTime:t,usedTime:best.t,delta:best.t-t}
+  return{ok:true,value:best.y,status:best.t===t?'native':'nearest',requestedTime:t,usedTime:best.t,delta:best.t-t}
 }
 function taLinearSample(pairs,t){
   t=taPhysicalNumber(t);if(!Number.isFinite(t))return{ok:false,reason:'invalid-time'};
   if(!pairs.length)return{ok:false,reason:'no-data'};
-  if(t<pairs[0].t&&!taAlmostEqual(t,pairs[0].t)||t>pairs.at(-1).t&&!taAlmostEqual(t,pairs.at(-1).t))return{ok:false,reason:'outside-range'};
+  if(t<pairs[0].t||t>pairs.at(-1).t)return{ok:false,reason:'outside-range'};
   let lo=0,hi=pairs.length-1;
-  while(lo<=hi){const mid=(lo+hi)>>1;if(taAlmostEqual(pairs[mid].t,t))return{ok:true,value:pairs[mid].y,status:'native',requestedTime:t,usedTime:pairs[mid].t,delta:pairs[mid].t-t};if(pairs[mid].t<t)lo=mid+1;else hi=mid-1}
+  while(lo<=hi){const mid=lo+Math.floor((hi-lo)/2);if(pairs[mid].t===t)return{ok:true,value:pairs[mid].y,status:'native',requestedTime:t,usedTime:pairs[mid].t,delta:pairs[mid].t-t};if(pairs[mid].t<t)lo=mid+1;else hi=mid-1}
   const i2=lo,i1=lo-1;if(i1<0||i2>=pairs.length)return{ok:false,reason:'outside-range'};
-  const p1=pairs[i1],p2=pairs[i2],dt=p2.t-p1.t;if(!(dt>0))return{ok:false,reason:'invalid-bracket'};
+  const p1=pairs[i1],p2=pairs[i2],dt=p2.t-p1.t;if(!(dt>0)||!Number.isFinite(dt))return{ok:false,reason:'invalid-bracket'};
   const w=(t-p1.t)/dt;
-  return{ok:true,value:p1.y+w*(p2.y-p1.y),status:'interpolated',requestedTime:t,from:[p1.t,p2.t],weight:w}
+  const value=(1-w)*p1.y+w*p2.y;if(!Number.isFinite(value))return{ok:false,reason:'nonfinite-interpolation'};
+  return{ok:true,value,status:'interpolated',requestedTime:t,from:[p1.t,p2.t],weight:w}
 }
 function taDownsampleGrid(values,maxPoints=2000){
   const a=[...new Set(values.filter(Number.isFinite))].sort((x,y)=>x-y),n=Math.max(2,Math.floor(Number(maxPoints)||2000));
   if(a.length<=n)return a;
-  const out=[];for(let i=0;i<n;i++){const k=Math.round(i*(a.length-1)/(n-1));if(!out.length||!taAlmostEqual(out.at(-1),a[k]))out.push(a[k])}
+  const out=[];for(let i=0;i<n;i++){const k=Math.round(i*(a.length-1)/(n-1));if(!out.length||out.at(-1)!==a[k])out.push(a[k])}
   return out
 }
-function taCommonGrid(items,maxPoints=2000){
-  const r=taCommonTimeRange(items);if(!r.valid)return{valid:false,range:r,grid:[]};
-  const all=[];for(const s of items)for(const p of taFinitePairs(s))if((p.t>r.start||taAlmostEqual(p.t,r.start))&&(p.t<r.end||taAlmostEqual(p.t,r.end)))all.push(p.t);
-  if(!all.some(t=>taAlmostEqual(t,r.start)))all.push(r.start);if(!all.some(t=>taAlmostEqual(t,r.end)))all.push(r.end);
-  return{valid:true,range:r,grid:taDownsampleGrid(all,maxPoints)}
+// Scientific grid and preview grid are deliberately different contracts.
+function taGridFromPairs(pairs,{mode='common',referenceIndex=0,pointBudget=null}={}){
+  if(!pairs.length||pairs.some(p=>!p.length))return{valid:false,reason:'missing-or-conflicting-source',range:{valid:false,start:NaN,end:NaN},grid:[]};
+  let start=-Infinity,end=Infinity;
+  for(const p of pairs){start=Math.max(start,p[0].t);end=Math.min(end,p.at(-1).t)}
+  const range={valid:Number.isFinite(start)&&Number.isFinite(end)&&end>=start,start,end};
+  if(!range.valid)return{valid:false,reason:'no-shared-time',range,grid:[]};
+  if(pointBudget!==null&&(!Number.isSafeInteger(pointBudget)||pointBudget<2))return{valid:false,reason:'invalid-operational-budget',range,grid:[]};
+  const grid=[],append=t=>{if(grid.at(-1)===t)return true;if(pointBudget!==null&&grid.length>=pointBudget)return false;grid.push(t);return true};
+  const limited=()=>({valid:false,reason:'operational-budget-exceeded',range,grid:[],pointBudget});
+  if(mode==='reference'){
+    if(!Number.isInteger(referenceIndex)||referenceIndex<0||referenceIndex>=pairs.length)return{valid:false,reason:'invalid-reference',range,grid:[]};
+    for(const p of pairs[referenceIndex])if(p.t>=start&&p.t<=end&&!append(p.t))return limited();
+  }else{
+    const cursor=pairs.map(p=>{let lo=0,hi=p.length;while(lo<hi){const m=lo+Math.floor((hi-lo)/2);if(p[m].t<start)lo=m+1;else hi=m}return lo});
+    if(!append(start))return limited();
+    for(;;){
+      let next=end;for(let j=0;j<pairs.length;j++){const t=pairs[j][cursor[j]]?.t;if(t!==undefined&&t<next)next=t}
+      if(!append(next))return limited();if(next===end)break;
+      for(let j=0;j<pairs.length;j++)while(pairs[j][cursor[j]]?.t===next)cursor[j]++;
+    }
+  }
+  return{valid:grid.length>0,range,grid,subsampled:false,pointBudget};
 }
-function taReferenceGrid(items,referenceIndex=0,maxPoints=2000){
-  const r=taCommonTimeRange(items);if(!r.valid)return{valid:false,range:r,grid:[]};
-  const ref=taFinitePairs(items[Math.max(0,Math.min(items.length-1,Number(referenceIndex)||0))]||{});
-  const vals=ref.filter(p=>(p.t>r.start||taAlmostEqual(p.t,r.start))&&(p.t<r.end||taAlmostEqual(p.t,r.end))).map(p=>p.t);
-  return{valid:!!vals.length,range:r,grid:taDownsampleGrid(vals,maxPoints)}
+// Legacy bounded grid helpers are visualization previews only when a limit is explicitly supplied.
+function taPreviewGrid(g,maxPoints){
+  if(!g.valid||maxPoints===undefined)return g;
+  const grid=taDownsampleGrid(g.grid,maxPoints);
+  return{...g,grid,subsampled:grid.length!==g.grid.length,purpose:'preview',originalPoints:g.grid.length}
 }
-function taAlignOne(s,grid,method='linear'){
-  const pairs=taFinitePairs(s),values=[],meta=[],sample=String(method).toLowerCase()==='nearest'?taNearestSample:taLinearSample;
+function taCommonGrid(items,maxPoints){return taPreviewGrid(taGridFromPairs(items.map(taFinitePairs)),maxPoints)}
+function taReferenceGrid(items,referenceIndex=0,maxPoints){return taPreviewGrid(taGridFromPairs(items.map(taFinitePairs),{mode:'reference',referenceIndex}),maxPoints)}
+function taAlignPrepared(s,pairs,grid,method='linear'){
+  const values=[],meta=[],sample=String(method).toLowerCase()==='nearest'?taNearestSample:taLinearSample;
   for(const t of grid){const q=sample(pairs,t);values.push(q.ok?q.value:NaN);meta.push(q)}
   return{source:s,t:grid.slice(),y:values,meta}
 }
-function taAlignSeries(items,{mode='native',method='linear',referenceIndex=0,maxPoints=2000}={}){
-  const m=String(mode||'common').toLowerCase();
-  if(m==='native')return{valid:items.every(s=>taFinitePairs(s).length>0),mode:'native',range:taCommonTimeRange(items),series:items.map(s=>({source:s,t:taFinitePairs(s).map(p=>p.t),y:taFinitePairs(s).map(p=>p.y),meta:taFinitePairs(s).map(p=>({ok:true,status:'native',requestedTime:p.t,usedTime:p.t,delta:0}))}))};
-  const g=m==='reference'?taReferenceGrid(items,referenceIndex,maxPoints):taCommonGrid(items,maxPoints);
-  if(!g.valid||!g.grid.length)return{valid:false,mode:m,range:g.range,grid:[],series:[]};
-  return{valid:true,mode:m,method:String(method||'linear').toLowerCase(),range:g.range,grid:g.grid,series:items.map(s=>taAlignOne(s,g.grid,method))}
+function taAlignOne(s,grid,method='linear'){return taAlignPrepared(s,taFinitePairs(s),grid,method)}
+function taAlignSeries(items,{mode='native',method='linear',referenceIndex=0,maxPoints,pointBudget=null,purpose='analysis'}={}){
+  const m=String(mode||'common').toLowerCase(),pairs=items.map(taFinitePairs);
+  if(m==='native')return{valid:pairs.length>0&&pairs.every(p=>p.length>0),mode:'native',range:taCommonTimeRange(items),series:items.map((s,i)=>({source:s,t:pairs[i].map(p=>p.t),y:pairs[i].map(p=>p.y),meta:pairs[i].map(p=>({ok:true,status:'native',requestedTime:p.t,usedTime:p.t,delta:0}))}))};
+  // An explicit legacy maxPoints is now an operational budget for analysis, never a decimator.
+  const budget=purpose==='preview'?pointBudget:(pointBudget??maxPoints??null);
+  let g=taGridFromPairs(pairs,{mode:m,referenceIndex,pointBudget:budget});
+  if(purpose==='preview')g=taPreviewGrid(g,maxPoints);
+  if(!g.valid||!g.grid.length)return{valid:false,mode:m,range:g.range,reason:g.reason,pointBudget:g.pointBudget,grid:[],series:[]};
+  const aligned=items.map((s,i)=>taAlignPrepared(s,pairs[i],g.grid,method));
+  if(aligned.some(s=>s.meta.some(q=>!q.ok)))return{valid:false,mode:m,range:g.range,reason:'invalid-aligned-sample',grid:[],series:[]};
+  return{valid:true,mode:m,method:String(method||'linear').toLowerCase(),range:g.range,grid:g.grid,series:aligned,purpose,subsampled:g.subsampled===true,pointBudget:budget,originalPoints:g.originalPoints??g.grid.length}
 }
 function taPearsonPairs(a,b){
   const pts=[];for(let i=0;i<Math.min(a.length,b.length);i++){const x=taPhysicalNumber(a[i]),y=taPhysicalNumber(b[i]);if(Number.isFinite(x)&&Number.isFinite(y))pts.push([x,y])}
@@ -145,6 +172,7 @@ function taBuildUi(){
     </div>
     <div class="field" id="taReferenceField" style="display:none"><label data-fl-en="Reference source" data-fl-es="Fuente de referencia">Reference source</label><select id="taReference"><option value="0" data-fl-en="Source A" data-fl-es="Fuente A">Source A</option><option value="1" data-fl-en="Source B" data-fl-es="Fuente B">Source B</option></select></div>
     <div class="field"><label data-fl-en="Relative-difference epsilon" data-fl-es="Epsilon de diferencia relativa">Relative-difference epsilon</label><input id="taEpsilon" type="number" value="1e-12" min="0" step="any"></div>
+    <div class="field"><label data-fl-en="Operational time-point budget (no reduction)" data-fl-es="Presupuesto operativo de tiempos (sin reducción)">Operational time-point budget (no reduction)</label><input id="taPointBudget" type="number" min="2" step="1" value="100000"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">
       <button class="btn primary" id="taRun" type="button" data-fl-en="Align + compare" data-fl-es="Alinear + comparar">Align + compare</button>
       <button class="btn" id="taAddSigned" type="button" disabled data-fl-en="Add A − B curve" data-fl-es="Agregar curva A − B">Add A − B curve</button>
@@ -156,7 +184,7 @@ function taBuildUi(){
     <div id="taResult" style="margin-top:8px"></div>`;
   host.appendChild(box);flApplyBilingualText(box);
   document.getElementById('taMode').addEventListener('change',()=>{document.getElementById('taReferenceField').style.display=document.getElementById('taMode').value==='reference'?'':'none';taClearResult()});
-  for(const id of ['taSourceA','taSourceB','taMethod','taReference','taEpsilon'])document.getElementById(id)?.addEventListener('change',taClearResult);
+  for(const id of ['taSourceA','taSourceB','taMethod','taReference','taEpsilon','taPointBudget'])document.getElementById(id)?.addEventListener('change',taClearResult);
   document.getElementById('taRun').addEventListener('click',taRunComparison);
   document.getElementById('taAddSigned').addEventListener('click',()=>taAddDerived('signed'));
   document.getElementById('taAddPercent').addEventListener('click',()=>taAddDerived('percent'));
@@ -164,17 +192,19 @@ function taBuildUi(){
   document.getElementById('taExportCsv').addEventListener('click',()=>taExportComparison('csv'));
   taRefreshSources()
 }
-function taClearResult(){taLastResult=null;for(const id of ['taAddSigned','taAddPercent','taExportJson','taExportCsv']){const el=document.getElementById(id);if(el)el.disabled=true}}
+function taClearResult(){taLastResult=null;const result=document.getElementById('taResult');if(result)result.innerHTML='';for(const id of ['taAddSigned','taAddPercent','taExportJson','taExportCsv']){const el=document.getElementById(id);if(el)el.disabled=true}}
 function taRefreshSources(){
   const src=taSources(),box=document.getElementById('taTools'),a=document.getElementById('taSourceA'),b=document.getElementById('taSourceB');if(box)box.style.display='';try{refreshGeneralAnalysisHost()}catch{}if(!a||!b)return;
   const oldA=a.value,oldB=b.value,opts=src.map((s,i)=>`<option value="${String(s.id??i).replace(/"/g,'&quot;')}">${taSeriesLabel(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
   a.innerHTML=opts||'<option value="">—</option>';b.innerHTML=opts||'<option value="">—</option>';if([...a.options].some(o=>o.value===oldA))a.value=oldA;if([...b.options].some(o=>o.value===oldB))b.value=oldB;
   if(!oldB&&b.options.length>1)b.selectedIndex=1;
   const st=document.getElementById('taStatus');if(src.length<2){flSetIssue(st,'at least two temporal series are required',{analysis:'Temporal Alignment',expected:'Two distinct temporal series'});return}
+  if(taLastResult&&!taResultCurrent(taLastResult))taClearResult();
   flClearIssue(st);if(st)st.textContent=flUi('Ready for physical-time alignment.','Listo para alineación por tiempo físico.')
 }
 function taSelected(sel){const src=taSources(),v=document.getElementById(sel)?.value;return src.find((s,i)=>String(s.id??i)===String(v))}
 function taRunComparison(){
+  taClearResult();
   const A=taSelected('taSourceA'),B=taSelected('taSourceB'),status=document.getElementById('taStatus'),result=document.getElementById('taResult');
   if(!A||!B||A===B){flSetIssue(status,'at least two temporal series are required',{analysis:'Temporal Alignment',expected:'Choose two different temporal series'});return}flClearIssue(status)
   const mode=document.getElementById('taMode')?.value||'common',method=document.getElementById('taMethod')?.value||'linear',referenceIndex=Number(document.getElementById('taReference')?.value)||0,epsilon=Number(document.getElementById('taEpsilon')?.value)||1e-12;
@@ -185,10 +215,12 @@ function taRunComparison(){
     if(result)result.innerHTML='';
     return
   }
-  const aligned=taAlignSeries([A,B],{mode,method,referenceIndex,maxPoints:2500});
-  if(!aligned.valid||!aligned.range?.valid){taLastResult=null;flSetIssue(status,'no shared physical-time interval',{analysis:'Temporal Alignment'});if(result)result.innerHTML='';return}
+  const pointBudget=Number(document.getElementById('taPointBudget')?.value);
+  const aligned=taAlignSeries([A,B],{mode,method,referenceIndex,pointBudget});
+  if(!aligned.valid||!aligned.range?.valid){taLastResult=null;if(aligned.reason==='operational-budget-exceeded'||aligned.reason==='invalid-operational-budget'){if(status)status.textContent=flUi('Time-point budget insufficient or invalid. Increase the budget; no samples were discarded.','Presupuesto de tiempos insuficiente o inválido. Auméntalo; no se descartaron muestras.')}else flSetIssue(status,aligned.reason||'no shared physical-time interval',{analysis:'Temporal Alignment'});if(result)result.innerHTML='';return}
   if(mode==='native'){taLastResult={A,B,aligned,epsilon};if(status)status.textContent=diagEs()?`El modo nativo conserva la malla temporal de cada fuente. Rango compartido: ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s. Elige Malla temporal común o Malla del caso de referencia para diferencias cuantitativas.`:`Native mode preserves each source time grid. Shared range: ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s. Choose Common Time Grid or Reference Case Grid for quantitative differences.`;if(result)result.innerHTML='';return}
   const m=taPairMetrics(aligned.grid,aligned.series[0].y,aligned.series[1].y,epsilon);
+  if(m.count!==aligned.grid.length||![m.rmse,m.mae,m.maxAbs,m.meanDifference].every(Number.isFinite)){flSetIssue(status,'nonfinite or incomplete quantitative comparison',{analysis:'Temporal Alignment'});return}
   taLastResult={A,B,aligned,metrics:m,epsilon,compatibility};
   const metaCount=(arr,k)=>arr.reduce((n,x)=>n+(x?.status===k),0),ma=aligned.series[0].meta,mb=aligned.series[1].meta;
   if(status)status.textContent=diagEs()?`Solapamiento ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s · ${m.count} puntos comparables · sin extrapolación.`:`Overlap ${taFmt(aligned.range.start)}–${taFmt(aligned.range.end)} s · ${m.count} comparable points · no extrapolation.`;
@@ -205,21 +237,22 @@ function taDownload(name,text,type){
   if(typeof downloadText==='function'){downloadText(name,text,type);return}
   const blob=new Blob([text],{type:type||'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
 }
+function taResultCurrent(r){return !!r&&taSelected('taSourceA')===r.A&&taSelected('taSourceB')===r.B}
 function taExportPayload(){
-  const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native')return null;
+  const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native'||!taResultCurrent(r))return null;
   if(!taQuantityCompatibility(r.A,r.B).ok)return null;
-  return{generatedBy:flBuildIdentity(),analysis:'temporal-alignment-difference',compatibility:r.compatibility||taQuantityCompatibility(r.A,r.B),sourceA:taSeriesLabel(r.A),sourceB:taSeriesLabel(r.B),variableA:taSeriesVariable(r.A),variableB:taSeriesVariable(r.B),regionA:taSeriesRegion(r.A),regionB:taSeriesRegion(r.B),alignment:{mode:r.aligned.mode,method:r.aligned.method,commonRange:r.aligned.range,epsilon:r.epsilon,noExtrapolation:true},metrics:r.metrics,points:r.aligned.grid.map((t,i)=>({time:t,A:r.aligned.series[0].y[i],B:r.aligned.series[1].y[i],difference:r.aligned.series[0].y[i]-r.aligned.series[1].y[i],absoluteDifference:Math.abs(r.aligned.series[0].y[i]-r.aligned.series[1].y[i]),relativeDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,percentDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?100*(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,provenanceA:r.aligned.series[0].meta[i],provenanceB:r.aligned.series[1].meta[i]}))}
+  return{generatedBy:flBuildIdentity(),analysis:'temporal-alignment-difference',compatibility:r.compatibility||taQuantityCompatibility(r.A,r.B),sourceA:taSeriesLabel(r.A),sourceB:taSeriesLabel(r.B),variableA:taSeriesVariable(r.A),variableB:taSeriesVariable(r.B),regionA:taSeriesRegion(r.A),regionB:taSeriesRegion(r.B),alignment:{mode:r.aligned.mode,method:r.aligned.method,commonRange:r.aligned.range,epsilon:r.epsilon,noExtrapolation:true,subsampled:false,pointBudget:r.aligned.pointBudget,gridPoints:r.aligned.grid.length},metrics:r.metrics,points:r.aligned.grid.map((t,i)=>({time:t,A:r.aligned.series[0].y[i],B:r.aligned.series[1].y[i],difference:r.aligned.series[0].y[i]-r.aligned.series[1].y[i],absoluteDifference:Math.abs(r.aligned.series[0].y[i]-r.aligned.series[1].y[i]),relativeDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,percentDifference:Math.abs(r.aligned.series[1].y[i])>r.epsilon?100*(r.aligned.series[0].y[i]-r.aligned.series[1].y[i])/r.aligned.series[1].y[i]:null,provenanceA:r.aligned.series[0].meta[i],provenanceB:r.aligned.series[1].meta[i]}))}
 }
 function taExportComparison(format){
   const p=taExportPayload();if(!p){flSetIssue('taStatus','analysis-not-run',{analysis:'Temporal Alignment',expected:'Run a non-native aligned comparison first'});return}
   if(format==='json'){taDownload('FoamLens_temporal_comparison.json',JSON.stringify(p,null,2),'application/json');return}
   const escCsv=v=>'"'+String(v??'').replaceAll('"','""')+'"',rows=[['time_s','A','B','A_minus_B','absolute_difference','relative_difference','percent_difference','A_status','B_status']];
   for(const q of p.points)rows.push([q.time,q.A,q.B,q.difference,q.absoluteDifference,q.relativeDifference,q.percentDifference,q.provenanceA?.status||'',q.provenanceB?.status||'']);
-  const meta=['# FoamLens temporal comparison','# sourceA='+p.sourceA,'# sourceB='+p.sourceB,'# mode='+p.alignment.mode,'# method='+p.alignment.method,'# commonStart='+p.alignment.commonRange.start,'# commonEnd='+p.alignment.commonRange.end,'# epsilon='+p.alignment.epsilon,'# noExtrapolation=true'];
+  const meta=['# FoamLens temporal comparison','# sourceA='+p.sourceA,'# sourceB='+p.sourceB,'# mode='+p.alignment.mode,'# method='+p.alignment.method,'# commonStart='+p.alignment.commonRange.start,'# commonEnd='+p.alignment.commonRange.end,'# epsilon='+p.alignment.epsilon,'# noExtrapolation=true','# subsampled=false','# gridPoints='+p.alignment.gridPoints];
   taDownload('FoamLens_temporal_comparison.csv',meta.join('\n')+'\n'+rows.map(r=>r.map(escCsv).join(',')).join('\n'),'text/csv')
 }
 function taAddDerived(kind){
-  const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native'){flSetIssue('taStatus','analysis-not-run',{analysis:'Temporal Alignment',expected:'Run Common Time Grid or Reference Case Grid first'});return}
+  const r=taLastResult;if(!r?.aligned?.grid?.length||r.aligned.mode==='native'||!taResultCurrent(r)){flSetIssue('taStatus','analysis-not-run',{analysis:'Temporal Alignment',expected:'Run Common Time Grid or Reference Case Grid first'});return}
   if(!taQuantityCompatibility(r.A,r.B).ok){flSetIssue('taStatus','incompatible physical units or dimensions; difference unavailable',{analysis:'Temporal Alignment'});return}
   const y=taDifferenceValues(r.aligned.series[0].y,r.aligned.series[1].y,kind,r.epsilon),A=r.A,B=r.B;
   const base=String(kind)==='percent'?flUi('% difference','% diferencia'):'A − B',name=`${base}: ${taSeriesVariable(A)} · ${taCaseName(A)} vs ${taCaseName(B)}`;
