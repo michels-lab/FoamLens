@@ -278,3 +278,22 @@ assert(ex.csv(rows).includes('"concaveFraction","1",0,0.01,0.01'));
 assert(ex.csv(rows).includes('"underdeterminedFraction","1",,0.005,'));
 console.log('Experiment workflow: portable validated import, exact plan restore, change detection, normalized metrics and CSV PASS');
 }
+
+{
+const ex=new Function(src.slice(a,b)+'\n'+src.slice(src.indexOf('function cmbUniformBackgroundPreview('),src.indexOf('function cmbMount()'))+';return {import:cmbImportExperimentFile,export:cmbExperimentExportEntries}')();
+const axis={points:[0,1],counts:[8],grading:[1]},settings={inside:[.11,.11,.11],minLevel:1,maxLevel:1,maxCells:20000,boxes:[],surfaceSettings:[],layerSettings:{expansionRatio:1.2,finalLayerThickness:.3,minThickness:.1},snapEnabled:true,transitionLayers:3,explicitFeatures:true,uniformBackground:true};
+const e={schema:'foamlens/snappy-experiment/1',version:'14',distribution:'Ubuntu',domain:Array(3).fill([0,1]),patches:input.patches,axes:Array(3).fill(axis),settings,source:[{path:'constant/geometry/surface_001.stl',bytes:684,sha256:'a'.repeat(64)}],plannedCells:4096,finalCells:3584,quality:'mesh-ok-reported',generationExit:0,checkMeshExit:0,concaveCells:0,qualitySummary:{concaveCells:0},layers:null,qualityCertified:false,diagnosticOnly:true};
+const single=ex.export(e,null);
+assert.deepEqual(single.map(v=>v.name),['experiment-A.json','metrics.csv','README.txt']);
+assert.equal(ex.import(JSON.parse(single[0].data),'A').A.plannedCells,4096);
+assert.equal(ex.import(JSON.parse(single[0].data),'B').B.importedRecord,true);
+const both=ex.export(e,e),raw=JSON.parse(both.find(v=>v.name==='comparison.json').data);
+assert.equal(raw.comparison.finalDelta,0);
+const restored=ex.import({...raw,comparison:{finalDelta:999}},'both');
+assert.equal(restored.A.plannedCells,4096);assert.equal(restored.B.finalCells,3584);
+assert.throws(()=>ex.import({...raw,B:{...e,plannedCells:1}},'both'));
+assert.throws(()=>ex.import(e,'both'));assert.throws(()=>ex.import(e,'C'));
+assert.throws(()=>ex.export(null,null));
+assert.throws(()=>ex.import({...e,settings:{...settings,uniformBackground:false}},'A'));
+console.log('Experiment archive: single and atomic pair import/export, uniform background, recomputation PASS');
+}

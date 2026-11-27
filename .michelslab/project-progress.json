@@ -3,17 +3,17 @@
   "project": "FoamLens",
   "repository": "michels-lab/FoamLens",
   "role": "application",
-  "as_of": "2026-11-25",
+  "as_of": "2026-11-27",
   "scope": "Ruta integral de aceptación y publicación final estable FoamLens: ciencia OpenFOAM, Field A-D, perfiles, CAD, experiencia transversal y Windows; rendimiento 3008 archivos excluido por decisión del propietario",
   "estimate_method": "equal_weight_verified_milestones",
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "v1.8.24 published and independently verified; G-C 4.1 WSL preflight candidate #383",
-  "source_pr": "https://github.com/michels-lab/FoamLens/pull/383",
-  "source_head_sha": "b88df9f67f260053848c960856df862b1525f267",
+  "phase": "G-A/G-C protected conformal native controls verified Foundation 13/14; reproducible experiment workflow in #386; v1.8.25 candidate #384 remains blocked on original strict snappy",
+  "source_pr": "https://github.com/michels-lab/FoamLens/pull/386",
+  "source_head_sha": "9e34144433c5fa9a9b5cb84c7ad32439a0265ea4",
   "latest_verified_stable": "v1.8.24",
-  "release_hold": false,
+  "release_hold": true,
   "owner_physical_acceptance": false,
   "milestones": [
     {
@@ -151,24 +151,39 @@
       ]
     }
   ],
-  "next_step": "Validate exact native/Windows CI for #383; add explicit distribution selection and staging evidence; resolve strict snappy 4.3; owner acceptance.",
-  "limitations": "Historical 8/15, V2 N/D. v1.8.24 official verified; physical acceptance pending; preflight candidate not published, strict snappy remains diagnostic-only.",
+  "next_step": "Verify latest #386 exact native/Windows; resolve strict original snappy or document alternative as separate, no gate bypass; reconcile historic native QA PRs by diff; owner physical acceptance.",
+  "limitations": "8/15 verified, V2 36-deliverable baseline still N/D. Protected conformal fixtures only; local octree and actual layer extrusion unresolved, physical B14/C14 and owner acceptance pending. Authenticode optional for direct GitHub per #238; not an independent blocker. Imported experimental evidence unverified; no CFD run.",
   "last_granada": {
-    "as_of": "2026-11-25",
+    "as_of": "2026-11-27",
     "progress_before": 53,
     "progress_after": 53,
     "verified_milestones": 8,
     "total_milestones": 15,
-    "source_code_sha": "b88df9f67f260053848c960856df862b1525f267",
-    "scope": "Official stable v1.8.24 verified; start G-C 4.1 WSL preflight",
+    "source_code_sha": "9e34144433c5fa9a9b5cb84c7ad32439a0265ea4",
+    "scope": "Reproducible mesh experiments: import/export, restore background, normalized metrics, changed parameters; source head for final follow-up is the commit containing this report",
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/commit/fb1aea5478588267a4d4eb914abfe1c4ee747686",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45586465969",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45586465447",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45737560786",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45738655721"
+      "https://github.com/michels-lab/FoamLens/commit/9e34144433c5fa9a9b5cb84c7ad32439a0265ea4",
+      "https://github.com/michels-lab/FoamLens/actions/runs/46047469531",
+      "https://github.com/michels-lab/FoamLens/actions/runs/46047201515",
+      "https://github.com/michels-lab/FoamLens/actions/runs/46048509689",
+      "https://github.com/michels-lab/FoamLens/actions/runs/46048793212",
+      "https://github.com/michels-lab/FoamLens/actions/runs/46042148761",
+      "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.24",
+      "https://github.com/michels-lab/FoamLens/pull/386"
     ],
-    "pending": "Validate exact native/Windows CI for #383; add explicit distribution selection and staging evidence; resolve strict snappy 4.3; owner acceptance."
+    "pending": "Verify latest #386 exact native/Windows; resolve strict original snappy or document alternative as separate, no gate bypass; reconcile historic native QA PRs by diff; owner physical acceptance.",
+    "backlog_before": {
+      "issues": 18,
+      "pull_requests": 8,
+      "drafts": 7,
+      "stacked": 5
+    },
+    "backlog_after": {
+      "issues": 18,
+      "pull_requests": 8,
+      "drafts": 7,
+      "stacked": 5
+    }
   },
   "roadmap_v2": {
     "document": "docs/IMPLEMENTATION_ROADMAP_V2_2026-11-24.md",
@@ -177,12 +192,16 @@
     "deliverables": 36,
     "progress_percent": null,
     "verified_deliverables": null,
-    "status": "baseline inventory pending; historical 8/15 unchanged",
-    "active_operation": "G-C",
+    "status": "baseline inventory pending; protected controls verified but strict snappy, native WSL and physical acceptance pending; historical 8/15 unchanged",
+    "active_operation": "G-A/G-C",
     "active_deliverables": [
+      "3.1",
+      "3.3",
+      "3.4",
       "4.1",
       "4.2",
-      "4.3"
+      "4.3",
+      "8.3"
     ],
     "deferred": [
       "2.1–2.3 until G-F",
