@@ -191,3 +191,44 @@ const log=api.inspectRunLog('Time = 0.1\nSolving for fluid region metal\nGAMG: S
 assert.strictEqual(log.lastTime,0.2);assert.strictEqual(log.lastDeltaT,0.001);assert.strictEqual(log.timeSteps,2);assert.strictEqual(log.residualRows[1].region,'mold');assert.strictEqual(log.residualRows[0].initial,0.97);assert.strictEqual(log.courantRows[0].max,0.5);assert.strictEqual(log.fatalMarkers,1);assert.strictEqual(log.nonfiniteMarkers,1);assert.strictEqual(log.normalEndMarkers,1);assert.strictEqual(log.runSuccessVerified,false);
 assert.throws(()=>api.inspectRunLog('x'.repeat(8*1024*1024+1)));
 console.log('Physical/execution drafts: solidification, both contact versions, isolated script and local log evidence PASS');
+
+// Linux CI: exercise the exact generated shell program against mock OpenFOAM
+// commands. This tests isolation and control flow, not native CFD.
+if(typeof process!=='undefined'&&process.platform==='linux'){
+ const os=require('os'),cp=require('child_process'),crypto=require('crypto');
+ const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'foamlens-cb-test-')),owned=[];
+ try{
+  const caseDir=path.join(tmp,'trusted case'),bin=path.join(tmp,'bin');
+  fs.mkdirSync(bin,{recursive:true});
+  const p=api.build({...phase,version:'14'}),script=path.join(tmp,'prepare-run.sh');
+  fs.writeFileSync(script,file(p,'execution/prepare-run.sh'));
+  for(const rel of p.manifest.execution.requiredFiles){const dest=path.join(caseDir,rel);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,'original fixture\n')}
+  const digest=()=>crypto.createHash('sha256').update(p.manifest.execution.requiredFiles.map(rel=>fs.readFileSync(path.join(caseDir,rel),'utf8')).join('\n')).digest('hex');
+  const before=digest();
+  const mock=(name,body)=>fs.writeFileSync(path.join(bin,name),'#!/usr/bin/env bash\nset -e\n'+body+'\n',{mode:0o700});
+  mock('foamDictionary','if [[ "$*" == *"-entry application"* ]]; then echo foamRun; fi');
+  mock('checkMesh','echo "Mesh OK."');
+  mock('foamRun','printf "changed in isolated case\\n" > 0/T; echo "Time = 1"; echo End');
+  const env={...process.env,WM_PROJECT_VERSION:'14',PATH:bin+':'+process.env.PATH};
+  const syntax=cp.spawnSync('bash',['-n',script],{encoding:'utf8'});assert.strictEqual(syntax.status,0,syntax.stderr);
+  const execute=(args,extra={})=>{
+   const r=cp.spawnSync('bash',[script,...args],{encoding:'utf8',env:{...env,...extra},timeout:10000});
+   const m=/Isolated case: (\/tmp\/foamlens-run\.[A-Za-z0-9]+)\/case/.exec(r.stdout||'');if(m)owned.push(m[1]);return {r,work:m?.[1]}
+  };
+  const check=execute([caseDir,'--check']);assert.strictEqual(check.r.status,0,check.r.stderr);assert(!fs.existsSync(path.join(check.work,'logs','solver.log')));assert.strictEqual(digest(),before);
+  const run=execute([caseDir,'--run']);assert.strictEqual(run.r.status,0,run.r.stderr);assert.match(fs.readFileSync(path.join(run.work,'case','0','T'),'utf8'),/changed in isolated case/);assert.strictEqual(digest(),before);
+  assert.strictEqual(fs.readFileSync(path.join(run.work,'logs','pipeline-exit-code.txt'),'utf8').trim(),'0');
+  assert.notStrictEqual(execute([caseDir,'--run'],{WM_PROJECT_VERSION:'13'}).r.status,0);
+  mock('checkMesh','echo "failed mesh"; exit 0');
+  const reject=execute([caseDir,'--run']);assert.notStrictEqual(reject.r.status,0);assert(!fs.existsSync(path.join(reject.work,'logs','solver.log')));
+  mock('checkMesh','echo "Mesh OK."');mock('foamRun','exit 7');
+  const failed=execute([caseDir,'--run']);assert.strictEqual(failed.r.status,7);
+  fs.symlinkSync(path.join(caseDir,'0','T'),path.join(caseDir,'0','linked'));
+  assert.notStrictEqual(execute([caseDir,'--run']).r.status,0);
+  assert.strictEqual(digest(),before);
+  console.log('Exact generated Bash helper: mock Linux syntax, isolated check/run, failure and symlink rejection PASS');
+ }finally{
+  for(const d of owned)fs.rmSync(d,{recursive:true,force:true});
+  fs.rmSync(tmp,{recursive:true,force:true})
+ }
+}
