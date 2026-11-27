@@ -240,3 +240,18 @@ assert.equal(cmp.compare(x,null),null);
 payload.snappy.inside[0]=.5;assert.equal(x.settings.inside[0],.1);
 console.log('Compact native A/B receipts: exact CAD identity, recorded context, final cells, no retained mesh bytes PASS');
 }
+
+{
+const qapi=new Function(src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbSnappySettings('))+';return {summary:cmbQualitySummary,snapshot:cmbExperimentSnapshot,compare:cmbCompareExperiments}')();
+const quality={maxAspectRatio:2,maxNonOrthogonalityDeg:0,meanNonOrthogonalityDeg:0,maxSkewness:0,minDeterminant:0,minFaceWeight:1/3,minFaceVolumeRatio:.5,concaveCells:0,underdeterminedCells:96};
+assert.deepEqual(qapi.summary({nativeFinalCells:152,nativeQualitySummary:quality}),quality);
+assert.deepEqual(qapi.summary({nativeFinalCells:152,nativeQualitySummary:{concaveCells:0,underdeterminedCells:153,maxSkewness:NaN,unknown:7}}),{concaveCells:0});
+assert.equal(qapi.summary({nativeQualitySummary:{concaveCells:0}}),null);
+assert.equal(qapi.summary({nativeFinalCells:152}),null);
+const a={version:'14',distribution:'Ubuntu',source:[{sha256:'a'}],domain:[[0,1]],patches:['wall'],settings:{inside:[.1,.1,.1]},qualitySummary:quality};
+const b={...a,qualitySummary:{minDeterminant:.5,maxNonOrthogonalityDeg:10,concaveCells:2}};
+assert.deepEqual(qapi.compare(a,b).metricDeltas,{maxNonOrthogonalityDeg:10,minDeterminant:.5,concaveCells:2});
+assert.deepEqual(qapi.compare(a,{...b,version:'13'}).metricDeltas,{});
+assert.deepEqual(qapi.compare(a,{...b,qualitySummary:null}).metricDeltas,{});
+console.log('Native quality summary preserves real zeros, incomplete data and comparable metric deltas PASS');
+}

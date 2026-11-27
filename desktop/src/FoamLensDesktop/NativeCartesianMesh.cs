@@ -173,6 +173,40 @@ internal static class NativeCartesianMesh
         return long.TryParse(counts[0].Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long n)&&n>0?n:null;
     }
 
+    // Summary values are source-native, not reconstructed per-cell metrics.
+    internal static Dictionary<string,double>? FinalMeshQuality(int? exit,string log)
+    {
+        if(FinalMeshCellCount(exit,log) is not long cells)return null;
+        var completion=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*(?:Mesh OK\.|Failed[ \t]+\d+[ \t]+mesh checks?\.)[ \t\r]*$");
+        if(completion.Count!=1)return null;
+        var geometry=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*Checking geometry\.\.\.[ \t\r]*$");
+        if(geometry.Count!=1||geometry[0].Index>=completion[0].Index)return null;
+        var body=log[geometry[0].Index..completion[0].Index];
+        const string number=@"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)";
+        var result=new Dictionary<string,double>(StringComparer.Ordinal);
+        void Read(string key,string pattern,int group=1){
+            var matches=System.Text.RegularExpressions.Regex.Matches(body,pattern);
+            if(matches.Count==1&&double.TryParse(matches[0].Groups[group].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out double value)&&double.IsFinite(value))
+                result[key]=value;
+        }
+        Read("maxAspectRatio",@"(?m)^[ \t]*(?:\*{3})?Max aspect ratio = "+number+@"(?: OK\.)?[ \t\r]*$");
+        Read("maxNonOrthogonalityDeg",@"(?m)^[ \t]*Mesh non-orthogonality Max: "+number+" average: "+number+@"[ \t\r]*$");
+        Read("meanNonOrthogonalityDeg",@"(?m)^[ \t]*Mesh non-orthogonality Max: "+number+" average: "+number+@"[ \t\r]*$",2);
+        Read("maxSkewness",@"(?m)^[ \t]*(?:\*{3})?Max skewness = "+number+@"(?: OK\.)?[ \t\r]*$");
+        Read("minDeterminant",@"(?m)^[ \t]*Cell determinant \(wellposedness\) : minimum: "+number+" average: "+number+@"[ \t\r]*$");
+        Read("minFaceWeight",@"(?m)^[ \t]*Face interpolation weight : minimum: "+number+" average: "+number+@"[ \t\r]*$");
+        Read("minFaceVolumeRatio",@"(?m)^[ \t]*Face volume ratio : minimum: "+number+" average: "+number+@"[ \t\r]*$");
+        var defects=System.Text.RegularExpressions.Regex.Matches(body,@"(?m)^[ \t]*\*{3}Concave cells \(using face planes\) found, number of cells:[ \t]*(\d+)[ \t\r]*$");
+        var passed=System.Text.RegularExpressions.Regex.Matches(body,@"(?m)^[ \t]*Concave cell check OK\.[ \t\r]*$");
+        if(defects.Count==0&&passed.Count==1)result["concaveCells"]=0;
+        else if(defects.Count==1&&passed.Count==0&&long.TryParse(defects[0].Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long count)&&count>0&&count<=cells)
+            result["concaveCells"]=count;
+        var under=System.Text.RegularExpressions.Regex.Matches(body,@"(?m)^[ \t]*\*{3}Cells with small determinant \(< 0\.001\) found, number of cells:[ \t]*(\d+)[ \t\r]*$");
+        if(under.Count==1&&long.TryParse(under[0].Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long bad)&&bad>0&&bad<=cells)
+            result["underdeterminedCells"]=bad;
+        return result.Count>0?result:null;
+    }
+
     internal static void SelfTest()
     {
         var fixture=new NativeCadSurfaceCheck.ProcessOutput(0,"project=OpenFOAM\nversion=14\nblockMesh=available\ncheckMesh=available\ntimeout=available\n","",false);
@@ -223,6 +257,15 @@ internal static class NativeCartesianMesh
         foreach(var bad in new[]{meshStats+meshStats,meshStats+"[truncated]",meshStats.Replace("1216","0"),meshStats.Replace("1216","99999999999999999999999"),meshStats.Replace("End\n",""),meshStats.Replace("Mesh stats","Other stats"),meshStats.Replace("Mesh OK.","no quality result")})
             if(FinalMeshCellCount(0,bad)!=null)throw new InvalidOperationException("Ambiguous final cell count accepted.");
         if(FinalMeshCellCount(1,meshStats)!=null)throw new InvalidOperationException("Failed native cell count accepted.");
+        const string qualityStats="Mesh stats\n    cells: 152\nChecking geometry...\n    Max aspect ratio = 2 OK.\n    Mesh non-orthogonality Max: 0 average: 0\n    Max skewness = 0 OK.\n    Cell determinant (wellposedness) : minimum: 0 average: 0.27442061945\n ***Cells with small determinant (< 0.001) found, number of cells: 96\n    Concave cell check OK.\n    Face interpolation weight : minimum: 0.333333333333 average: 0.433333333333\n    Face volume ratio : minimum: 0.5 average: 0.8\nFailed 1 mesh checks.\nEnd\n";
+        var finalQuality=FinalMeshQuality(0,qualityStats);
+        if(finalQuality==null||finalQuality.Count!=9||finalQuality["concaveCells"]!=0||finalQuality["underdeterminedCells"]!=96||finalQuality["maxNonOrthogonalityDeg"]!=0||finalQuality["minFaceVolumeRatio"]!=.5)
+            throw new InvalidOperationException("Native final summary mismatch.");
+        var ambiguousQuality=FinalMeshQuality(0,qualityStats.Replace("    Max skewness = 0 OK.","    Max skewness = 0 OK.\n    Max skewness = 1 OK.").Replace("    Concave cell check OK.",""));
+        if(ambiguousQuality==null||ambiguousQuality.ContainsKey("maxSkewness")||ambiguousQuality.ContainsKey("concaveCells"))throw new InvalidOperationException("Ambiguous summary metric accepted.");
+        foreach(var badSummary in new[]{qualityStats+qualityStats,qualityStats+"[truncated]",qualityStats.Replace("End\n",""),qualityStats.Replace("Checking geometry...","Other geometry")})
+            if(FinalMeshQuality(0,badSummary)!=null)throw new InvalidOperationException("Incomplete summary accepted.");
+        if(FinalMeshQuality(1,qualityStats)!=null)throw new InvalidOperationException("Failed summary accepted.");
         const string valid = """
             {"axes":[{"points":[0,1,2],"counts":[2,3],"grading":[1,1]},{"points":[0,1],"counts":[4],"grading":[1]},{"points":[0,1],"counts":[5],"grading":[1]}],"patches":["xMin","xMax","yMin","yMax","zMin","zMax"],"zones":[{"ijk":[0,0,0],"name":"metal"},{"ijk":[1,0,0],"name":"mold"}]}
             """;
@@ -869,15 +912,15 @@ internal static class NativeCartesianMesh
             // Determine quality from the complete bounded log, not the first
             // 48k characters returned for display. A truncated positive
             // marker can never certify the rest of the run.
-            async Task<(string Status,long? ConcaveCells,long? Cells)> ReportedQuality(string file,int? exit)
+            async Task<(string Status,long? ConcaveCells,long? Cells,Dictionary<string,double>? Summary)> ReportedQuality(string file,int? exit)
             {
-                if(exit is null)return ("not-run",null,null);
-                if(exit!=0)return ("command-failed",null,null);
+                if(exit is null)return ("not-run",null,null,null);
+                if(exit!=0)return ("command-failed",null,null,null);
                 var path=Path.Combine(dir,file);var info=new FileInfo(path);
-                if(!info.Exists||info.Length>16*1024*1024||(info.Attributes&FileAttributes.ReparsePoint)!=0)return ("undetermined",null,null);
+                if(!info.Exists||info.Length>16*1024*1024||(info.Attributes&FileAttributes.ReparsePoint)!=0)return ("undetermined",null,null,null);
                 string log=await File.ReadAllTextAsync(path,token);
                 var evidence=QualityEvidence(exit,log);
-                return (evidence.Status,evidence.ConcaveCells,FinalMeshCellCount(exit,log));
+                return (evidence.Status,evidence.ConcaveCells,FinalMeshCellCount(exit,log),FinalMeshQuality(exit,log));
             }
             int? Exit(string name){var p=Path.Combine(dir,name);return File.Exists(p)&&new FileInfo(p).Length<32&&int.TryParse(File.ReadAllText(p),out var x)?x:null;}
             var bm=snappy?Exit("snappyHexMesh.exit"):Exit("generation.exit");var cm=Exit("checkMesh.exit");
@@ -958,7 +1001,7 @@ internal static class NativeCartesianMesh
                     var captured=await ReadSets(poly,64*1024*1024-splitBytes);splitBytes+=captured.Bytes;
                     var regionLog=await Small("checkMesh."+name+".log",48000);var volumes=await ReadVolumes(name,64*1024*1024-splitBytes);splitBytes+=volumes.Bytes;var quality=await ReadQuality(name,64*1024*1024-splitBytes);splitBytes+=quality.Bytes;
                     var regionEvidence=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit"));
-                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=regionEvidence.Status,nativeConcaveCells=regionEvidence.ConcaveCells,nativeFinalCells=regionEvidence.Cells,checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings,nativeQualityFields=volumes.Fields,nativeVolumeStatus=volumes.Status,nativeVolumeLog=await Small("nativeVolumes."+name+".log",12000),nativeMetrics=quality.Metrics,nativeMetricsStatus=quality.Status,nativeMetricsManifest=quality.Manifest,nativeMetricsLog=await Small("nativeQuality."+name+".log",12000) };
+                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=regionEvidence.Status,nativeConcaveCells=regionEvidence.ConcaveCells,nativeFinalCells=regionEvidence.Cells,nativeQualitySummary=regionEvidence.Summary,checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings,nativeQualityFields=volumes.Fields,nativeVolumeStatus=volumes.Status,nativeVolumeLog=await Small("nativeVolumes."+name+".log",12000),nativeMetrics=quality.Metrics,nativeMetricsStatus=quality.Status,nativeMetricsManifest=quality.Manifest,nativeMetricsLog=await Small("nativeQuality."+name+".log",12000) };
                 }
                 if(splitError!=null)regions.Clear();
                 // Combined and separated meshes are different snapshots. Do not
@@ -1009,7 +1052,7 @@ internal static class NativeCartesianMesh
                     layerPeakLowWeightFaces=LayerPeakLowWeightFaces(bm,generationLog);
                 }
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,uniformBackgroundLevel=background.UniformLevel,originalBackgroundCells=background.OriginalCells,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=combinedEvidence.Status,nativeConcaveCells=combinedEvidence.ConcaveCells,nativeFinalCells=combinedEvidence.Cells,refinementLevelStatus,requestedSurfaceLayers=requestedLayers,finalSurfaceLayerEvidence=finalLayers,layerPeakLowWeightFaces,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,uniformBackgroundLevel=background.UniformLevel,originalBackgroundCells=background.OriginalCells,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=combinedEvidence.Status,nativeConcaveCells=combinedEvidence.ConcaveCells,nativeFinalCells=combinedEvidence.Cells,nativeQualitySummary=combinedEvidence.Summary,refinementLevelStatus,requestedSurfaceLayers=requestedLayers,finalSurfaceLayerEvidence=finalLayers,layerPeakLowWeightFaces,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }

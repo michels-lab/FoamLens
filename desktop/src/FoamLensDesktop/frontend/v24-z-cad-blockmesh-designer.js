@@ -224,7 +224,7 @@ function flMeshRegionEntries(r){
  if(r.splitLog)entries.push({name:'logs/splitMeshRegions.log',data:r.splitLog});
  return entries;
 }
-function flMeshReportMeta(r){const {regions,sets,nativeQualityFields,nativeVolumeLog,nativeMetrics,nativeMetricsLog,nativeQualityBuildLog,...rest}=r;return {...rest,nativeVolumeCount:Object.keys(nativeQualityFields||{}).length,nativeMetricCount:Object.keys(nativeMetrics||{}).length,setCount:Object.keys(sets||{}).length,regions:Object.fromEntries(Object.entries(regions||{}).map(([k,v])=>[k,{expectedCells:v.expectedCells,checkMeshExit:v.checkMeshExit,qualityStatus:v.qualityStatus||'undetermined',nativeConcaveCells:v.nativeConcaveCells??null,nativeFinalCells:v.nativeFinalCells??null,fileCount:Object.keys(v.files||{}).length,setCount:Object.keys(v.sets||{}).length,setWarnings:v.setWarnings||[],nativeVolumeStatus:v.nativeVolumeStatus||'not-run',nativeVolumeCount:Object.keys(v.nativeQualityFields||{}).length,nativeMetricsStatus:v.nativeMetricsStatus||'not-run',nativeMetricCount:Object.keys(v.nativeMetrics||{}).length}]))}}
+function flMeshReportMeta(r){const {regions,sets,nativeQualityFields,nativeVolumeLog,nativeMetrics,nativeMetricsLog,nativeQualityBuildLog,...rest}=r;return {...rest,nativeVolumeCount:Object.keys(nativeQualityFields||{}).length,nativeMetricCount:Object.keys(nativeMetrics||{}).length,setCount:Object.keys(sets||{}).length,regions:Object.fromEntries(Object.entries(regions||{}).map(([k,v])=>[k,{expectedCells:v.expectedCells,checkMeshExit:v.checkMeshExit,qualityStatus:v.qualityStatus||'undetermined',nativeConcaveCells:v.nativeConcaveCells??null,nativeFinalCells:v.nativeFinalCells??null,nativeQualitySummary:v.nativeQualitySummary??null,fileCount:Object.keys(v.files||{}).length,setCount:Object.keys(v.sets||{}).length,setWarnings:v.setWarnings||[],nativeVolumeStatus:v.nativeVolumeStatus||'not-run',nativeVolumeCount:Object.keys(v.nativeQualityFields||{}).length,nativeMetricsStatus:v.nativeMetricsStatus||'not-run',nativeMetricCount:Object.keys(v.nativeMetrics||{}).length}]))}}
 function flHasNativeMesh(r){return !!r?.meshGenerated&&(Object.keys(r.files||{}).length>0||Object.keys(r.regions||{}).length>0)}
 function flRegionStatus(r){return r.splitRequested?' · split '+(r.splitExit??'—')+' · '+Object.keys(r.regions||{}).length+' regions · '+Object.entries(r.regions||{}).map(([name,v])=>name+': '+(v.qualityStatus||'undetermined')).join(' | ')+' · '+(r.splitError||'') : ''}
 function cmbUniformBackgroundPreview(p,cfg,advanced){
@@ -278,6 +278,17 @@ function cmbLayerReceiptMatches(payload,r){
  return typeof actual==='object'&&!Array.isArray(actual)&&Object.keys(actual).length===Object.keys(expected).length&&Object.entries(expected).every(([k,v])=>Object.hasOwn(actual,k)&&actual[k]===v)
 }
 // Compact explicit A/B receipts; never retain a second large mesh or STL buffer.
+function cmbQualitySummary(r){
+ const source=r?.nativeQualitySummary;
+ if(!source||typeof source!=='object'||Array.isArray(source))return null;
+ const out={};
+ for(const k of ['maxAspectRatio','maxNonOrthogonalityDeg','meanNonOrthogonalityDeg','maxSkewness','minDeterminant','minFaceWeight','minFaceVolumeRatio','concaveCells','underdeterminedCells']){
+  const v=source[k];if(!Number.isFinite(v))continue;
+  if(k.endsWith('Cells')&&(!Number.isSafeInteger(v)||v<0||!Number.isSafeInteger(r.nativeFinalCells)||v>r.nativeFinalCells))continue;
+  out[k]=v
+ }
+ return Object.keys(out).length?out:null
+}
 function cmbExperimentSnapshot(r,payload){
  if(!payload?.snappy||r?.schema!=='foamlens/native-snappy-mesh/1'||r.stagingIsolated!==true||r.originalCaseModified!==false)return null;
  const {surfaces,...settings}=payload.snappy;
@@ -285,8 +296,8 @@ function cmbExperimentSnapshot(r,payload){
  const sourceVerified=n>0&&files.length===n&&Array.from({length:n},(_,i)=>'constant/geometry/surface_'+String(i+1).padStart(3,'0')+'.stl').every(path=>files.filter(v=>v.path===path&&Number.isSafeInteger(v.bytes)&&v.bytes>0&&/^[a-f0-9]{64}$/.test(v.sha256)).length===1);
  const count=v=>Number.isSafeInteger(v)&&v>0?v:null;
  const source=sourceVerified?files.map(v=>({path:v.path,bytes:v.bytes,sha256:v.sha256})).sort((a,b)=>a.path.localeCompare(b.path)):null;
- const domain=payload.axes.map(a=>[a.points[0],a.points.at(-1)]);
- return JSON.parse(JSON.stringify({schema:'foamlens/snappy-experiment/1',version:r.version||null,distribution:r.distribution||null,domain,patches:payload.patches,axes:payload.axes,settings,source,plannedCells:count(r.plannedCells),finalCells:count(r.nativeFinalCells),quality:r.qualityStatus||'undetermined',generationExit:r.generationExit??null,checkMeshExit:r.checkMeshExit??null,concaveCells:count(r.nativeConcaveCells),layers:cmbFinalLayerSummary(r),refinementLevelStatus:r.refinementLevelStatus||'unavailable',qualityCertified:false,diagnosticOnly:true}));
+ const domain=payload.axes.map(a=>[a.points[0],a.points.at(-1)]),qualitySummary=cmbQualitySummary(r);
+ return JSON.parse(JSON.stringify({schema:'foamlens/snappy-experiment/1',version:r.version||null,distribution:r.distribution||null,domain,patches:payload.patches,axes:payload.axes,settings,source,plannedCells:count(r.plannedCells),finalCells:count(r.nativeFinalCells),quality:r.qualityStatus||'undetermined',generationExit:r.generationExit??null,checkMeshExit:r.checkMeshExit??null,concaveCells:qualitySummary?.concaveCells??count(r.nativeConcaveCells),qualitySummary,layers:cmbFinalLayerSummary(r),refinementLevelStatus:r.refinementLevelStatus||'unavailable',qualityCertified:false,diagnosticOnly:true}));
 }
 function cmbCompareExperiments(a,b){
  if(!a||!b)return null;
@@ -294,7 +305,8 @@ function cmbCompareExperiments(a,b){
  const sameSource=a.source&&b.source?same(a.source,b.source):null;
  const sameContext=sameSource===true&&!!a.version&&!!a.distribution&&a.version===b.version&&a.distribution===b.distribution&&same(a.domain,b.domain)&&same(a.patches,b.patches)&&same(a.settings.inside,b.settings.inside);
  const delta=(x,y)=>sameContext&&Number.isSafeInteger(x)&&Number.isSafeInteger(y)?y-x:null;
- return {sameSource,sameContext,plannedDelta:delta(a.plannedCells,b.plannedCells),finalDelta:delta(a.finalCells,b.finalCells),concaveDelta:delta(a.concaveCells,b.concaveCells),qualityA:a.quality,qualityB:b.quality,qualityCertified:false}
+ const metricDeltas={};if(sameContext)for(const [k,v] of Object.entries(a.qualitySummary||{})){const w=b.qualitySummary?.[k];if(Number.isFinite(v)&&Number.isFinite(w))metricDeltas[k]=w-v}
+ return {sameSource,sameContext,metricDeltas,plannedDelta:delta(a.plannedCells,b.plannedCells),finalDelta:delta(a.finalCells,b.finalCells),concaveDelta:delta(a.concaveCells,b.concaveCells),qualityA:a.quality,qualityB:b.quality,qualityCertified:false}
 }
 function cmbNativePlanReceipt(p,payload,r){
  const schema=payload.snappy?'foamlens/native-snappy-mesh/1':'foamlens/native-cartesian-mesh/1';
@@ -387,7 +399,9 @@ function cmbMount(){
    el('cmbExportExp').disabled=!experimentA||!experimentB;
    const fmt=v=>v==null?'—':String(v),summary=(key,v)=>key+': '+(v?'Foundation '+fmt(v.version)+' · '+fmt(v.distribution)+' · '+v.quality+' · '+cgUi('background → final cells: ','celdas fondo → finales: ')+fmt(v.plannedCells)+' → '+fmt(v.finalCells)+' · '+cgUi('concave: ','cóncavas: ')+fmt(v.concaveCells)+' · '+(v.layers?v.layers.map(x=>x.name+' '+x.averageLayers+'/'+x.target).join(', '):cgUi('layer evidence unavailable','evidencia de capas no disponible')):cgUi('not saved','sin guardar'));
    const q=cmbCompareExperiments(experimentA,experimentB);
-   el('cmbExpSummary').textContent=[summary('A',experimentA),summary('B',experimentB),q?(q.sameSource===null?cgUi('CAD identity unavailable.','Identidad CAD no disponible.'):q.sameSource?cgUi('Same staged CAD bytes.','Mismos bytes CAD de entrada.'):cgUi('Different staged CAD bytes.','Bytes CAD de entrada diferentes.'))+' '+(q.sameContext?cgUi('Comparable recorded context; B−A background/final/concave: ','Contexto registrado comparable; B−A fondo/final/cóncavas: ')+[q.plannedDelta,q.finalDelta,q.concaveDelta].map(fmt).join(' / '):cgUi('Context differs or is unavailable; deltas withheld.','Contexto diferente o no disponible; diferencias omitidas.')):'',cgUi('Diagnostic only; matching recorded context is not scientific equivalence.','Solo diagnóstico; contexto registrado coincidente no implica equivalencia científica.')].filter(Boolean).join('\n');
+   const metrics=[['maxAspectRatio','Aspect ratio max','Relación de aspecto máx.'],['maxNonOrthogonalityDeg','Non-orthogonality max [deg]','No ortogonalidad máx. [°]'],['meanNonOrthogonalityDeg','Non-orthogonality mean [deg]','No ortogonalidad media [°]'],['maxSkewness','Skewness max','Skewness máx.'],['minDeterminant','Determinant min','Determinante mín.'],['minFaceWeight','Face weight min','Peso de cara mín.'],['minFaceVolumeRatio','Face volume ratio min','Relación de volumen mín.'],['concaveCells','Concave cells','Celdas cóncavas'],['underdeterminedCells','Underdetermined cells','Celdas indeterminadas']];
+   const mf=v=>v==null?'—':Number(v.toPrecision(7)).toString(),metricLines=experimentA||experimentB?metrics.map(([k,en,es])=>cgUi(en,es)+': A '+mf(experimentA?.qualitySummary?.[k])+' | B '+mf(experimentB?.qualitySummary?.[k])+' | Δ '+mf(q?.metricDeltas?.[k])):[];
+   el('cmbExpSummary').textContent=[summary('A',experimentA),summary('B',experimentB),q?(q.sameSource===null?cgUi('CAD identity unavailable.','Identidad CAD no disponible.'):q.sameSource?cgUi('Same staged CAD bytes.','Mismos bytes CAD de entrada.'):cgUi('Different staged CAD bytes.','Bytes CAD de entrada diferentes.'))+' '+(q.sameContext?cgUi('Comparable recorded context; B−A background/final/concave: ','Contexto registrado comparable; B−A fondo/final/cóncavas: ')+[q.plannedDelta,q.finalDelta,q.concaveDelta].map(fmt).join(' / '):cgUi('Context differs or is unavailable; deltas withheld.','Contexto diferente o no disponible; diferencias omitidas.')):'',cgUi('Diagnostic only; matching recorded context is not scientific equivalence.','Solo diagnóstico; contexto registrado coincidente no implica equivalencia científica.'),...metricLines].filter(Boolean).join('\n');
   }
   el('cmbSaveExpA').onclick=()=>{if(currentExperiment&&!nativeTask){experimentA=currentExperiment;updateExperimentButtons()}};
   el('cmbSaveExpB').onclick=()=>{if(currentExperiment&&!nativeTask){experimentB=currentExperiment;updateExperimentButtons()}};
