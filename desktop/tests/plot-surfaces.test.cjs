@@ -110,7 +110,7 @@ for(const name of passed)console.log('  ✓ '+name);
 
 const fesStart=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_START */'),fesEnd=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_END */');
 assert(fesStart>=0&&fesEnd>fesStart);
-const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish,fesHeatFlux,fesFaceArea,fesPatchPower,fesPhaseVolumes,fesDerivedPreviewData,fesInventoryProperties,fesInventoryGeometry,fesInventory,fesInventoryHistory};')();
+const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish,fesHeatFlux,fesFaceArea,fesPatchPower,fesPhaseVolumes,fesDerivedPreviewData,fesInventoryProperties,fesInventoryGeometry,fesInventory,fesInventoryHistory,fesMaterial,fesParseMaterialCSV,fesMaterialAt,fesMaterialCpPrefix,fesMaterialH,fesMaterialField};')();
 const source={caseId:'a',region:'metal',field:'T',association:'volume',component:'value',unit:'K',time_s:0,paths:['0/metal/T'],dimensions:[0,0,0,1,0,0,0],meshId:'mesh-A'};
 const mesh={cellCount:4,cellCenters:[0,0,0,1,0,0,2,1,0,3,1,0]};
 const input={mesh,source,values:[0,100,200,null]};
@@ -237,4 +237,21 @@ test('transient closure integrates signed boundary heat over irregular time inte
  const frames=[frame(0,100,10),frame(2,70,20),frame(5,10,20,.9,9.5)],q=fes.fesInventoryHistory(frames,{closure:true,sourcePower_W:0});assert(q.valid);assert.strictEqual(q.rows[2].heatOut_J,90);assert.strictEqual(q.rows[2].residual_J,0);assert.strictEqual(q.rows[2].massChange_pct,-5);assert(Math.abs(q.rows[2].volumeChange_pct+10)<1e-12);assert(Math.abs(q.rows[2].estimatedShrinkage_pct-10)<1e-12);
  assert(!fes.fesInventoryHistory(frames,{closure:true,sourcePower_W:''}).valid);assert(!fes.fesInventoryHistory([frames[0],{...frames[1],boundaryPower:null}],{closure:true,sourcePower_W:0}).valid);assert(!fes.fesInventoryHistory([frames[0],frames[0]]).valid);
  const passive=fes.fesInventoryHistory(frames);assert(passive.valid);assert.strictEqual(passive.rows[2].residual_J,null);assert.strictEqual(passive.rows[2].heatOut_J,null);
+});
+
+const materialOptions={name:'test alloy',file:'test.csv',delimiter:';',decimal:',',temperatureUnit:'C',cpKind:'sensible-only',mapping:{temperature:'Temp',cp:'Cp',k:'K',rho:'Density',rhoSolid:'Solid',rhoLiquid:'Liquid'}};
+const materialCSV='Temp;Cp;K;Density;Solid;Liquid\n100;100;10;7000;7500;7000\n200;200;20;6900;7400;6900\n300;400;30;6800;7300;6800';
+test('material import preserves explicit SI mapping and Celsius conversion, rejects ambiguous data',()=>{
+ const q=fes.fesParseMaterialCSV(materialCSV,materialOptions);assert(q.valid);const m=q.material;assert.strictEqual(m.temperature_K[0],373.15);assert.strictEqual(fes.fesMaterialAt(m,'cp',423.15),150);assert.strictEqual(fes.fesMaterialAt(m,'k',473.15),20);assert(Number.isNaN(fes.fesMaterialAt(m,'rho',300)));assert(Number.isNaN(fes.fesMaterialAt(m,'rho',600)));assert(!fes.fesParseMaterialCSV(materialCSV+'\n200;200;20;6900;7400;6900',materialOptions).valid);assert(!fes.fesParseMaterialCSV(materialCSV.replace('100;100;10','100;;10'),materialOptions).valid);assert(!fes.fesParseMaterialCSV(materialCSV,{...materialOptions,mapping:{...materialOptions.mapping,k:'missing'}}).valid);
+ const decimal=fes.fesParseMaterialCSV(materialCSV.replace('100;100;10','100;100,5;10'),materialOptions);assert(decimal.valid);assert.strictEqual(decimal.material.properties.cp[0],100.5);
+});
+test('piecewise-linear Cp enthalpy is integrated, not instantaneous Cp times delta T',()=>{
+ const m=fes.fesParseMaterialCSV(materialCSV,materialOptions).material,p=fes.fesMaterialCpPrefix(m);assert.strictEqual(fes.fesMaterialH(m,p,473.15),15000);assert.strictEqual(fes.fesMaterialH(m,p,573.15),45000);assert.strictEqual(fes.fesMaterialH(m,p,423.15),6250);assert(Number.isNaN(fes.fesMaterialH(m,p,600)));
+ const a={mesh:cube(),values:[473.15],source},rho={...a,values:[7000],source:{...source,field:'rho',dimensions:[1,-3,0,0,0,0,0]}},alpha={...a,values:[.5],source:{...source,field:'alpha',dimensions:[0,0,0,0,0,0,0]}},props={material:m,reference_K:373.15,latent:100,role:'liquid-mass',estimate:true,densityMode:'table'},geo=fes.fesInventoryGeometry(a,250000),q=finishGenerator(fes.fesInventory(a,rho,alpha,props,geo));
+ assert(q.valid);assert.strictEqual(q.sensible_J,105000000);assert(Math.abs(q.estimatedVolume_m3-(3500/6900+3500/7400))<1e-12);
+ assert(!fes.fesInventoryProperties({...props,material:{...m,cpKind:'effective-or-unknown'}}));assert(!finishGenerator(fes.fesInventory({...a,values:[600]},rho,alpha,props,geo)).valid);
+});
+test('table property derived field retains full coverage and does not extrapolate',()=>{
+ const m=fes.fesParseMaterialCSV(materialCSV,materialOptions).material,a={mesh:{cellCount:3},values:[373.15,473.15,700],source},q=finishGenerator(fes.fesMaterialField(a,m,'rho'));
+ assert(q.valid);assert.deepStrictEqual(q.dimensions,[1,-3,0,0,0,0,0]);assert.strictEqual(q.columns[0].values[1],6900);assert(Number.isNaN(q.columns[0].values[2]));assert.strictEqual(q.coverage.valid,2);assert.strictEqual(q.material.name,'test alloy')
 });
