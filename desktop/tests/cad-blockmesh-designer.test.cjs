@@ -67,3 +67,17 @@ assert.equal(advanced(bg,1,"","","1.2 .3 .1",true,3,true).explicitFeatures,true)
 assert.equal(advancedPlan.explicitFeatures,false);
 assert.throws(()=>advanced(bg,1,"","","1.2 .3 .1",false,3,true));
 console.log("Explicit sharp-edge recovery mode validation PASS");
+
+const uniform=new Function(src.slice(src.indexOf('function cmbUniformBackgroundPreview('),sa)+';return cmbUniformBackgroundPreview')();
+const ub=api.plan({...input,axes:['0\n0.01 4 1\n0.03 6 1',...input.axes.slice(1)],zones:''});
+const ucfg={minLevel:1,maxLevel:1,maxCells:200000},empty={boxes:[],surfaceSettings:[]};
+assert.deepEqual(uniform(ub,ucfg,empty),{factor:2,cells:1920,level:1});
+assert.throws(()=>uniform(bg,ucfg,empty));
+assert.throws(()=>uniform(ub,{...ucfg,maxLevel:2},empty));
+assert.throws(()=>uniform(ub,{...ucfg,maxCells:1919},empty));
+assert.throws(()=>uniform(ub,ucfg,{...empty,boxes:[{}]}));
+assert.throws(()=>uniform(ub,ucfg,{...empty,surfaceSettings:[{}]}));
+assert.throws(()=>uniform({...ub,cellCount:25001},ucfg,empty));
+assert.throws(()=>uniform(p,ucfg,empty));
+assert(src.includes('uniformBackground,surfaces:'));
+console.log('Uniform background alternative and strict limits PASS');
