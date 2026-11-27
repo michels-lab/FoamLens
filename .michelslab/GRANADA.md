@@ -46,3 +46,8 @@ En **michels-lab/FoamLens**:
 - Cada bloque debe dejar **código/capacidad real y QA ejecutada cuando sea posible**, con estado A/B/C, SHAs, resultados y próximos gates. Un plan o una bitácora **no es un bloque funcional completado**.
 - En repositorios de distribución, GRANADA GRANDE se traduce a paquetes de controles de integridad/procedencia/documentación o pruebas no destructivas; solo publicar una versión/release final con GRANADA cuando se trate del producto objetivo, todos los gates pasen y la distribución oficial esté verificada; nunca RC ni publicación autónoma.
 - Mantener las bitácoras locales, los límites de cada producto y su punto de reentrada; al siguiente “operación granada”, empezar con el paquete sustancial seguro de mayor impacto.
+
+
+## Mandato permanente del propietario — escalabilidad (2026-11-27)
+
+Aplicar en cada GRANADA el contrato de escalabilidad de [AGENTS.md](../AGENTS.md#owner-mandate--scalable-scientific-processing-2026-11-27): procesamiento por bloques y memoria/disco disponibles, sin límites arbitrarios como restricciones científicas. Los límites operativos temporales serán explícitos, configurables y con recuperación; nunca recortar silenciosamente datos/exportaciones. Priorizar esta arquitectura en toda implementación nueva sin declarar benchmarks o capacidades no verificadas.

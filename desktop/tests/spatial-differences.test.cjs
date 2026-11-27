@@ -58,5 +58,29 @@ test('core is project agnostic',()=>{
   for(const banned of ['QuickCup','B3_reference','B6_adaptiveDt','C6_adaptiveDt','metal'])assert(!core.includes(banned),'Fixture leaked into spatial core: '+banned);
 });
 
+
+test('missing samples, duplicate coordinates and unequal lengths fail closed',()=>{
+ for(const bad of [{t:[0,1],y:[null,2]},{t:[0,1],y:['',2]},{t:[0,1],y:[false,2]},{t:[0,0,1],y:[1,2,3]},{t:[0,1],y:[1]}])assert(!api.sdGrid(bad,{t:[0,1],y:[0,1]}).valid);
+});
+test('strict shared domain and explicit grid limit',()=>{
+ const A={t:[0,1],y:[0,1]},B={t:[1+1e-13,2],y:[1,2]};
+ assert(!api.sdGrid(A,B).valid);assert(!api.sdGrid(A,A,'bogus').valid);
+ assert(!api.sdGrid({t:[0,.5,1],y:[0,5,1]},A,'common',2).valid);
+ assert(Number.isNaN(api.sdValueAt([[0,0],[1,1]],1+1e-13)));
+ const q=api.sdGrid(A,{t:[.25,.75],y:[.25,.75]});assert(q.valid&&q.grid[0]===.25&&q.grid.at(-1)===.75);
+});
+test('near but distinct physical coordinates remain distinct',()=>{
+ const q=api.sdGrid({t:[0,1e-12,1],y:[0,4,1]},{t:[0,1],y:[0,1]});
+ assert(q.valid&&q.grid.includes(1e-12)&&q.A[q.grid.indexOf(1e-12)]===4);
+});
+test('pair comparison and export retain actual-time and source binding',()=>{
+ const block=js.slice(js.indexOf('function sdSamePhysicalKind'),js.indexOf('let sdMResult'));
+ const check=new Function(core+'\n'+block+'\nreturn sdSamePhysicalKind;')();
+ const A={caseId:'A',t:[0,1],y:[1,2],field:{canonical:'T',unit:'K'},profileAxis:'x',profileCoordUnit:'m',sourcePath:'A.csv',profileTime:10};
+ const B={...A,caseId:'B',sourcePath:'B.csv',playbackMeta:{mode:'nearest',used:9}};
+ assert(!check(A,B).ok);assert(!check(A,{...A,field:{canonical:'T',unit:'C'}}).ok);assert(check(A,{...A,caseId:'B'}).ok);
+ assert(js.includes('r.binding!==sdPairBinding(A,B,mode,epsilon)'));assert(js.includes('metricWeighting:'));assert(js.includes('sourcePaths:'));
+});
+
 console.log('Spatial quantitative comparison regression suite passed: '+passed.length+' checks.');
 for(const n of passed)console.log('  ✓ '+n);
