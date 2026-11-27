@@ -102,7 +102,7 @@ const flCaseBuilder=(()=>{
   }
   for(const [region,equation,solver,method,tolerance,relTol,finalRelTol] of rows(input.linearSolvers??'',7,'Linear solvers',128)){
    get(configs,region,'linear solver region');word(equation,'equation name');
-   if(equation.endsWith('Final'))fail('Use base equation name; Final entries are generated explicitly');
+   if(/Final$/i.test(equation))fail('Use base equation name; Final entries are generated explicitly');
    const allowed={PCG:['DIC','FDIC','diagonal'],PBiCGStab:['DILU','diagonal'],GAMG:['GaussSeidel','symGaussSeidel','DICGaussSeidel','DILUGaussSeidel'],smoothSolver:['GaussSeidel','symGaussSeidel','DICGaussSeidel','DILUGaussSeidel'],diagonal:['-']};
    if(!Object.hasOwn(allowed,solver))fail('Unsupported linear solver '+solver);choice(method,allowed[solver],'solver method');
    const diagonal=solver==='diagonal';
@@ -126,11 +126,11 @@ const flCaseBuilder=(()=>{
   }
   for(const [region,kind,equation,factor] of rows(input.relaxation??'',4,'Relaxation',256)){
    get(configs,region,'relaxation region');choice(kind,['fields','equations'],'relaxation kind');word(equation,'relaxation equation');
-   if(!linear.has(key(region,equation).toLowerCase())&&!fields.has(key(region,equation).toLowerCase()))fail('Relaxation target must be a declared field or linear equation');
+   if(linear.get(key(region,equation).toLowerCase())?.key!==key(region,equation)&&fields.get(key(region,equation).toLowerCase())?.key!==key(region,equation))fail('Relaxation target must be a declared field or linear equation');
    add(relax,key(region,kind,equation),{region,kind,equation,factor:unit(factor,'relaxation factor')},'relaxation')
   }
   for(const [region,equation,tolerance,relTol] of rows(input.residualControl??'',4,'Outer-corrector residual targets',128)){
-   get(linear,key(region,equation),'residual equation');const r=get(regions,region,'residual region');
+   const eq=get(linear,key(region,equation),'residual equation');if(eq.solver==='diagonal')fail('Diagonal equation has no iterative residual target');const r=get(regions,region,'residual region');
    if(r.kind==='solid')fail('Residual control template restricted to fluid regions');
    add(residual,key(region,equation),{region,equation,tolerance:positive(tolerance,'residual tolerance'),relTol:unit(relTol,'residual relTol',true)},'residual target')
   }
@@ -246,10 +246,19 @@ const flCaseBuilder=(()=>{
    add(nativeSolids,region,{region,rho:vals[0],Cv:vals[1],kappa:vals[2],molWeight:vals[3],hf:vals[4],model:'heSolidThermo / pureMixture / constIsoSolid / eConst / rhoConst',nativeExecutionVerified:false},'native solid material')
   }
   const numerical=numerics(input,regions,fields);
+  const adaptive=input.adaptiveTime??'off';if(!['off','on'].includes(adaptive))fail('Invalid adaptive time selection');
+  let adaptiveSettings=null;
+  if(adaptive==='on'){
+   if(!regionList.some(r=>r.kind==='fluid'))fail('Adaptive Courant control requires a fluid region');
+   const maxCo=num(input.maxCo,'maxCo'),maxDeltaT=num(input.maxDeltaT,'maxDeltaT');
+   if(maxCo<=0||maxDeltaT<dt||maxDeltaT>end)fail('Require positive maxCo and deltaT <= maxDeltaT <= endTime');
+   if(numerical.schemes.some(c=>c.ddt==='steadyState'))fail('Adaptive time control conflicts with steadyState');
+   adaptiveSettings={maxCo,maxDeltaT,nativeRuntimeVerified:false}
+  }else if((input.maxCo??'').trim()||(input.maxDeltaT??'').trim())fail('Clear adaptive limits or enable adaptive time');
   const multi=input.mode==='multi',entries=[];
   const control=header('dictionary','controlDict','system')+'application '+(multi?'foamMultiRun':'foamRun')+';\n'+
     (multi?'regionSolvers\n{\n'+regionList.map(r=>'    '+r.name+' '+r.solver+';').join('\n')+'\n}\n':'solver '+regionList[0].solver+';\n')+
-    'startFrom startTime;\nstartTime 0;\nstopAt endTime;\nendTime '+end+';\ndeltaT '+dt+';\nwriteControl runTime;\nwriteInterval '+write+';\nwriteFormat ascii;\nwritePrecision 10;\nwriteCompression off;\ntimeFormat general;\ntimePrecision 12;\nrunTimeModifiable false;\n';
+    'startFrom startTime;\nstartTime 0;\nstopAt endTime;\nendTime '+end+';\ndeltaT '+dt+';\n'+(adaptiveSettings?'adjustTimeStep yes;\nmaxCo '+adaptiveSettings.maxCo+';\nmaxDeltaT '+adaptiveSettings.maxDeltaT+';\n':'')+'writeControl '+(adaptiveSettings?'adjustableRunTime':'runTime')+';\nwriteInterval '+write+';\nwriteFormat ascii;\nwritePrecision 10;\nwriteCompression off;\ntimeFormat general;\ntimePrecision 12;\nrunTimeModifiable false;\n';
   entries.push({name:'draft/system/controlDict',data:control},...numericEntries(numerical,input.mode));
   for(const f of items(fields)){
    const location=multi?'0/'+f.region:'0';
@@ -265,7 +274,7 @@ const flCaseBuilder=(()=>{
    entries.push({name:'draft/'+loc+'/physicalProperties',data})
   }
   for(const table of tables)entries.push({name:'material-data/'+table.region+'.csv',data:table.columns.join(',')+'\n'+table.values.map(v=>v.join(',')).join('\n')+'\n'});
-  const manifest={schema,version:input.version,mode:input.mode,regions:regionList,patches:items(patches),fields:items(fields),boundaryConditions:items(conditions),materials:items(materials),materialTables:tables,numerics:numerical,nativeConstantSolidDrafts:items(nativeSolids),importedPatchInventories:items(inventories),allDeclaredPatchInventoriesMatched:inventories.size===regionList.length,thermalInterfaces:[...interfaces.values()],time:{startTime:0,endTime:end,deltaT:dt,writeControl:'runTime',writeInterval:write},materialUnits:'SI constant reference values and temperature tables only, not OpenFOAM thermo dictionaries',meshPatchInventoryVerified:false,solverModulesVerified:false,physicalModelValidated:false,solverReady:false,originalCaseModified:false,missing:['actual full mesh topology and interface geometry verification','remaining solver-specific physicalProperties and variable thermophysical models',numerical.active?'solver-required numerical equation coverage and native dictionary validation':'fvSchemes and fvSolution','native thermophysical transport, contact resistance and any solver-required fields or dictionaries','native OpenFOAM parsing and execution validation']};
+  const manifest={schema,version:input.version,mode:input.mode,regions:regionList,patches:items(patches),fields:items(fields),boundaryConditions:items(conditions),materials:items(materials),materialTables:tables,numerics:numerical,nativeConstantSolidDrafts:items(nativeSolids),importedPatchInventories:items(inventories),allDeclaredPatchInventoriesMatched:inventories.size===regionList.length,thermalInterfaces:[...interfaces.values()],time:{startTime:0,endTime:end,deltaT:dt,writeControl:adaptiveSettings?'adjustableRunTime':'runTime',writeInterval:write,adaptive:adaptiveSettings},materialUnits:'SI constant reference values and temperature tables only, not OpenFOAM thermo dictionaries',meshPatchInventoryVerified:false,solverModulesVerified:false,physicalModelValidated:false,solverReady:false,originalCaseModified:false,missing:['actual full mesh topology and interface geometry verification','remaining solver-specific physicalProperties and variable thermophysical models',numerical.active?'solver-required numerical equation coverage and native dictionary validation':'fvSchemes and fvSolution','native thermophysical transport, contact resistance and any solver-required fields or dictionaries','native OpenFOAM parsing and execution validation']};
   entries.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'},{name:'case-builder.json',data:JSON.stringify({schema,input},null,2)+'\n'},{name:'README.txt',data:'DRAFT ONLY. This is not a runnable or validated OpenFOAM case. No solver run or mesh geometry generated. Only explicitly selected constant solid physicalProperties drafts may be present; other material models require manual completion. Reciprocal mappedWall names and coupled temperature draft entries do not validate geometric mapping or heat balance. Compare every declared patch to original polyMesh/boundary and complete the missing files listed in manifest.json. Extract to a new folder; never overlay an existing case without review.\n'});
   return {manifest,entries}
  }
@@ -281,6 +290,7 @@ function flMountCaseBuilder(){
  '<p class="cgNotice">'+t('Draft only. Explicit SI values and exact patch names. No mesh, solver execution, inferred BC, or physical certification. One row per item, columns separated by |.','Solo borrador. Valores SI explícitos y nombres exactos de patches. Sin malla, ejecución, BC inferidas ni certificación física. Una fila por elemento, columnas separadas por |.')+'</p>'+
  '<div class="cgTools"><label>Foundation <select id="flCbVersion"><option value="13">13</option><option value="14">14</option></select></label><label>'+t('Mode','Modo')+' <select id="flCbMode"><option value="single">'+t('Single region','Una región')+'</option><option value="multi">'+t('Multi-region','Multirregión')+'</option></select></label>'+
  ['End','Delta','Write'].map((x,i)=>'<label>'+['endTime [s]','deltaT [s]','writeInterval [s]'][i]+' <input id="flCb'+x+'" inputmode="decimal" placeholder="—"></label>').join('')+'</div>'+
+ '<div class="cgTools"><label>'+t('Adaptive time','Tiempo adaptativo')+' <select id="flCbAdaptiveTime"><option value="off">'+t('Off','Desactivado')+'</option><option value="on">'+t('On · fluid Courant','Activado · Courant del fluido')+'</option></select></label><label>maxCo <input id="flCbMaxCo" inputmode="decimal"></label><label>maxDeltaT [s] <input id="flCbMaxDeltaT" inputmode="decimal"></label></div><p class="cgNotice">'+t('Adaptive settings are explicit limits; actual solver time-step control is not validated.','Límites adaptativos explícitos; control temporal real del solver no validado.')+'</p>'+
  area('flCbRegions',t('Regions: name | fluid/solid | solver module','Regiones: nombre | fluid/solid | módulo solver'),'metal | fluid | fluid')+
  area('flCbPatches',t('Declared mesh patches: region | patch | mesh type','Patches declarados: región | patch | tipo de malla'),'metal | outerWall | wall')+
  area('flCbFields',t('Fields: region | field | class | 7 SI dimensions | initial value','Campos: región | campo | clase | 7 dimensiones SI | valor inicial'),'metal | T | volScalarField | 0 0 0 1 0 0 0 | 1000')+
@@ -303,7 +313,7 @@ function flMountCaseBuilder(){
  '<div class="cgTools"><button type="button" class="btn primary" id="flCbValidate">'+t('Validate and preview draft','Validar y previsualizar borrador')+'</button><button type="button" class="btn soft" id="flCbExport" disabled>'+t('Export draft ZIP','Exportar borrador ZIP')+'</button><label>'+t('Reopen draft JSON','Reabrir borrador JSON')+' <input type="file" id="flCbImport" accept=".json,application/json"></label></div>'+
  '<p id="flCbStatus" class="cgNotice" aria-live="polite"></p><label>'+t('Generated file','Archivo generado')+' <select id="flCbFile" disabled></select></label><pre id="flCbPreview" style="white-space:pre-wrap;max-height:380px;overflow:auto"></pre>';
  anchor.insertAdjacentElement('afterend',panel);
- const el=id=>document.getElementById('flCb'+id),bindings={version:'Version',mode:'Mode',endTime:'End',deltaT:'Delta',writeInterval:'Write',regions:'Regions',patches:'Patches',fields:'Fields',boundaries:'Boundaries',materials:'Materials',materialTables:'MaterialTables',solidProperties:'SolidProperties',schemes:'Schemes',divSchemes:'DivSchemes',linearSolvers:'LinearSolvers',pimple:'Pimple',relaxation:'Relaxation',residualControl:'ResidualControl'};
+ const el=id=>document.getElementById('flCb'+id),bindings={version:'Version',mode:'Mode',endTime:'End',deltaT:'Delta',writeInterval:'Write',regions:'Regions',patches:'Patches',fields:'Fields',boundaries:'Boundaries',materials:'Materials',materialTables:'MaterialTables',solidProperties:'SolidProperties',schemes:'Schemes',divSchemes:'DivSchemes',linearSolvers:'LinearSolvers',pimple:'Pimple',relaxation:'Relaxation',residualControl:'ResidualControl',adaptiveTime:'AdaptiveTime',maxCo:'MaxCo',maxDeltaT:'MaxDeltaT'};
  let plan=null,revision=0,boundarySources=[];
  const read=()=>({...Object.fromEntries(Object.entries(bindings).map(([k,id])=>[k,el(id).value])),boundarySources});
  const clear=()=>{revision++;plan=null;el('Export').disabled=true;el('File').disabled=true;el('File').replaceChildren();el('Preview').textContent='';el('TableResult').textContent='';el('Status').textContent=cgUi('Inputs changed. Validate again.','Entradas modificadas. Valida de nuevo.')};
@@ -324,6 +334,6 @@ function flMountCaseBuilder(){
  const validate=()=>{clear();try{plan=flCaseBuilder.build(read());for(const e of plan.entries){const o=document.createElement('option');o.value=e.name;o.textContent=e.name;el('File').append(o)}el('File').disabled=false;el('Export').disabled=false;el('Status').textContent=plan.manifest.regions.length+' · '+cgUi('regions; structural draft valid, NOT solver-ready.','regiones; borrador estructural válido, NO apto para solver.');preview()}catch(e){el('Status').textContent=e.message}};
  el('Validate').onclick=validate;
  el('Export').onclick=()=>{try{if(!plan)return;const current=flCaseBuilder.build(read());cgDownloadZip('FoamLens-case-draft.zip',cgStoreZip(current.entries))}catch(e){clear();el('Status').textContent=e.message}};
- el('Import').onchange=async()=>{const file=el('Import').files[0];el('Import').value='';if(!file)return;clear();const token=revision;try{if(file.size>8*1024*1024)throw Error('Draft JSON exceeds 8 MiB');const v=JSON.parse(await file.text());if(token!==revision)return;if(v.schema!==flCaseBuilder.schema)throw Error('Unsupported draft schema');flCaseBuilder.build(v.input);for(const [k,id] of Object.entries(bindings))el(id).value=v.input[k]??'';boundarySources=v.input.boundarySources??[];showSources();validate()}catch(e){if(token===revision)el('Status').textContent=e.message}};
+ el('Import').onchange=async()=>{const file=el('Import').files[0];el('Import').value='';if(!file)return;clear();const token=revision;try{if(file.size>8*1024*1024)throw Error('Draft JSON exceeds 8 MiB');const v=JSON.parse(await file.text());if(token!==revision)return;if(v.schema!==flCaseBuilder.schema)throw Error('Unsupported draft schema');flCaseBuilder.build(v.input);for(const [k,id] of Object.entries(bindings))el(id).value=v.input[k]??(k==='adaptiveTime'?'off':'');boundarySources=v.input.boundarySources??[];showSources();validate()}catch(e){if(token===revision)el('Status').textContent=e.message}};
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',flMountCaseBuilder,{once:true});else flMountCaseBuilder();
