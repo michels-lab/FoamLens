@@ -91,3 +91,19 @@ assert.equal(receipt(ub,{snappy:{...request.snappy,uniformBackground:false}},{..
 assert.equal(receipt(ub,{}, {schema:'foamlens/native-cartesian-mesh/1',originalCaseModified:false,stagingIsolated:true,plannedCells:240}),true);
 assert.equal(receipt(ub,{},{...nativeReceipt,plannedCells:240}),false);
 console.log('Uniform background receipt binds expanded count and original plan without certifying mesh quality PASS');
+
+const recovery=new Function(src.slice(src.indexOf('function cmbUniformBackgroundPreview('),src.indexOf('function cmbNativePlanReceipt('))+';return{estimate:cmbSnappyPlanEstimate,defects:cmbSnappyDefects}')();
+const estimate=recovery.estimate(ub,ucfg,false,false,false,true,true);
+assert.equal(estimate.baseCells,240);assert.equal(estimate.uniform.cells,1920);assert.equal(estimate.uniformSelected,false);assert.equal(estimate.explicitFeatures,true);
+assert.equal(recovery.estimate(ub,ucfg,true,false,false,true,true).uniform,null);
+assert.equal(recovery.estimate(ub,ucfg,false,true,false,true,true).uniform,null);
+assert.equal(recovery.estimate(ub,{...ucfg,maxCells:1919},false,false,true,true,true).uniform,null);
+assert.equal(recovery.estimate(ub,{...ucfg,maxLevel:2},false,false,false,true,true).uniform,null);
+const reject={generationUtility:'snappyHexMesh',qualityStatus:'checks-failed',checkMeshLog:' ***Concave cells (using face planes) found, number of cells: 144\nFailed 1 mesh checks.\nEnd\n'};
+assert.deepEqual(recovery.defects(reject),{concaveCells:144});
+assert.equal(recovery.defects({...reject,qualityStatus:'mesh-ok-reported'}),null);
+assert.equal(recovery.defects({...reject,generationUtility:'blockMesh'}),null);
+assert.deepEqual(recovery.defects({...reject,checkMeshLog:reject.checkMeshLog+reject.checkMeshLog}),{concaveCells:null});
+assert.deepEqual(recovery.defects({...reject,checkMeshLog:'Failed 1 mesh checks.'}),{concaveCells:null});
+assert(src.includes('id="cmbSnappyPlanEstimate"'));assert(src.includes('function buttons(){updateSnappyEstimate();'));
+console.log('Read-only recovery budget and native concavity evidence PASS');
