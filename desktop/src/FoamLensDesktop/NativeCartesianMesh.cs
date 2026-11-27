@@ -101,8 +101,8 @@ internal static class NativeCartesianMesh
         if(!WslArgs("Ubuntu 24.04","wslpath","-a","a b").SequenceEqual(new[]{"--distribution","Ubuntu 24.04","--exec","wslpath","-a","a b"}))throw new InvalidOperationException("WSL argument boundary failed.");
         foreach(var invalid in new[]{"--exec","Ubuntu\nother","Unknown"}){bool denied=false;try{ResolveDistribution(invalid,installed);}catch(NotSupportedException){denied=true;}if(!denied)throw new InvalidOperationException("Unregistered WSL selection accepted.");}
         if(!CommandPlan("gmshToFoam",true,false).Any(x=>x.StartsWith("splitMeshRegions"))||CommandPlan("blockMesh",false,false).Any(x=>x.StartsWith("snappyHexMesh")))throw new InvalidOperationException("Command preview mismatch.");
-        foreach(var valid in new[]{"Mesh OK.\n\nEnd\n","Mesh OK.\r\nEnd\r\n","sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).\nMesh OK.\nEnd\n"})
-            if(QualityStatus(0,valid)!="mesh-ok-reported")throw new InvalidOperationException("Complete native quality receipt rejected.");
+        foreach(var qualityReceipt in new[]{"Mesh OK.\n\nEnd\n","Mesh OK.\r\nEnd\r\n","sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).\nMesh OK.\nEnd\n"})
+            if(QualityStatus(0,qualityReceipt)!="mesh-ok-reported")throw new InvalidOperationException("Complete native quality receipt rejected.");
         foreach(var incomplete in new[]{"Mesh OK.\n","End\n","End\nMesh OK.\n","Mesh OK.\nEnd\nMesh OK.\nEnd\n","Mesh OK.\nEnd\n[truncated]","Mesh OK.\nEnd\nmore output","prefix Mesh OK.\nEnd\n"})
             if(QualityStatus(0,incomplete)!="undetermined")throw new InvalidOperationException("Incomplete or ambiguous quality receipt accepted.");
         foreach(var failure in new[]{"Failed 1 mesh checks.\n","Mesh OK.\nFailed 2 mesh checks.\nEnd\n","FOAM FATAL IO ERROR\nMesh OK.\nEnd\n","Mesh OK.\nFOAM aborting\nEnd\n","Floating point exception\nMesh OK.\nEnd\n"})
