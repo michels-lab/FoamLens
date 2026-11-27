@@ -313,6 +313,19 @@ if(suite!="core")await Scenario("snappy-conformal-protected-clearance",async()=>
  CheckLog(dir,"checkMesh.log");
  return new{cells,backgroundCells=1728,uniformFineReferenceCells=4096,localRefinement=0,snap=false,quality="mesh-ok-reported",qualityCertified=false};
 });
+// Two disjoint, aligned CAD solids. Independently test a conformal
+// background with protected projected gaps; preserve strict original cases.
+if(suite!="core")await Scenario("snappy-conformal-protected-multi",async()=>{
+ var bandAxes=Enumerable.Range(0,3).Select(_=>Axis(new[]{0.0,.125,.375,.625,.875,1.0},new[]{2,4,2,4,2})).ToArray();
+ var cfg=JsonSerializer.SerializeToElement(new{axes=bandAxes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.03125,.03125,.03125},minLevel=0,maxLevel=0,maxCells=20000,snapEnabled=false,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(0f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}});
+ if(NativeCartesianMesh.Build(cfg).Cells!=2744)throw new InvalidOperationException("Protected multi conformal count mismatch");
+ var dir=await Run("snappy-conformal-protected-multi","snappyHexMesh",false,cfg);
+ int cells=Cells(dir);if(cells!=2616)throw new InvalidOperationException("Expected 2744 background minus 128 aligned interior cells, got "+cells);
+ var boundary=File.ReadAllText(Path.Combine(dir,"constant","polyMesh","boundary"));
+ if(!boundary.Contains("flSurface_001")||!boundary.Contains("flSurface_002"))throw new InvalidOperationException("Distinct CAD identities lost");
+ CheckLog(dir,"checkMesh.log");
+ return new{cells,backgroundCells=2744,surfaces=2,localRefinement=0,snap=false,quality="mesh-ok-reported",qualityCertified=false};
+});
 if(suite!="core")await Scenario("snappy-multi",async()=>{
 var multi=await Run("snappy-multi","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.125f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}}));
 var multiCells=Cells(multi);if(multiCells<=0||multiCells==512)throw new InvalidOperationException("Multi-surface snappy did not produce a different mesh");

@@ -56,11 +56,11 @@ function cmbPlan(input){
   return{schema:'foamlens/cartesian-blockmesh-plan/1',axes,dims,vertices,blocks,boundary,cellCount,zoneCells,interfaces,unassignedCells:cellCount-Object.values(zoneCells).reduce((a,b)=>a+b,0),units:'m',meshGenerated:false,caseMutated:false,interfaceVerified:false,installedVersionVerified:false}
 }
 // Tensor-product conformal bands: shared subdivisions, not arbitrary CAD fit.
-function cmbConformalBands(input,bounds,fine,coarse,padding,protectClearance=false){
+function cmbConformalBands(input,bounds,fine,coarse,padding,protectClearance=false,protectProjectedGaps=false){
  if(String(input.zones||'').trim())throw Error('Preserve assigned zones: use a separate unzoned plan for CAD bands');
  if(!Array.isArray(bounds)||!bounds.length||!Number.isFinite(fine)||fine<=0||!Number.isFinite(coarse)||coarse<fine||!Number.isFinite(padding)||padding<0)throw Error('Positive fine spacing, coarse spacing >= fine, nonnegative padding and CAD bounds required');
  const old=input.axes.map(cmbAxis);if(old.length!==3)throw Error('Three existing domain axes required');
- if(typeof protectClearance!=='boolean')throw Error('Clearance protection must be explicitly enabled or disabled');
+ if(typeof protectClearance!=='boolean'||typeof protectProjectedGaps!=='boolean')throw Error('Clearance protection must be explicitly enabled or disabled');
  const clearanceAdjustments=[];
  const axes=old.map((axis,d)=>{
   const lo=axis.points[0],hi=axis.points.at(-1);
@@ -87,10 +87,25 @@ function cmbConformalBands(input,bounds,fine,coarse,padding,protectClearance=fal
    if(counts.slice(0,firstIndex).reduce((a,b)=>a+b,0)===1){counts[0]=2;clearanceAdjustments.push({axis:'XYZ'[d],side:'min',from:1,to:2})}
    if(counts.slice(lastIndex).reduce((a,b)=>a+b,0)===1){counts[counts.length-1]=2;clearanceAdjustments.push({axis:'XYZ'[d],side:'max',from:1,to:2})}
   }
+  // Union of CAD projections: touching and overlapping extents are not gaps.
+  // This is an axis subdivision aid, never a physical contact detector.
+  if(protectProjectedGaps){
+   const merged=[];
+   for(const [a,z] of bands.map(b=>[b[2],b[3]]).sort((a,b)=>a[0]-b[0]||a[1]-b[1])){
+    const last=merged.at(-1);
+    if(last&&a<=last[1])last[1]=Math.max(last[1],z);else merged.push([a,z])
+   }
+   for(let j=1;j<merged.length;j++){
+    const a=merged[j-1][1],z=merged[j][0],first=unique.indexOf(a),last=unique.indexOf(z);
+    if(z>a&&counts.slice(first,last).reduce((n,v)=>n+v,0)===1){
+     counts[first]=2;clearanceAdjustments.push({axis:'XYZ'[d],side:'projected-gap',min:a,max:z,from:1,to:2})
+    }
+   }
+  }
   return [String(lo),...unique.slice(1).map((z,i)=>String(z)+' '+counts[i]+' 1')].join('\n')
  });
  const plan=cmbPlan({...input,axes,zones:''});
- return {axes,plan,fine,coarse,padding,protectClearance,clearanceAdjustments,previousCells:cmbPlan(input).cellCount}
+ return {axes,plan,fine,coarse,padding,protectClearance,protectProjectedGaps,clearanceAdjustments,previousCells:cmbPlan(input).cellCount}
 }
 function cmbDictionary(p){
   const list=a=>'('+a.join(' ')+')';
@@ -282,7 +297,7 @@ function cmbMount(){
   panel.innerHTML='<summary><b>'+tr('Block mesh designer · Cartesian multi-block','Diseñador blockMesh · multibloque cartesiano')+'</b></summary>'+
     '<p class="cgNotice">'+tr('Coordinates in meters. First line: start. Each next line: end / cells / expansion ratio. Shared axis intervals ensure matching tangential subdivisions. No curved edges or automatic CAD fitting yet.','Coordenadas en metros. Primera línea: inicio. Siguientes: fin / celdas / relación de expansión. Intervalos compartidos aseguran subdivisión tangencial compatible. Aún sin arcos ni ajuste automático al CAD.')+'</p>'+
     '<button class="btn soft" id="cmbBounds" type="button">'+tr('Use visible CAD bounds','Usar límites CAD visibles')+'</button>'+
-    '<details><summary>'+tr('Conformal CAD resolution bands (alternative to local octree refinement)','Bandas de resolución CAD conformes (alternativa al refinamiento octree local)')+'</summary><div class="cgTools"><label>'+tr('Fine spacing [m]','Paso fino [m]')+' <input id="cmbBandFine" placeholder="0.001"></label><label>'+tr('Coarse spacing [m]','Paso grueso [m]')+' <input id="cmbBandCoarse" placeholder="0.004"></label><label>'+tr('Fine-band padding [m]','Margen de banda fina [m]')+' <input id="cmbBandPad" value="0"></label><label><input id="cmbBandProtectClearance" type="checkbox" checked> '+tr('Protect one-cell exterior clearances','Proteger separaciones exteriores de una celda')+'</label><button class="btn soft" id="cmbBandPreview" type="button">'+tr('Preview bands','Previsualizar bandas')+'</button><button class="btn soft" id="cmbBandApply" type="button" disabled>'+tr('Apply preview to Cartesian plan','Aplicar vista previa al plan cartesiano')+'</button></div><p id="cmbBandStatus" class="cgNotice" aria-live="polite"></p><p class="cgNotice">'+tr('Uses all visible CAD bounds and existing outer domain, with shared axis planes and fine spacing through CAD bands. Tensor-product refinement extends across the domain. Applying replaces axis subdivisions only; use surface levels 0 0 for a separate no-octree snappy experiment. Does not change snap, layers, boxes or run settings.','Usa límites de todos los CAD visibles y dominio exterior existente, planos compartidos y paso fino en bandas CAD. El refinamiento tensorial se extiende por el dominio. Aplicar sustituye solo subdivisiones de ejes; usa niveles 0 0 para un experimento snappy separado sin octree. No modifica snap, capas, cajas ni ajustes de ejecución.')+'</p></details>'+
+    '<details><summary>'+tr('Conformal CAD resolution bands (alternative to local octree refinement)','Bandas de resolución CAD conformes (alternativa al refinamiento octree local)')+'</summary><div class="cgTools"><label>'+tr('Fine spacing [m]','Paso fino [m]')+' <input id="cmbBandFine" placeholder="0.001"></label><label>'+tr('Coarse spacing [m]','Paso grueso [m]')+' <input id="cmbBandCoarse" placeholder="0.004"></label><label>'+tr('Fine-band padding [m]','Margen de banda fina [m]')+' <input id="cmbBandPad" value="0"></label><label><input id="cmbBandProtectClearance" type="checkbox" checked> '+tr('Protect one-cell exterior clearances','Proteger separaciones exteriores de una celda')+'</label><label><input id="cmbBandProtectGaps" type="checkbox"> '+tr('Protect one-cell projected CAD gaps','Proteger separaciones CAD proyectadas de una celda')+'</label><button class="btn soft" id="cmbBandPreview" type="button">'+tr('Preview bands','Previsualizar bandas')+'</button><button class="btn soft" id="cmbBandApply" type="button" disabled>'+tr('Apply preview to Cartesian plan','Aplicar vista previa al plan cartesiano')+'</button></div><p id="cmbBandStatus" class="cgNotice" aria-live="polite"></p><p class="cgNotice">'+tr('Uses all visible CAD bounds and existing outer domain, with shared axis planes and fine spacing through CAD bands. Tensor-product refinement extends across the domain. Applying replaces axis subdivisions only; use surface levels 0 0 for a separate no-octree snappy experiment. Does not change snap, layers, boxes or run settings.','Usa límites de todos los CAD visibles y dominio exterior existente, planos compartidos y paso fino en bandas CAD. El refinamiento tensorial se extiende por el dominio. Aplicar sustituye solo subdivisiones de ejes; usa niveles 0 0 para un experimento snappy separado sin octree. No modifica snap, capas, cajas ni ajustes de ejecución.')+'</p></details>'+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:8px">'+['X','Y','Z'].map(a=>'<label>'+a+' [m]<textarea id="cmb'+a+'" rows="4" placeholder="0\n0.01 10 1" style="display:block;width:100%;box-sizing:border-box"></textarea></label>').join('')+'</div>'+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px">'+['xMin','xMax','yMin','yMax','zMin','zMax'].map((p,i)=>'<label>'+p+'<input id="cmbPatch'+i+'" value="'+p+'" style="width:100%"></label>').join('')+'</div>'+
     '<p class="cgNotice">'+tr('Explicit cell zones: i j k zone, zero-based. Click a block in the slice to assign the typed zone. Blank zone clears it. Exterior patches remain generic patch; no BC is inferred.','Zonas de celdas: i j k zona, desde cero. Pulsa un bloque del corte para asignar la zona escrita; vacío la elimina. Fronteras externas tipo patch; no se infieren BC.')+'</p>'+
@@ -351,12 +366,12 @@ function cmbMount(){
   for(const id of ['cmbX','cmbY','cmbZ','cmbZones',...Array.from({length:6},(_,i)=>'cmbPatch'+i)])el(id).addEventListener('input',invalidate);
   el('cmbPreview').onclick=build;el('cmbNormal').onchange=draw;el('cmbLayer').onchange=draw;for(const id of ['cmbBoxes','cmbSnappy','cmbSplit'])el(id).addEventListener(id==='cmbBoxes'?'input':'change',draw);
   let bandPreview=null;
-  const bandInputs=()=>({input:input(),fine:cmbNumber(el('cmbBandFine').value),coarse:cmbNumber(el('cmbBandCoarse').value),padding:cmbNumber(el('cmbBandPad').value),protectClearance:el('cmbBandProtectClearance').checked,bounds:[...cgModels].filter(m=>m.visible).flatMap(m=>[...m.partsVisible].filter(([,shown])=>shown).map(([part])=>{const scale=cgUnitScale(m.unit),b=m.partSummaries.get(part)?.bounds;if(!scale||!b)throw Error('Confirm visible CAD units and bounds');return{min:b.min.map(x=>x*scale),max:b.max.map(x=>x*scale)}}))});
+  const bandInputs=()=>({input:input(),fine:cmbNumber(el('cmbBandFine').value),coarse:cmbNumber(el('cmbBandCoarse').value),padding:cmbNumber(el('cmbBandPad').value),protectClearance:el('cmbBandProtectClearance').checked,protectProjectedGaps:el('cmbBandProtectGaps').checked,bounds:[...cgModels].filter(m=>m.visible).flatMap(m=>[...m.partsVisible].filter(([,shown])=>shown).map(([part])=>{const scale=cgUnitScale(m.unit),b=m.partSummaries.get(part)?.bounds;if(!scale||!b)throw Error('Confirm visible CAD units and bounds');return{min:b.min.map(x=>x*scale),max:b.max.map(x=>x*scale)}}))});
   el('cmbBandPreview').onclick=()=>{bandPreview=null;el('cmbBandApply').disabled=true;try{
     if(nativeTask)throw Error('Finish or cancel native operation first');
-    const q=bandInputs(),v=cmbConformalBands(q.input,q.bounds,q.fine,q.coarse,q.padding,q.protectClearance);
+    const q=bandInputs(),v=cmbConformalBands(q.input,q.bounds,q.fine,q.coarse,q.padding,q.protectClearance,q.protectProjectedGaps);
     bandPreview={key:JSON.stringify(q),axes:v.axes};el('cmbBandApply').disabled=false;
-    el('cmbBandStatus').textContent=cgUi('Planned cells: ','Celdas previstas: ')+v.previousCells.toLocaleString()+' → '+v.plan.cellCount.toLocaleString()+' · '+v.plan.blocks.length+' '+cgUi('conformal blocks','bloques conformes')+' · '+(v.plan.cellCount>200000?cgUi('Exceeds current native execution budget; plan/export only.','Supera presupuesto nativo actual; solo plan/exportación.'):cgUi('Within current native cell budget.','Dentro del presupuesto nativo actual.'))+' · '+cgUi('Clearance adjustments: ','Ajustes de separación: ')+(v.clearanceAdjustments.map(a=>a.axis+' '+a.side+' 1→2').join(', ')||'—')+' · '+cgUi('No mesh generated.','Sin malla generada.');
+    el('cmbBandStatus').textContent=cgUi('Planned cells: ','Celdas previstas: ')+v.previousCells.toLocaleString()+' → '+v.plan.cellCount.toLocaleString()+' · '+v.plan.blocks.length+' '+cgUi('conformal blocks','bloques conformes')+' · '+(v.plan.cellCount>200000?cgUi('Exceeds current native execution budget; plan/export only.','Supera presupuesto nativo actual; solo plan/exportación.'):cgUi('Within current native cell budget.','Dentro del presupuesto nativo actual.'))+' · '+cgUi('Clearance adjustments: ','Ajustes de separación: ')+(v.clearanceAdjustments.map(a=>a.axis+' '+(a.side==='projected-gap'?cgUi('projected gap','separación proyectada')+' ['+a.min+', '+a.max+'] m':a.side)+' 1→2').join(', ')||'—')+' · '+cgUi('No mesh generated.','Sin malla generada.');
   }catch(e){el('cmbBandStatus').textContent=e.message}};
   el('cmbBandApply').onclick=()=>{try{
     if(nativeTask||!bandPreview||bandPreview.key!==JSON.stringify(bandInputs()))throw Error('Inputs changed; preview again');

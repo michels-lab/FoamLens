@@ -176,3 +176,20 @@ assert.equal(padded.clearanceAdjustments.length,0);
 assert.throws(()=>bandFn(original,geom,.0625,.25,0,'yes'));
 console.log('Conformal CAD exterior clearance protection and explicit opt-out PASS');
 }
+
+{
+const gapBands=new Function(src.slice(a,b)+';return cmbConformalBands')();
+const baseInput={axes:['0\n1 8 1','0\n1 8 1','0\n1 8 1'],patches:input.patches,zones:''};
+const parts=[{min:[.125,.125,.125],max:[.375,.375,.375]},{min:[.625,.625,.625],max:[.875,.875,.875]}];
+const v=gapBands(baseInput,parts,.0625,.25,0,true,true);
+assert.deepEqual(v.plan.axes.map(q=>q.counts),Array(3).fill([2,4,2,4,2]));
+assert.equal(v.plan.cellCount,2744);assert.equal(v.clearanceAdjustments.filter(q=>q.side==='projected-gap').length,3);
+assert.deepEqual(v.clearanceAdjustments.filter(q=>q.side==='projected-gap').map(q=>[q.min,q.max]),Array(3).fill([.375,.625]));
+assert.equal(gapBands(baseInput,parts,.0625,.25,0,true,false).plan.cellCount,2197);
+assert.equal(gapBands(baseInput,parts,.0625,.125,0,true,true).clearanceAdjustments.filter(q=>q.side==='projected-gap').length,0);
+const touching=[parts[0],{min:[.375,.375,.375],max:[.625,.625,.625]}];
+const intersecting=[parts[0],{min:[.25,.25,.25],max:[.625,.625,.625]}];
+for(const bds of [touching,intersecting,[parts[0],parts[0]]])assert.equal(gapBands(baseInput,bds,.0625,.25,0,true,true).clearanceAdjustments.filter(q=>q.side==='projected-gap').length,0);
+assert.throws(()=>gapBands(baseInput,parts,.0625,.25,0,true,'yes'));
+console.log('Projected CAD gap protection: disjoint, touching and overlapping extents PASS');
+}
