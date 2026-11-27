@@ -1,3 +1,7 @@
+## 2026-11-27 — Case Builder native CI scope correction
+
+Exact c05c979 Windows 45977885465 SUCCESS and CAD 45977885459 surface/host and Foundation 13/14 core SUCCESS, strict snappy 13/14 FAILED. The prior automated solid CFD fixture contradicted the canonical read-only/owner-local solver policy. Commit 157e639 replaces --run with --check in CI, verifies no solver log/time output and unchanged original initial field. Native CFD acceptance remains local and pending; exact corrected head not verified. No release or original owner data changes. Separate #153 front work on its own branch.
+
 ## 2026-11-27 — Granada: Case Builder consolidation, fluid thermo, A/B residual analysis and native fixture
 
 - 51519f1 generates optional Foundation 13/14 constant laminar fluid physicalProperties and momentumTransport for explicit fluid solver, heRhoThermo/pureMixture/const/hConst/rhoConst/sensibleEnthalpy. Requires T and U, positive rho/Cp/mu/Pr/molWeight and explicit hf; derived k=Cp*mu/Pr, rejects conflicting material notes or variable tables. Verified official 13/14 heatedDuct fluid dictionaries. No variable thermophysical models or turbulence inference.
