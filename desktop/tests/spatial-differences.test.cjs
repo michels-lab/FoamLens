@@ -79,8 +79,50 @@ test('pair comparison and export retain actual-time and source binding',()=>{
  const A={caseId:'A',t:[0,1],y:[1,2],field:{canonical:'T',unit:'K'},profileAxis:'x',profileCoordUnit:'m',sourcePath:'A.csv',profileTime:10};
  const B={...A,caseId:'B',sourcePath:'B.csv',playbackMeta:{mode:'nearest',used:9}};
  assert(!check(A,B).ok);assert(!check(A,{...A,field:{canonical:'T',unit:'C'}}).ok);assert(check(A,{...A,caseId:'B'}).ok);
- assert(js.includes('r.binding!==sdPairBinding(A,B,mode,epsilon)'));assert(js.includes('metricWeighting:'));assert(js.includes('sourcePaths:'));
+ assert(js.includes('r.binding!==sdPairBinding(A,B,mode,epsilon,budget)'));assert(js.includes('metricWeighting:'));assert(js.includes('sourcePaths:'));
 });
 
 console.log('Spatial quantitative comparison regression suite passed: '+passed.length+' checks.');
 for(const n of passed)console.log('  ✓ '+n);
+
+test('large pair grid keeps original coordinates and rejects insufficient budget',()=>{
+ const n=120001,t=Array.from({length:n},(_,i)=>i),y=t.map(i=>i===60001?10:0),B={t:[0,n-1],y:[0,0]};
+ const q=api.sdGrid({t,y},B,'common',n);assert(q.valid);assert.equal(q.grid.length,n);assert.equal(q.subsampled,false);
+ const m=api.sdMetrics(q);assert.equal(m.maxAbs,10);assert.equal(m.maxAbsX,60001);assert(near(m.lengthWeighted.mae,10/(n-1)));
+ assert(!api.sdGrid({t,y},B,'common',n-1).valid);
+});
+test('length weighting integrates sign crossings and irregular spatial samples',()=>{
+ const m=api.sdMetrics({valid:true,grid:[0,1,4],A:[-2,2,2],B:[0,0,0]});
+ assert(near(m.lengthWeighted.mae,1.75));assert(near(m.lengthWeighted.rmse,Math.sqrt(10/3)));assert(near(m.lengthWeighted.bias,1.5));
+ const large=api.sdMetrics({valid:true,grid:[0,1],A:[1e200,1e200],B:[0,0]});assert.equal(large.rmse,1e200);
+});
+test('multicase comparison governed by total aligned values rather than hard case or coordinate cap',()=>{
+ const compare=new Function(core+';return sdMCompare;')();
+ const sources=Array.from({length:10},(_,i)=>({caseId:String(i),t:[0,1,2],y:[i,i,i],field:{canonical:'T',unit:'K'},profileAxis:'x',profileCoordUnit:'m',sourcePath:'source'+i,profileTime:1}));
+ const cfg={confirmed:true,mapping:'same physical origin',limit:3,sampleBudget:30},r=compare(sources,cfg);
+ assert(r.valid,r.reason);assert.equal(r.sources.length,10);assert(near(r.comparisons.at(-1).rmse,9));
+ assert(!compare(sources,{...cfg,sampleBudget:29}).valid);assert(!compare([sources[0],{...sources[1],component:'x'}],cfg).valid);
+ const n=100001,t=Array.from({length:n},(_,i)=>i);
+ const wide=compare([{...sources[0],t,y:t},{...sources[1],t:[0,n-1],y:[0,n-1]}],{...cfg,limit:n,sampleBudget:2*n});
+ assert(wide.valid,wide.reason);assert.equal(wide.grid.length,n);assert(wide.comparisons[0].rmse<1e-9,'linear interpolation rounding tolerance');
+});
+test('display envelope retains narrow peaks while scientific arrays remain untouched',()=>{
+ const begin=js.indexOf('function sdPreviewIndices('),end=js.indexOf('function sdMColor(',begin);
+ assert(begin>=0&&end>begin);const preview=new Function(js.slice(begin,end)+';return sdPreviewIndices;')();
+ const grid=Array.from({length:20001},(_,i)=>i),y=grid.map(i=>i===12345?100:i===12346?-100:0);
+ const ids=preview(grid,y,700);assert(ids.length<=1402);assert(ids.includes(12345)&&ids.includes(12346));assert.equal(ids[0],0);assert.equal(ids.at(-1),20000);assert.equal(y.length,20001);
+});
+
+test('scaled online Pearson remains finite for high magnitude and excludes missing samples',()=>{
+ assert(near(api.sdPearson([1e200,2e200,3e200],[3e200,2e200,1e200]),-1));
+ assert(near(api.sdPearson([1,2,null,4],[2,4,9,8]),1));
+ assert(Number.isNaN(api.sdPearson([1,1],[2,3])));
+});
+test('prepared display cache reuses extrema and envelope across cursor updates',()=>{
+ const start=js.indexOf('function sdPreviewIndices('),end=js.indexOf('function sdMDraw()',start);
+ const prep=new Function(js.slice(start,end)+';return sdPlotPrepared;')();
+ const cache=new WeakMap(),grid=[0,1,2],r={grid,values:[[{value:1},{value:2},{value:3}]],comparisons:[{target:1,delta:[0,5,0]}]};
+ const x=prep(cache,r,false);assert.strictEqual(prep(cache,r,false),x);assert.equal(x.max,3);assert.equal(x.min,1);
+ const y=prep(cache,r,true);assert(y!==x);assert.equal(y.max,5);assert.strictEqual(prep(cache,r,true),y);
+ assert(prep(cache,{...r},true)!==y);
+});
