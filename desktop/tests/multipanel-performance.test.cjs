@@ -129,3 +129,22 @@ test('new workflow tools are discoverable from the desktop ribbon',()=>{
 
 console.log('FoamLens validation/export/performance regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+{
+const begin=multipanel.indexOf('/* FOAMLENS_HD_PHOTO_CORE_START */'),end=multipanel.indexOf('/* FOAMLENS_HD_PHOTO_CORE_END */');
+const photo=new Function(multipanel.slice(begin,end)+';return {key:mePhotoKey,size:mePhotoDimensions,raster:mePhotoRaster}')();
+assert.equal(photo.key('A'),'primary');assert.equal(photo.key('B'),'view2');assert.equal(photo.key('3'),'view3');assert.equal(photo.key('Δ'),'difference');assert.equal(photo.key('invalid'),null);
+assert.deepStrictEqual(photo.size(3840,16/9,{width:8192,height:8192}),{width:3840,height:2160});
+assert.deepStrictEqual(photo.size(3840,.5,{width:8192,height:8192}),{width:1920,height:3840});
+assert.throws(()=>photo.size(7680,1,{width:4096,height:4096}));
+let copies=0,restores=0;const src={width:640,height:480},gl={drawingBufferWidth:640,drawingBufferHeight:480};
+const draw=(w,h)=>{src.width=gl.drawingBufferWidth=w;src.height=gl.drawingBufferHeight=h;return src};
+const create=()=>({getContext:()=>({fillRect:()=>{},drawImage:(x)=>{assert.strictEqual(x,src);assert.equal(src.width,1920);copies++}})});
+const fixture={src,gl,render:draw,restore:(w,h)=>{restores++;return draw(w,h)},create};
+const out=photo.raster(fixture,{width:1920,height:1440},'white');
+assert.equal(out.width,1920);assert.equal(out.height,1440);assert.equal(copies,1);assert.equal(restores,1);assert.equal(src.width,640);
+assert.throws(()=>photo.raster({...fixture,render:()=>src},{width:1920,height:1440},'transparent'));assert.equal(restores,2);
+assert.throws(()=>photo.raster({...fixture,create:()=>({getContext:()=>null})},{width:1920,height:1440},'black'));assert.equal(restores,3);
+assert(compare.includes("photo.dataset.fcPhoto=String(view)"));assert(compare.includes("openPhoto?.(String(view))"));assert(ribbon.includes("openPhoto?.('A')"));
+console.log('HD photo exact-size rendering, GPU bounds, restoration and per-view entry PASS');
+}
