@@ -170,6 +170,68 @@ const flCaseBuilder=(()=>{
   }
   return entries
  }
+ function physicalDrafts(input,regions,fields,interfaces){
+  const sources=new Map(),contact=new Map();
+  for(const [region,name,zone,ts,tl,ae,latent,rho,beta,cu,q,relax,mode,cp,g] of rows(input.phaseModels??'',15,'Solidification models',16)){
+   const r=get(regions,region,'phase region');word(name,'model name');
+   if(r.kind!=='fluid')fail('Solidification momentum/energy model requires a fluid region');
+   if(!['fluid','incompressibleFluid'].includes(r.solver))fail('Unsupported phase solver module');
+   if(zone!=='-')word(zone,'cellZone');
+   get(fields,key(region,'T'),'phase temperature');get(fields,key(region,'U'),'phase velocity');
+   const v={region,name,zone:zone==='-'?null:zone,Tsol:num(ts,'Tsol'),Tliq:num(tl,'Tliq'),alpha1e:num(ae,'alpha1e'),L:num(latent,'L'),rhoRef:num(rho,'rhoRef'),beta:num(beta,'beta'),Cu:num(cu,'Cu'),q:num(q,'q'),relax:num(relax,'relax'),thermoMode:mode,CpRef:cp==='-'?null:num(cp,'CpRef'),g:g.split(/\s+/).map(x=>num(x,'gravity'))};
+   if(v.Tsol<=0||v.Tliq<v.Tsol||v.alpha1e<0||v.alpha1e>=1||(v.Tsol===v.Tliq&&v.alpha1e!==0)||v.L<=0||v.rhoRef<=0||v.Cu<=0||v.q<=0||v.relax<=0||v.relax>1||v.g.length!==3)fail('Invalid solidification parameters');
+   if(!['thermo','lookup'].includes(mode)||(mode==='thermo'&&v.CpRef!==null)||(mode==='lookup'&&!(v.CpRef>0)))fail('Thermo mode requires - CpRef; lookup requires explicit positive CpRef');
+   if(mode==='thermo'&&r.solver!=='fluid'||mode==='lookup'&&r.solver!=='incompressibleFluid')fail('Phase thermo mode conflicts with selected supported module');
+   v.phaseField=name+':alpha1';v.nativeExecutionVerified=false;v.zoneVerified=false;
+   add(sources,region,v,'one phase model per region')
+  }
+  for(const [region,patch,mode,value,extra] of rows(input.contactResistance??'',5,'Thermal resistance',128)){
+   const a=interfaces.get(key(region,patch));if(!a)fail('Contact resistance requires reciprocal mappedWall');
+   const b=key(a.neighbourRegion,a.neighbourPatch);
+   let resistance,thickness=null,kappa=null,h=null;
+   if(input.version==='13'){
+    if(mode!=='layers')fail('Foundation 13 requires layers mode');
+    thickness=value.split(/\s+/).map(x=>num(x,'thickness'));kappa=extra.split(/\s+/).map(x=>num(x,'kappa'));
+    if(thickness.length!==kappa.length||thickness.length>16||thickness.some(x=>x<=0)||kappa.some(x=>x<=0))fail('Invalid layer thickness/conductivity pairs');
+    resistance=thickness.reduce((sum,x,i)=>sum+x/kappa[i],0);
+   }else{
+    if(mode!=='h'||extra!=='-')fail('Foundation 14 requires h mode and - extra');
+    h=num(value,'h');if(h<=0)fail('h must be positive');resistance=1/h;
+   }
+   if(!Number.isFinite(resistance)||resistance<=0||!Number.isFinite(1/resistance))fail('Non-finite thermal resistance');
+   const v={region,patch,mode,thickness,kappa,h,resistance_m2K_W:resistance,equivalentH_W_m2K:1/resistance,nativeExecutionVerified:false};
+   add(contact,key(region,patch),v,'contact side');
+  }
+  // Each wall has its own resistance. Require explicit entries on both sides if used,
+  // never mirror an input or assume a total interface conductance.
+  for(const c of items(contact)){
+   const a=interfaces.get(key(c.region,c.patch));
+   if(!contact.has(key(a.neighbourRegion,a.neighbourPatch).toLowerCase()))fail('Specify resistance independently on both coupled patch sides');
+  }
+  return {phaseModels:items(sources),contactResistance:items(contact),nativeExecutionVerified:false}
+ }
+ function phaseEntries(physics,mode){
+  return physics.phaseModels.map(m=>{
+   const loc=mode==='multi'?'constant/'+m.region:'constant';
+   const data=header('dictionary','fvModels',loc)+m.name+'\n{\n    type solidificationMelting;\n'+(m.zone?'    cellZone '+m.zone+';\n':'')+
+    ['Tsol','Tliq','alpha1e','L','rhoRef','beta','Cu','q','relax','thermoMode'].map(k=>'    '+k+' '+m[k]+';\n').join('')+
+    (m.CpRef===null?'':'    Cp CpRef;\n    CpRef '+m.CpRef+';\n')+'    g ('+m.g.join(' ')+');\n}\n';
+   return {name:'draft/'+loc+'/fvModels',data}
+  })
+ }
+ function contactText(physics,region,patch){
+  const c=physics.contactResistance.find(x=>x.region===region&&x.patch===patch);
+  if(!c)return '';
+  return c.mode==='layers'?'        thicknessLayers ('+c.thickness.join(' ')+');\n        kappaLayers ('+c.kappa.join(' ')+');\n':'        h uniform '+c.h+';\n'
+ }
+ function phasePreview(m,temperature){
+  if(!Number.isFinite(temperature)||temperature<0)fail('Invalid preview temperature');
+  // Equilibrium construction, not the time-dependent fvModel solution. At
+  // isothermal or eutectic plateau Tsol no unique fraction exists.
+  if(temperature===m.Tsol)return {T_K:temperature,alphaLiquid:null,range:[0,m.Tliq===m.Tsol?1:m.alpha1e],note:'isothermal plateau; fraction depends on enthalpy/history'};
+  const liquid=temperature<m.Tsol?0:temperature>=m.Tliq?1:m.alpha1e+(1-m.alpha1e)*(temperature-m.Tsol)/(m.Tliq-m.Tsol);
+  return {T_K:temperature,alphaLiquid:liquid,alphaSolid:1-liquid,latentEnthalpy_J_kg:liquid*m.L,note:'equilibrium preview only; not transient CFD'}
+ }
  function build(input){
   if(!input||!['13','14'].includes(input.version)||!['single','multi'].includes(input.mode))fail('Select Foundation 13/14 and case mode');
   const end=num(input.endTime,'endTime'),dt=num(input.deltaT,'deltaT'),write=num(input.writeInterval,'writeInterval');
@@ -245,6 +307,7 @@ const flCaseBuilder=(()=>{
    if(notes&&(notes.density_kg_m3!==vals[0]||notes.conductivity_W_m_K!==vals[2]))fail('Constant solid properties conflict with material reference notes');
    add(nativeSolids,region,{region,rho:vals[0],Cv:vals[1],kappa:vals[2],molWeight:vals[3],hf:vals[4],model:'heSolidThermo / pureMixture / constIsoSolid / eConst / rhoConst',nativeExecutionVerified:false},'native solid material')
   }
+  const physics=physicalDrafts(input,regions,fields,interfaces);
   const numerical=numerics(input,regions,fields);
   const adaptive=input.adaptiveTime??'off';if(!['off','on'].includes(adaptive))fail('Invalid adaptive time selection');
   let adaptiveSettings=null;
@@ -259,12 +322,12 @@ const flCaseBuilder=(()=>{
   const control=header('dictionary','controlDict','system')+'application '+(multi?'foamMultiRun':'foamRun')+';\n'+
     (multi?'regionSolvers\n{\n'+regionList.map(r=>'    '+r.name+' '+r.solver+';').join('\n')+'\n}\n':'solver '+regionList[0].solver+';\n')+
     'startFrom startTime;\nstartTime 0;\nstopAt endTime;\nendTime '+end+';\ndeltaT '+dt+';\n'+(adaptiveSettings?'adjustTimeStep yes;\nmaxCo '+adaptiveSettings.maxCo+';\nmaxDeltaT '+adaptiveSettings.maxDeltaT+';\n':'')+'writeControl '+(adaptiveSettings?'adjustableRunTime':'runTime')+';\nwriteInterval '+write+';\nwriteFormat ascii;\nwritePrecision 10;\nwriteCompression off;\ntimeFormat general;\ntimePrecision 12;\nrunTimeModifiable false;\n';
-  entries.push({name:'draft/system/controlDict',data:control},...numericEntries(numerical,input.mode));
+  entries.push({name:'draft/system/controlDict',data:control},...numericEntries(numerical,input.mode),...phaseEntries(physics,input.mode));
   for(const f of items(fields)){
    const location=multi?'0/'+f.region:'0';
    const bc=items(patches).filter(p=>p.region===f.region).map(p=>get(conditions,key(f.region,f.name,p.patch),'boundary'));
    const data=header(f.cls,f.name,location)+'dimensions ['+f.dimensions.join(' ')+'];\ninternalField uniform '+valueText(f.initial)+';\n\nboundaryField\n{\n'+
-     bc.map(b=>'    '+b.patch+'\n    {\n        type '+b.type+';\n'+(b.value!==null?'        value uniform '+valueText(b.value)+';\n':'')+'    }').join('\n')+'\n}\n';
+     bc.map(b=>'    '+b.patch+'\n    {\n        type '+b.type+';\n'+(b.type==='coupledTemperature'?contactText(physics,f.region,b.patch):'')+(b.value!==null?'        value uniform '+valueText(b.value)+';\n':'')+'    }').join('\n')+'\n}\n';
    entries.push({name:'draft/'+location+'/'+f.name,data})
   }
   for(const m of items(nativeSolids)){
@@ -274,11 +337,11 @@ const flCaseBuilder=(()=>{
    entries.push({name:'draft/'+loc+'/physicalProperties',data})
   }
   for(const table of tables)entries.push({name:'material-data/'+table.region+'.csv',data:table.columns.join(',')+'\n'+table.values.map(v=>v.join(',')).join('\n')+'\n'});
-  const manifest={schema,version:input.version,mode:input.mode,regions:regionList,patches:items(patches),fields:items(fields),boundaryConditions:items(conditions),materials:items(materials),materialTables:tables,numerics:numerical,nativeConstantSolidDrafts:items(nativeSolids),importedPatchInventories:items(inventories),allDeclaredPatchInventoriesMatched:inventories.size===regionList.length,thermalInterfaces:[...interfaces.values()],time:{startTime:0,endTime:end,deltaT:dt,writeControl:adaptiveSettings?'adjustableRunTime':'runTime',writeInterval:write,adaptive:adaptiveSettings},materialUnits:'SI constant reference values and temperature tables only, not OpenFOAM thermo dictionaries',meshPatchInventoryVerified:false,solverModulesVerified:false,physicalModelValidated:false,solverReady:false,originalCaseModified:false,missing:['actual full mesh topology and interface geometry verification','remaining solver-specific physicalProperties and variable thermophysical models',numerical.active?'solver-required numerical equation coverage and native dictionary validation':'fvSchemes and fvSolution','native thermophysical transport, contact resistance and any solver-required fields or dictionaries','native OpenFOAM parsing and execution validation']};
+  const manifest={schema,version:input.version,mode:input.mode,regions:regionList,patches:items(patches),fields:items(fields),boundaryConditions:items(conditions),materials:items(materials),materialTables:tables,numerics:numerical,physics,nativeConstantSolidDrafts:items(nativeSolids),importedPatchInventories:items(inventories),allDeclaredPatchInventoriesMatched:inventories.size===regionList.length,thermalInterfaces:[...interfaces.values()],time:{startTime:0,endTime:end,deltaT:dt,writeControl:adaptiveSettings?'adjustableRunTime':'runTime',writeInterval:write,adaptive:adaptiveSettings},materialUnits:'SI constant reference values and temperature tables only, not OpenFOAM thermo dictionaries',meshPatchInventoryVerified:false,solverModulesVerified:false,physicalModelValidated:false,solverReady:false,originalCaseModified:false,missing:['actual full mesh topology and interface geometry verification','remaining solver-specific physicalProperties and variable thermophysical models',numerical.active?'solver-required numerical equation coverage and native dictionary validation':'fvSchemes and fvSolution','native thermophysical transport, contact resistance and any solver-required fields or dictionaries','native OpenFOAM parsing and execution validation']};
   entries.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'},{name:'case-builder.json',data:JSON.stringify({schema,input},null,2)+'\n'},{name:'README.txt',data:'DRAFT ONLY. This is not a runnable or validated OpenFOAM case. No solver run or mesh geometry generated. Only explicitly selected constant solid physicalProperties drafts may be present; other material models require manual completion. Reciprocal mappedWall names and coupled temperature draft entries do not validate geometric mapping or heat balance. Compare every declared patch to original polyMesh/boundary and complete the missing files listed in manifest.json. Extract to a new folder; never overlay an existing case without review.\n'});
   return {manifest,entries}
  }
- return Object.freeze({build,schema,parseBoundary,materialAt})
+ return Object.freeze({build,schema,parseBoundary,materialAt,phasePreview})
 })();
 /* FOAMLENS_CASE_BUILDER_CORE_END */
 function flMountCaseBuilder(){
@@ -297,6 +360,12 @@ function flMountCaseBuilder(){
  area('flCbBoundaries',t('BC: region | field | patch | type | value or -','BC: región | campo | patch | tipo | valor o -'),'metal | T | outerWall | fixedValue | 300')+
  '<div class="cgTools"><label>'+t('Boundary region','Región del boundary')+' <input id="flCbBoundaryRegion" placeholder="metal"></label><label>'+t('Import ASCII polyMesh/boundary','Importar polyMesh/boundary ASCII')+' <input type="file" id="flCbBoundaryFile"></label><button type="button" class="btn soft" id="flCbClearSources">'+t('Clear imported evidence','Limpiar evidencia importada')+'</button></div><pre id="flCbSourceStatus" style="white-space:pre-wrap"></pre>'+
  area('flCbMaterials',t('Optional material notes: region | name | density kg/m³ | Cp J/kg/K | k W/m/K','Material opcional: región | nombre | densidad kg/m³ | Cp J/kg/K | k W/m/K'),'region | material | rho | Cp | k')+
+ '<details style="margin-top:12px"><summary><b>'+t('Physical models · phase change and contact','Modelos físicos · cambio de fase y contacto')+'</b></summary>'+
+ area('flCbPhaseModels',t('Solidification: region | model | cellZone or - | Tsol | Tliq | alpha1e | L | rhoRef | beta | Cu | q | relax | thermo/lookup | CpRef or - | gx gy gz','Solidificación: región | modelo | cellZone o - | Tsol | Tliq | alpha1e | L | rhoRef | beta | Cu | q | relax | thermo/lookup | CpRef o - | gx gy gz'),'metal | phaseChangeSource | - | Tsol | Tliq | alpha1e | L | rhoRef | beta | Cu | q | relax | thermo | - | gx gy gz')+
+ '<p class="cgNotice">'+t('SI only. Thermo mode: fluid; lookup: incompressibleFluid with explicit CpRef. One phase model per region. Named zone not verified. Phase field is modelName:alpha1. No recalescence or alloy kinetics prediction.','Solo SI. Modo thermo: fluid; lookup: incompressibleFluid con CpRef explícito. Un modelo por región. Zona nombrada no verificada. Campo de fase modelName:alpha1. Sin predicción de recalescencia ni cinética de aleación.')+'</p>'+
+ '<div class="cgTools"><label>'+t('Phase region','Región de fase')+' <input id="flCbPhaseRegion"></label><label>T [K] <input id="flCbPhaseT"></label><button type="button" class="btn soft" id="flCbPhasePreview">'+t('Equilibrium preview','Vista de equilibrio')+'</button></div><pre id="flCbPhaseResult"></pre>'+
+ area('flCbContactResistance',t('Contact per side: region | patch | layers (13) or h (14) | thickness list or h | kappa list or -','Contacto por lado: región | patch | layers (13) o h (14) | espesores o h | conductividades o -'),'metal | contactA | layers | thickness | kappa')+
+ '<p class="cgNotice">'+t('Specify both sides independently. No total interface conductance inferred. Foundation 13 uses layer lists; 14 uses uniform h.','Especifica ambos lados independientemente. No se infiere conductancia total. Foundation 13 usa capas; 14 usa h uniforme.')+'</p></details>'+
  area('flCbSolidProperties',t('Optional native constant solid: region | rho [kg/m³] | Cv [J/kg/K] | k [W/m/K] | molWeight [kg/kmol] | hf [J/kg]','Sólido constante nativo opcional: región | rho [kg/m³] | Cv [J/kg/K] | k [W/m/K] | molWeight [kg/kmol] | hf [J/kg]'),'mold | rho | Cv | k | molWeight | hf')+
  '<p class="cgNotice">'+t('Constant solid template only; explicit Cv, not inferred from Cp. Mutually exclusive with a temperature-dependent table for that region. No fluid thermo or native runtime validation.','Solo plantilla de sólido constante; Cv explícito, no inferido de Cp. Excluyente con tabla dependiente de temperatura en esa región. Sin termo de fluido ni validación nativa.')+'</p>'+
  '<details style="margin-top:12px"><summary><b>'+t('Numerical configuration · optional','Configuración numérica · opcional')+'</b></summary><p class="cgNotice">'+t('All regions require explicit schemes, linear equations and PIMPLE when enabled. No automatic choice of required equations (e, h, p_rgh, etc.). Empty sections leave numerical dictionaries ungenerated.','Todas las regiones requieren esquemas, ecuaciones lineales y PIMPLE explícitos al habilitar. No se deducen ecuaciones requeridas (e, h, p_rgh, etc.). Secciones vacías no generan diccionarios numéricos.')+'</p>'+
@@ -313,10 +382,10 @@ function flMountCaseBuilder(){
  '<div class="cgTools"><button type="button" class="btn primary" id="flCbValidate">'+t('Validate and preview draft','Validar y previsualizar borrador')+'</button><button type="button" class="btn soft" id="flCbExport" disabled>'+t('Export draft ZIP','Exportar borrador ZIP')+'</button><label>'+t('Reopen draft JSON','Reabrir borrador JSON')+' <input type="file" id="flCbImport" accept=".json,application/json"></label></div>'+
  '<p id="flCbStatus" class="cgNotice" aria-live="polite"></p><label>'+t('Generated file','Archivo generado')+' <select id="flCbFile" disabled></select></label><pre id="flCbPreview" style="white-space:pre-wrap;max-height:380px;overflow:auto"></pre>';
  anchor.insertAdjacentElement('afterend',panel);
- const el=id=>document.getElementById('flCb'+id),bindings={version:'Version',mode:'Mode',endTime:'End',deltaT:'Delta',writeInterval:'Write',regions:'Regions',patches:'Patches',fields:'Fields',boundaries:'Boundaries',materials:'Materials',materialTables:'MaterialTables',solidProperties:'SolidProperties',schemes:'Schemes',divSchemes:'DivSchemes',linearSolvers:'LinearSolvers',pimple:'Pimple',relaxation:'Relaxation',residualControl:'ResidualControl',adaptiveTime:'AdaptiveTime',maxCo:'MaxCo',maxDeltaT:'MaxDeltaT'};
+ const el=id=>document.getElementById('flCb'+id),bindings={version:'Version',mode:'Mode',endTime:'End',deltaT:'Delta',writeInterval:'Write',regions:'Regions',patches:'Patches',fields:'Fields',boundaries:'Boundaries',materials:'Materials',materialTables:'MaterialTables',solidProperties:'SolidProperties',schemes:'Schemes',divSchemes:'DivSchemes',linearSolvers:'LinearSolvers',pimple:'Pimple',relaxation:'Relaxation',residualControl:'ResidualControl',adaptiveTime:'AdaptiveTime',maxCo:'MaxCo',maxDeltaT:'MaxDeltaT',phaseModels:'PhaseModels',contactResistance:'ContactResistance'};
  let plan=null,revision=0,boundarySources=[];
  const read=()=>({...Object.fromEntries(Object.entries(bindings).map(([k,id])=>[k,el(id).value])),boundarySources});
- const clear=()=>{revision++;plan=null;el('Export').disabled=true;el('File').disabled=true;el('File').replaceChildren();el('Preview').textContent='';el('TableResult').textContent='';el('Status').textContent=cgUi('Inputs changed. Validate again.','Entradas modificadas. Valida de nuevo.')};
+ const clear=()=>{revision++;plan=null;el('Export').disabled=true;el('File').disabled=true;el('File').replaceChildren();el('Preview').textContent='';el('TableResult').textContent='';el('PhaseResult').textContent='';el('Status').textContent=cgUi('Inputs changed. Validate again.','Entradas modificadas. Valida de nuevo.')};
  for(const id of Object.values(bindings))el(id).addEventListener('input',clear);
  const showSources=()=>{el('SourceStatus').textContent=boundarySources.map(s=>{try{const b=flCaseBuilder.parseBoundary(s.text,s.region,el('Mode').value);return s.region+' · '+b.patches.length+' patches · '+(b.location||'header location absent')}catch(e){return s.region+' · '+e.message}}).join('\n')};
  el('ClearSources').onclick=()=>{boundarySources=[];clear();showSources()};
@@ -329,6 +398,7 @@ function flMountCaseBuilder(){
    boundarySources=boundarySources.filter(s=>s.region!==region).concat({region,text:raw});clear();showSources()
   }catch(e){if(token===revision)el('Status').textContent=e.message}};
  el('TablePreview').onclick=()=>{try{const current=flCaseBuilder.build(read()),table=current.manifest.materialTables.find(x=>x.region===el('TableRegion').value.trim()),raw=el('TableT').value.trim();if(!table||!/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(raw))throw Error('Select material table and decimal temperature');el('TableResult').textContent=JSON.stringify(flCaseBuilder.materialAt(table,Number(raw)),null,2)}catch(e){el('TableResult').textContent=e.message}};
+ el('PhasePreview').onclick=()=>{try{const current=flCaseBuilder.build(read()),m=current.manifest.physics.phaseModels.find(x=>x.region===el('PhaseRegion').value.trim()),raw=el('PhaseT').value.trim();if(!m||!/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(raw))throw Error('Select phase region and decimal temperature');el('PhaseResult').textContent=JSON.stringify(flCaseBuilder.phasePreview(m,Number(raw)),null,2)}catch(e){el('PhaseResult').textContent=e.message}};
  const preview=()=>{el('Preview').textContent=plan?.entries.find(e=>e.name===el('File').value)?.data||''};
  el('File').onchange=preview;
  const validate=()=>{clear();try{plan=flCaseBuilder.build(read());for(const e of plan.entries){const o=document.createElement('option');o.value=e.name;o.textContent=e.name;el('File').append(o)}el('File').disabled=false;el('Export').disabled=false;el('Status').textContent=plan.manifest.regions.length+' · '+cgUi('regions; structural draft valid, NOT solver-ready.','regiones; borrador estructural válido, NO apto para solver.');preview()}catch(e){el('Status').textContent=e.message}};
