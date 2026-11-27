@@ -29,6 +29,8 @@ var zones=new[]{new{ijk=new[]{0,0,0},name="metal"},new{ijk=new[]{1,0,0},name="mo
 const string control="FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }\napplication blockMesh; startFrom startTime; startTime 0; stopAt endTime; endTime 1; deltaT 1; writeControl timeStep; writeInterval 1; writeFormat ascii; writePrecision 12; writeCompression off; timeFormat general; timePrecision 6; runTimeModifiable false;\n";
 async Task<string> Run(string name, string utility, bool split, JsonElement input)
 {
+    var background=utility=="snappyHexMesh"?NativeCartesianMesh.PrepareSnappyBackground(input):(Input:input,UniformLevel:(int?)null,OriginalCells:(long?)null);
+    input=background.Input;
     var dir=Path.Combine(output,name);
     Directory.CreateDirectory(Path.Combine(dir,"system"));Directory.CreateDirectory(Path.Combine(dir,"constant"));
     File.WriteAllText(Path.Combine(dir,"system","controlDict"),control);
@@ -164,6 +166,18 @@ if(suite!="core")await Scenario("snappy-aligned-control",async()=>{
     int cells=Cells(dir);if(cells!=448)throw new InvalidOperationException("Aligned castellated control expected 448 external cells, got "+cells);
     CheckLog(dir,"checkMesh.log");
     return new{cells,quality="Mesh OK",snap=false,refinement=0};
+});
+// Strict alternate path: same level-one near-surface cell size but
+// uniformly refined background, no octree transition. Original strict
+// cases remain in the suite; an alternate pass cannot hide their failure.
+if(suite!="core")await Scenario("snappy-uniform-background",async()=>{
+    var cfg=JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,uniformBackground=true,snapEnabled=false,stlBase64=Convert.ToBase64String(stream.ToArray())}});
+    var prepared=NativeCartesianMesh.PrepareSnappyBackground(cfg);
+    if(prepared.UniformLevel!=1||prepared.OriginalCells!=512||NativeCartesianMesh.Build(prepared.Input).Cells!=4096)throw new InvalidOperationException("Uniform background accounting failed");
+    var dir=await Run("snappy-uniform-background","snappyHexMesh",false,cfg);
+    int cells=Cells(dir);if(cells!=3584)throw new InvalidOperationException("Expected 3584 aligned external cells, got "+cells);
+    CheckLog(dir,"checkMesh.log");
+    return new{cells,backgroundCells=4096,originalBackgroundCells=512,localRefinement=0,quality="Mesh OK",snap=false};
 });
 // Repeat the original refinement with snapping disabled. This diagnostic
 // must produce a valid mesh snapshot and a determinate quality report;
