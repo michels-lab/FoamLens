@@ -29,6 +29,10 @@ Current 2026-10-19 **canonical owner-requested backlog** in `docs/DEVELOPMENT_PL
 
 Shared Michel's Lab rules live in `michels-lab/Michel-Software-Standards`.
 
+## Owner mandate — scalable scientific processing (2026-11-27)
+
+Design every new or revised FoamLens scientific operation for large cases from the start. Do not impose arbitrary fixed cell, face, point, timestep, file or result-count ceilings as scientific restrictions. Prefer compact typed storage, streaming/chunked computation, bounded caches, cancellation/progress, and local temporary disk spill where necessary; separate interactive preview sampling from full scientific results. Resource limits must be explicitly identified as temporary/configurable operational safeguards, justified by measured memory/disk/runtime or platform constraints, and give actionable recovery guidance without silently truncating, extrapolating or inventing data. Preserve physical units, topology, provenance and numerical validity across chunks. Never remove a safety guard without a safe replacement or claim million-cell support from small synthetic tests. Aim for resource-adaptive processing rather than a fixed maximum; validate large-case capability before advertising it. This applies across Field, filters, derived fields, CAD/mesh, resampling, temporal analysis, integration and export. Large benchmark campaign G-H remains separately deferred unless explicitly reactivated; scalability is a design requirement now, not a claim that current limits are already removed.
+
 ## Product constraints
 
 - Scientific correctness outranks cosmetic convenience.
