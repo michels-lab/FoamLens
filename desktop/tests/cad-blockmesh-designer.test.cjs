@@ -193,3 +193,30 @@ for(const bds of [touching,intersecting,[parts[0],parts[0]]])assert.equal(gapBan
 assert.throws(()=>gapBands(baseInput,parts,.0625,.25,0,true,'yes'));
 console.log('Projected CAD gap protection: disjoint, touching and overlapping extents PASS');
 }
+
+{
+const spacingCore=new Function(src.slice(a,b)+';return {spacing:cmbBandSpacing,bands:cmbConformalBands}')();
+const originalCounts=[1,8,1],points=[0,.25,.75,1];
+const raw=spacingCore.spacing(points,originalCounts);
+assert.equal(raw.beforeRatio,4);assert.equal(raw.afterRatio,4);assert.deepEqual(raw.counts,originalCounts);
+const smoothed=spacingCore.spacing(points,originalCounts,2);
+assert.deepEqual(smoothed.counts,[2,8,2]);assert.equal(smoothed.beforeRatio,4);assert.equal(smoothed.afterRatio,2);
+assert.equal(smoothed.minWidth,.0625);assert.equal(smoothed.maxWidth,.125);
+assert.deepEqual(originalCounts,[1,8,1]);assert.equal(smoothed.changes.length,2);
+const chain=spacingCore.spacing([0,1,2,3,4],[1,1,1,16],2);
+assert.deepEqual(chain.counts,[2,4,8,16]);assert.equal(chain.afterRatio,2);
+const reverse=spacingCore.spacing([0,1,2,3,4],[16,1,1,1],2);
+assert.deepEqual(reverse.counts,[16,8,4,2]);
+assert.throws(()=>spacingCore.spacing(points,originalCounts,1));
+assert.throws(()=>spacingCore.spacing(points,originalCounts,Infinity));
+assert.throws(()=>spacingCore.spacing([0,1,1.000001],[1,1],2));
+const fixture={axes:['0\n1 8 1','0\n1 8 1','0\n1 8 1'],patches:input.patches,zones:''};
+const bounds=[{min:[.25,.25,.25],max:[.75,.75,.75]}];
+const v=spacingCore.bands(fixture,bounds,.0625,.25,0,false,false,2);
+assert.equal(v.plan.cellCount,1728);
+assert.deepEqual(v.plan.axes.map(q=>q.points),Array(3).fill(points));
+assert(v.spacingDiagnostics.every(q=>q.afterRatio<=2*(1+1e-12)));
+assert.equal(v.plan.meshGenerated,false);
+assert.equal(spacingCore.bands(fixture,bounds,.0625,.25,0,false,false).plan.cellCount,1000);
+console.log('Conformal band spacing: monotone refinement, ratio propagation, exact CAD planes, explicit budget PASS');
+}
