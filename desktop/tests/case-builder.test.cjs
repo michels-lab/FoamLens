@@ -86,3 +86,27 @@ const simple='FoamFile { format ascii; class polyBoundaryMesh; object boundary; 
 assert.strictEqual(api.parseBoundary(simple,'metal','single').patches.length,2);
 assert.throws(()=>api.parseBoundary(simple.replace('startFace 24','startFace 25'),'metal','single'));
 console.log('Case Builder thermal extension: actual-source parser, reciprocal mappings, SI table preview, round trip and '+(badCht.length+4)+' negative fixtures PASS');
+
+const solid={...single,regions:'mold|solid|solid',patches:'mold|wall1|wall',fields:'mold|T|volScalarField|0 0 0 1 0 0 0|300',boundaries:'mold|T|wall1|zeroGradient|-',materials:'',solidProperties:'mold|2000|1000|1|50|0'};
+for(const version of ['13','14']){
+ const out=api.build({...solid,version}),d=file(out,'draft/constant/physicalProperties');
+ assert.match(d,/type heSolidThermo;/);assert.match(d,/transport constIsoSolid;/);
+ assert.match(d,/thermo eConst;/);assert.match(d,/energy sensibleInternalEnergy;/);
+ assert.match(d,/Cv 1000;/);assert(!/\bCp\b/.test(d));
+ assert.strictEqual(out.manifest.nativeConstantSolidDrafts[0].nativeExecutionVerified,false);
+}
+const mixed=api.build({...cht,materialTables:cht.materialTables.split('\n').filter(x=>x.startsWith('metal')).join('\n'),solidProperties:'mold|2000|1000|1|50|-10'});
+assert.match(file(mixed,'draft/constant/mold/physicalProperties'),/hf -10;/);
+assert(!file(mixed,'draft/constant/metal/physicalProperties'));
+const badSolid=[
+ {...solid,solidProperties:'mold|2000|0|1|50|0'},
+ {...solid,solidProperties:'mold|2000|1000|1|0|0'},
+ {...solid,solidProperties:'mold|2000|1000|1|50|#include'},
+ {...solid,regions:'mold|fluid|fluid'},
+ {...solid,regions:'mold|solid|fluid'},
+ {...solid,materialTables:'mold|300|2000|1000|1\nmold|400|1900|1100|2'},
+ {...solid,materials:'mold|sand|1900|1000|1'},
+ {...solid,solidProperties:solid.solidProperties+'\n'+solid.solidProperties}
+];
+for(const bad of badSolid)assert.throws(()=>api.build(bad));
+console.log('Constant solid physicalProperties template: both versions, region paths, explicit Cv, conflict rejection and 8 negatives PASS');
