@@ -148,3 +148,46 @@ const badNumerics=[
 for(const bad of badNumerics)assert.throws(()=>api.build({...nc,...bad}),JSON.stringify(bad));
 for(const bad of [{pimple:nm.pimple.replace('@global|7|-|-|-\n','')},{pimple:nm.pimple.replace('mold|-|-|1|-','mold|-|2|1|yes')},{pimple:nm.pimple.replace('metal|-|3','metal|4|3')},{schemes:nc.schemes}])assert.throws(()=>api.build({...nm,...bad}));
 console.log('Numerical configuration: Foundation 13/14, regional solvers/schemes, PIMPLE, adaptive time and '+(badNumerics.length+4)+' negative fixtures PASS');
+
+const phase={...nc,phaseModels:'metal|phaseChangeSource|-|1400|1500|0.3|200000|6800|0.0001|100000|0.001|0.9|thermo|-|0 -9.81 0'};
+for(const version of ['13','14']){
+ const z=api.build({...phase,version}),d=file(z,'draft/constant/fvModels'),m=z.manifest.physics.phaseModels[0];
+ assert.match(d,/type solidificationMelting;/);assert.match(d,/cellZone all;/);assert.match(d,/Tsol 1400;/);assert.match(d,/Tliq 1500;/);assert.match(d,/alpha1e 0.3;/);assert.match(d,/L 200000;/);assert.match(d,/g \(0 -9.81 0\);/);
+ assert.strictEqual(m.phaseField,'phaseChangeSource:alpha1');assert.strictEqual(m.nativeExecutionVerified,false);
+ assert.strictEqual(api.phasePreview(m,1399).alphaLiquid,0);assert.strictEqual(api.phasePreview(m,1500).alphaLiquid,1);
+ assert.deepStrictEqual(api.phasePreview(m,1400).range,[0,0.3]);assert.strictEqual(api.phasePreview(m,1400).alphaLiquid,null);
+ assert(Math.abs(api.phasePreview(m,1450).alphaLiquid-0.65)<1e-12);
+ assert.deepStrictEqual(api.build(JSON.parse(file(z,'case-builder.json')).input),z);
+ const sh=file(z,'execution/prepare-run.sh');assert(sh.includes('[[ "$WM_PROJECT_VERSION" == '+version+' ]]'));assert(sh.includes('cp -a -- "$src/0" "$src/constant" "$src/system" "$caseDir/"'));assert(sh.includes('[[ "$2" == --run ]]'));assert(sh.includes('foamRun -case "$caseDir"'));assert(!sh.includes('rm -rf'));assert(z.manifest.execution.requiredFiles.includes('constant/fvModels'));assert.strictEqual(z.manifest.execution.runtimeVerified,false);
+}
+const lookup=api.build({...phase,regions:'metal|fluid|incompressibleFluid',phaseModels:phase.phaseModels.replace('|thermo|-|','|lookup|700|').replace('|-|1400','|casting|1400')});
+assert.match(file(lookup,'draft/constant/fvModels'),/Cp CpRef;\n    CpRef 700;/);
+assert(lookup.manifest.execution.requiredFiles.includes('constant/polyMesh/cellZones'));
+const iso=api.build({...phase,phaseModels:phase.phaseModels.replace('1400|1500|0.3','1400|1400|0')});
+assert.deepStrictEqual(api.phasePreview(iso.manifest.physics.phaseModels[0],1400).range,[0,1]);
+const badPhase=[
+ {phaseModels:phase.phaseModels.replace('1400|1500','1501|1500')},{phaseModels:phase.phaseModels.replace('|0.3|','|1|')},
+ {phaseModels:phase.phaseModels.replace('1500|0.3','1400|0.3')},{phaseModels:phase.phaseModels.replace('|200000|','|0|')},
+ {phaseModels:phase.phaseModels.replace('|6800|','|-1|')},{phaseModels:phase.phaseModels.replace('|0.001|','|0|')},
+ {phaseModels:phase.phaseModels.replace('|0.9|','|1.1|')},{phaseModels:phase.phaseModels.replace('|thermo|-|','|lookup|-|')},
+ {phaseModels:phase.phaseModels.replace('|thermo|-|','|thermo|700|')},{phaseModels:phase.phaseModels.replace('0 -9.81 0','0 -9.81')},
+ {phaseModels:phase.phaseModels.replace('phaseChangeSource','bad;foo')},{phaseModels:phase.phaseModels+'\n'+phase.phaseModels},
+ {regions:'metal|solid|solid'}
+];
+for(const bad of badPhase)assert.throws(()=>api.build({...phase,...bad}));
+assert.throws(()=>api.phasePreview(iso.manifest.physics.phaseModels[0],NaN));
+const thermal14=api.build({...cht,version:'14',contactResistance:'metal|contactA|h|500|-\nmold|contactB|h|1000|-'});
+assert.match(file(thermal14,'draft/0/metal/T'),/h uniform 500;/);
+assert.strictEqual(thermal14.manifest.physics.contactResistance[0].resistance_m2K_W,0.002);
+const thermal13=api.build({...cht,version:'13',contactResistance:'metal|contactA|layers|0.01 0.02|10 20\nmold|contactB|layers|0.01|10'});
+assert.match(file(thermal13,'draft/0/metal/T'),/thicknessLayers \(0.01 0.02\);/);
+assert.match(file(thermal13,'draft/0/metal/T'),/kappaLayers \(10 20\);/);
+assert.strictEqual(thermal13.manifest.physics.contactResistance[0].equivalentH_W_m2K,500);
+for(const v of ['metal|contactA|h|500|-','metal|contactA|h|0|-\nmold|contactB|h|1000|-','metal|contactA|layers|0.01|10\nmold|contactB|layers|0.01|10','metal|unknown|h|500|-\nmold|contactB|h|1000|-'])assert.throws(()=>api.build({...cht,contactResistance:v}));
+assert.throws(()=>api.build({...cht,version:'13',contactResistance:'metal|contactA|layers|0.01 0.02|10\nmold|contactB|layers|0.01|10'}));
+assert.match(file(thermal14,'execution/prepare-run.sh'),/for region in 'metal' 'mold'; do run_mesh/);
+assert(thermal14.manifest.execution.requiredFiles.includes('constant/mold/polyMesh/boundary'));
+const log=api.inspectRunLog('Time = 0.1\nSolving for fluid region metal\nGAMG: Solving for p_rgh, Initial residual = 0.97, Final residual = 0.02, No Iterations 4\nCourant Number mean: 0.1 max: 0.5\ndeltaT = 0.001\nTime = 0.2\nSolving for solid region mold\nPCG: Solving for e, Initial residual = 0.1, Final residual = 1e-7, No Iterations 3\nEnd\nFOAM FATAL ERROR\nFinal residual = nan\n');
+assert.strictEqual(log.lastTime,0.2);assert.strictEqual(log.lastDeltaT,0.001);assert.strictEqual(log.timeSteps,2);assert.strictEqual(log.residualRows[1].region,'mold');assert.strictEqual(log.residualRows[0].initial,0.97);assert.strictEqual(log.courantRows[0].max,0.5);assert.strictEqual(log.fatalMarkers,1);assert.strictEqual(log.nonfiniteMarkers,1);assert.strictEqual(log.normalEndMarkers,1);assert.strictEqual(log.runSuccessVerified,false);
+assert.throws(()=>api.inspectRunLog('x'.repeat(8*1024*1024+1)));
+console.log('Physical/execution drafts: solidification, both contact versions, isolated script and local log evidence PASS');
