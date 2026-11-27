@@ -780,7 +780,8 @@ function cgRefreshNativeCheck(){
   if(!run)return;
   let available=false;
   try{const s=cgNativeSelectedSurface(false);available=84+s.triangles*50<=4*1024*1024}catch{}
-  run.disabled=cgNativeCheckBusy||!cgNativeCheckAvailable()||!available;
+  const distribution=document.getElementById('cgNativeDistribution');
+  run.disabled=cgNativeCheckBusy||!cgNativeCheckAvailable()||!available||!flWslSelectionAvailable(distribution);
   run.title=!cgNativeCheckAvailable()?
     cgUi('Requires native FoamLens for Windows, WSL and installed OpenFOAM.',
        'Requiere FoamLens nativo en Windows, WSL y OpenFOAM instalado.'):
@@ -792,7 +793,9 @@ function cgRefreshNativeCheck(){
 }
 async function cgRunNativeSurfaceCheck(){
   if(cgNativeCheckBusy)return;
-  const output=document.getElementById('cgSurfaceCheckOutput');
+  const output=document.getElementById('cgSurfaceCheckOutput'),distributionControl=document.getElementById('cgNativeDistribution');
+  if(!flWslSelectionAvailable(distributionControl)){if(output)output.textContent=cgUi('Choose an available WSL distribution.','Elige una distribución WSL disponible.');return}
+  const distribution=distributionControl.value,version=document.getElementById('cgNativeVersion').value;
   let selected;
   try{selected=cgNativeSelectedSurface()}catch(err){
     cgShow(String(err?.message||err));return
@@ -806,7 +809,7 @@ async function cgRunNativeSurfaceCheck(){
     const task=cgNativeSurfaceCheckRequest(selected.bytes);
     cgNativeCheckCancel=task.cancel;
     const report=await task.promise;
-    if(!report||report.utility!=='surfaceCheck -checkSelfIntersection')
+    if(!report||report.utility!=='surfaceCheck -checkSelfIntersection'||report.openFoamCaseMutated!==false||!flWslReceiptMatches(report,version,distribution))
       throw Error('Unrecognized native surfaceCheck report');
     cgLastNativeCheck={
       schema:'foamlens/cad-native-surfacecheck/1',
@@ -833,8 +836,8 @@ async function cgRunNativeSurfaceCheck(){
     cgShow(report.executed?
       cgUi('Native surfaceCheck completed. Review and export the real solver output.',
            'Terminó surfaceCheck nativo. Revisa y exporta la salida real.'):
-      cgUi('surfaceCheck unavailable in default WSL. Check installation.',
-           'surfaceCheck no disponible en WSL predeterminado. Revisa la instalación.'))
+      cgUi('surfaceCheck unavailable in selected WSL. Check installation.',
+           'surfaceCheck no disponible en WSL seleccionado. Revisa la instalación.'))
   }catch(err){
     if(output)output.textContent=cgUi('Native surfaceCheck unavailable or cancelled: ',
       'surfaceCheck nativo no disponible o cancelado: ')+String(err?.message||err);
@@ -1324,7 +1327,7 @@ function cgInstall(){
   document.getElementById('cgPartsHideAll').onclick=()=>cgChangePartSelection('hide');
   document.getElementById('cgRestoreVisibility').onclick=()=>cgChangePartSelection('restore');
   document.getElementById('cgNativeListWsl').onclick=async()=>{
-    if(cgNativeCheckBusy||!cgNativeCheckAvailable())return;cgNativeCheckBusy=true;cgRefreshNativeCheck();
+    if(cgNativeCheckBusy||!cgNativeCheckAvailable())return;cgLastNativeCheck=null;cgNativeCheckBusy=true;cgRefreshNativeCheck();
     const output=document.getElementById('cgSurfaceCheckOutput');try{const task=flMeshNativeRequest('listFoamWslDistributions',{});cgNativeCheckCancel=task.cancel;const r=await task.promise;output.textContent=flWslOptions(document.getElementById('cgNativeDistribution'),r,cgUi)+' · '+cgUi('installed WSL distributions','distribuciones WSL instaladas')}catch(e){output.textContent=String(e.message||e)}finally{cgNativeCheckBusy=false;cgNativeCheckCancel=null;cgRefreshNativeCheck()}
   };
   for(const id of ['cgNativeVersion','cgNativeDistribution'])document.getElementById(id).onchange=()=>{cgLastNativeCheck=null;document.getElementById('cgSurfaceCheckOutput').textContent='';cgRefreshNativeCheck()};
