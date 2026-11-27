@@ -243,7 +243,7 @@ const flCaseBuilder=(()=>{
    if(physics.phaseModels.some(m=>m.region===r.name&&m.zone&&m.zone!=='all'))required.push(constant+'/polyMesh/cellZones');
    if(r.kind==='solid'||r.solver==='fluid')required.push(constant+'/physicalProperties');if(r.kind==='fluid')required.push(constant+'/momentumTransport')
   }
-  return {version:input.version,application:app,requiredFiles:[...new Set(required)],regionalMeshChecks:multi?regionList.map(r=>r.name):[],dictionaryDraftsGenerated:numerical.active,executionMode:'manual trusted candidate, isolated copy, serial only',runtimeVerified:false,solverReady:false}
+  return {version:input.version,application:app,requiredFiles:[...new Set(required)],regionalMeshChecks:multi?regionList.map(r=>r.name):[],dictionaryDraftsGenerated:numerical.active,meshPreflight:'strict-allTopology-allGeometry',executionMode:'manual trusted candidate, isolated copy, serial only',runtimeVerified:false,solverReady:false}
  }
  function executionScript(plan){
   const required=plan.requiredFiles.map(v=>"'"+v+"'").join(' '),regions=plan.regionalMeshChecks.map(v=>"'"+v+"'").join(' ');
@@ -252,8 +252,8 @@ const flCaseBuilder=(()=>{
    'fail(){ printf "FoamLens: %s\\n" "$*" >&2; exit 1; }',
    '[[ $# -eq 2 ]] || fail "Usage: bash prepare-run.sh /path/to/trusted-complete-case --check|--run"',
    '[[ "$2" == --check || "$2" == --run ]] || fail "Choose --check or --run explicitly"',
-   '[[ "$WM_PROJECT_VERSION" == '+plan.version+' ]] || fail "Source the matching Foundation environment first"',
-   'for tool in foamDictionary checkMesh '+plan.application+' realpath mktemp cp find tee grep; do command -v "$tool" >/dev/null || fail "Missing tool $tool"; done',
+   '[[ "${WM_PROJECT:-}" == OpenFOAM && "${WM_PROJECT_VERSION:-}" == '+plan.version+' ]] || fail "Source the matching Foundation environment first"',
+   'for tool in foamDictionary checkMesh '+plan.application+' realpath mktemp cp find tee awk; do command -v "$tool" >/dev/null || fail "Missing tool $tool"; done',
    'src="$(realpath -e -- "$1")" || fail "Case does not exist"',
    '[[ -d "$src" ]] || fail "Case directory required"',
    'for dir in 0 constant system; do [[ -d "$src/$dir" && ! -L "$src/$dir" ]] || fail "Missing regular directory $dir"; done',
@@ -266,9 +266,11 @@ const flCaseBuilder=(()=>{
    'app="$(foamDictionary system/controlDict -entry application -value)"',
    '[[ "$app" == '+plan.application+' ]] || fail "Unexpected application: $app"',
    'for file in '+required+'; do case "$file" in system/*|*/physicalProperties|*/fvModels|*/momentumTransport) foamDictionary "$file" > /dev/null || fail "Dictionary rejected: $file";; esac; done',
-   'run_mesh(){ local label="$1"; shift; checkMesh -case "$caseDir" "$@" -noFunctionObjects 2>&1 | tee "$work/logs/checkMesh-$label.log"; grep -q "Mesh OK\\." "$work/logs/checkMesh-$label.log" || fail "Mesh OK marker absent for $label"; }',
+   'run_mesh(){ local label="$1"; shift; local log="$work/logs/checkMesh-$label.log"; checkMesh -case "$caseDir" "$@" -allTopology -allGeometry -noFunctionObjects 2>&1 | tee "$log" || fail "checkMesh command or log write failed for $label";',
+   '  LC_ALL=C awk \'/^[[:space:]]*Mesh OK\\.[[:space:]]*$/{ok++} /^[[:space:]]*End[[:space:]]*$/{ends++} /^[[:space:]]*Failed[[:space:]]+[0-9]+[[:space:]]+mesh checks?\\.[[:space:]]*$|FOAM FATAL|^[[:space:]]*(Floating point exception|Segmentation fault)([[:space:]]|$)/{bad=1} END{exit !(ok==1 && ends==1 && !bad)}\' "$log" || fail "Strict mesh quality evidence rejected for $label";',
+   '  printf "%s\\n" "strict-mesh-ok-reported" > "$work/logs/checkMesh-$label.status"; }',
    ...(regions?['for region in '+regions+'; do run_mesh "$region" -region "$region"; done']:['run_mesh default']),
-   'printf "Basic mesh checks completed. This does not certify physics or solver compatibility.\\n"',
+   'printf "Strict topology and geometry checks completed. This does not certify physics or solver compatibility.\\n"',
    '[[ "$2" == --run ]] || { printf "Check-only; no solver launched. Logs: %s\\n" "$work/logs"; exit 0; }',
    'printf "Launching serial solver in isolated copy only. Stop with Ctrl+C.\\n"',
    'set +e',plan.application+' -case "$caseDir" -noFunctionObjects 2>&1 | tee "$work/logs/solver.log"',
@@ -283,11 +285,11 @@ const flCaseBuilder=(()=>{
   for(const line of raw.split(/\r?\n/)){
    let m;if((m=timeRx.exec(line))){time=Number(m[1]);if(!Number.isFinite(time)){time=null;nonfinite++;continue}lastTime=time;steps++;region=null}
    else if((m=/^\s*Solving for (?:fluid|solid) region\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(line)))region=m[1];
-   else if((m=dtRx.exec(line)))dt=Number(m[1]);
+   else if((m=dtRx.exec(line))){dt=Number(m[1]);if(!Number.isFinite(dt)){dt=null;nonfinite++}}
    else if((m=resRx.exec(line))){const a=[Number(m[2]),Number(m[3]),Number(m[4])];if(a.every(Number.isFinite)&&rows.length<50000)rows.push({time,region,field:m[1].trim(),initial:a[0],final:a[1],iterations:a[2]});else if(!a.every(Number.isFinite))nonfinite++}
    else if((m=coRx.exec(line))){const a=[Number(m[1]),Number(m[2])];if(a.every(Number.isFinite)&&courant.length<50000)courant.push({time,mean:a[0],max:a[1]});else if(!a.every(Number.isFinite))nonfinite++}
-   if(/FOAM FATAL|Floating point exception|Segmentation fault/i.test(line))fatal++;
-   if(/(?:residual\s*=\s*|deltaT\s*=\s*)(?:nan|inf)(?:\b|,)/i.test(line))nonfinite++;
+   if(/FOAM FATAL/i.test(line)||/^\s*(?:Floating point exception|Segmentation fault)(?:\s|$)/i.test(line))fatal++;
+   if(/(?:residual\s*=\s*|deltaT\s*=\s*|Courant Number mean:\s*|\bmax:\s*|^\s*Time\s*=\s*)[-+]?(?:nan|inf(?:inity)?)(?:\b|,)/i.test(line)){nonfinite++;if(/^\s*Time\s*=/.test(line)){time=null;region=null}if(/^\s*deltaT\s*=/.test(line))dt=null}
    if(/^\s*End\s*$/.test(line))ends++;
   }
   return {lastTime,lastDeltaT:Number.isFinite(dt)?dt:null,timeSteps:steps,normalEndMarkers:ends,fatalMarkers:fatal,nonfiniteMarkers:nonfinite,residualRows:rows,courantRows:courant,truncated:rows.length===50000||courant.length===50000,runSuccessVerified:false}
@@ -449,7 +451,7 @@ const flCaseBuilder=(()=>{
   }
   for(const table of tables)entries.push({name:'material-data/'+table.region+'.csv',data:table.columns.join(',')+'\n'+table.values.map(v=>v.join(',')).join('\n')+'\n'});
   const execution=executionPlan(input,regionList,fields,physics,numerical);
-  entries.push({name:'execution/prepare-run.sh',data:executionScript(execution)},{name:'execution/README.txt',data:'Trusted complete candidate only. Complete missing dictionaries and mesh yourself. Source the selected Foundation environment in WSL. Run bash execution/prepare-run.sh /path/to/complete-case --check; use --run only when explicitly ready. Script copies 0/constant/system to new /tmp directory, basic checkMesh and serial solver; no parallel, restart or native app launch. Review includes, libraries and coded entries before running; this is not a sandbox for untrusted cases. Logs remain in /tmp until you save them. Never supply your original as a target to modify.\n'});
+  entries.push({name:'execution/prepare-run.sh',data:executionScript(execution)},{name:'execution/README.txt',data:'Trusted complete candidate only. Complete missing dictionaries and mesh yourself. Source the selected Foundation environment in WSL. Run bash execution/prepare-run.sh /path/to/complete-case --check; use --run only when explicitly ready. Script copies 0/constant/system to new /tmp directory, strict checkMesh -allTopology -allGeometry and serial solver; no parallel, restart or native app launch. Review includes, libraries and coded entries before running; this is not a sandbox for untrusted cases. Logs remain in /tmp until you save them. Never supply your original as a target to modify.\n'});
   const manifest={schema,version:input.version,mode:input.mode,regions:regionList,patches:items(patches),fields:items(fields),boundaryConditions:items(conditions),materials:items(materials),materialTables:tables,numerics:numerical,physics,execution,nativeConstantSolidDrafts:items(nativeSolids),nativeConstantFluidDrafts:items(nativeFluids),importedPatchInventories:items(inventories),allDeclaredPatchInventoriesMatched:inventories.size===regionList.length,thermalInterfaces:[...interfaces.values()],time:{startTime:0,endTime:end,deltaT:dt,writeControl:adaptiveSettings?'adjustableRunTime':'runTime',writeInterval:write,adaptive:adaptiveSettings},materialUnits:'SI constant reference values and temperature tables only, not OpenFOAM thermo dictionaries',meshPatchInventoryVerified:false,solverModulesVerified:false,physicalModelValidated:false,solverReady:false,originalCaseModified:false,missing:['actual full mesh topology and interface geometry verification','remaining solver-specific physicalProperties and variable thermophysical models',numerical.active?'solver-required numerical equation coverage and native dictionary validation':'fvSchemes and fvSolution','native thermophysical transport, contact resistance and any solver-required fields or dictionaries','native OpenFOAM parsing and execution validation']};
   entries.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'},{name:'case-builder.json',data:JSON.stringify({schema,input},null,2)+'\n'},{name:'README.txt',data:'DRAFT ONLY. This is not a runnable or validated OpenFOAM case. No solver run or mesh geometry generated. Only explicitly selected constant solid/fluid physicalProperties drafts may be present; other material models require manual completion. Reciprocal mappedWall names and coupled temperature draft entries do not validate geometric mapping or heat balance. Compare every declared patch to original polyMesh/boundary and complete the missing files listed in manifest.json. Extract to a new folder; never overlay an existing case without review.\n'});
   return {manifest,entries}

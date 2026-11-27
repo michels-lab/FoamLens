@@ -158,7 +158,7 @@ for(const version of ['13','14']){
  assert.deepStrictEqual(api.phasePreview(m,1400).range,[0,0.3]);assert.strictEqual(api.phasePreview(m,1400).alphaLiquid,null);
  assert(Math.abs(api.phasePreview(m,1450).alphaLiquid-0.65)<1e-12);
  assert.deepStrictEqual(api.build(JSON.parse(file(z,'case-builder.json')).input),z);
- const sh=file(z,'execution/prepare-run.sh');assert(sh.includes('[[ "$WM_PROJECT_VERSION" == '+version+' ]]'));assert(sh.includes('cp -a -- "$src/0" "$src/constant" "$src/system" "$caseDir/"'));assert(sh.includes('[[ "$2" == --run ]]'));assert(sh.includes('foamRun -case "$caseDir"'));assert(!sh.includes('rm -rf'));assert(z.manifest.execution.requiredFiles.includes('constant/fvModels'));assert.strictEqual(z.manifest.execution.runtimeVerified,false);
+ const sh=file(z,'execution/prepare-run.sh');assert(sh.includes('"${WM_PROJECT_VERSION:-}" == '+version+' ]]'));assert(sh.includes('"${WM_PROJECT:-}" == OpenFOAM'));assert(sh.includes('-allTopology -allGeometry -noFunctionObjects'));assert.strictEqual(z.manifest.execution.meshPreflight,'strict-allTopology-allGeometry');assert(sh.includes('cp -a -- "$src/0" "$src/constant" "$src/system" "$caseDir/"'));assert(sh.includes('[[ "$2" == --run ]]'));assert(sh.includes('foamRun -case "$caseDir"'));assert(!sh.includes('rm -rf'));assert(z.manifest.execution.requiredFiles.includes('constant/fvModels'));assert.strictEqual(z.manifest.execution.runtimeVerified,false);
 }
 const lookup=api.build({...phase,regions:'metal|fluid|incompressibleFluid',phaseModels:phase.phaseModels.replace('|thermo|-|','|lookup|700|').replace('|-|1400','|casting|1400')});
 assert.match(file(lookup,'draft/constant/fvModels'),/Cp CpRef;\n    CpRef 700;/);
@@ -207,9 +207,9 @@ if(typeof process!=='undefined'&&process.platform==='linux'){
   const before=digest();
   const mock=(name,body)=>fs.writeFileSync(path.join(bin,name),'#!/usr/bin/env bash\nset -e\n'+body+'\n',{mode:0o700});
   mock('foamDictionary','if [[ "$*" == *"-entry application"* ]]; then echo foamRun; fi');
-  mock('checkMesh','echo "Mesh OK."');
+  mock('checkMesh','[[ "$*" == *"-allTopology -allGeometry"* ]]; echo "Mesh OK."; echo End');
   mock('foamRun','printf "changed in isolated case\\n" > 0/T; echo "Time = 1"; echo End');
-  const env={...process.env,WM_PROJECT_VERSION:'14',PATH:bin+':'+process.env.PATH};
+  const env={...process.env,WM_PROJECT:'OpenFOAM',WM_PROJECT_VERSION:'14',PATH:bin+':'+process.env.PATH};
   const syntax=cp.spawnSync('bash',['-n',script],{encoding:'utf8'});assert.strictEqual(syntax.status,0,syntax.stderr);
   const execute=(args,extra={})=>{
    const r=cp.spawnSync('bash',[script,...args],{encoding:'utf8',env:{...env,...extra},timeout:10000});
@@ -221,7 +221,16 @@ if(typeof process!=='undefined'&&process.platform==='linux'){
   assert.notStrictEqual(execute([caseDir,'--run'],{WM_PROJECT_VERSION:'13'}).r.status,0);
   mock('checkMesh','echo "failed mesh"; exit 0');
   const reject=execute([caseDir,'--run']);assert.notStrictEqual(reject.r.status,0);assert(!fs.existsSync(path.join(reject.work,'logs','solver.log')));
-  mock('checkMesh','echo "Mesh OK."');mock('foamRun','exit 7');
+  assert.notStrictEqual(execute([caseDir,'--check'],{WM_PROJECT:'OtherCFD'}).r.status,0);
+  for(const body of [
+   'echo "Mesh OK."; echo "Failed 1 mesh checks."; echo End',
+   'echo "not actually Mesh OK."; echo End',
+   'echo "Mesh OK."',
+   'echo "Mesh OK."; echo "FOAM FATAL ERROR"; echo End',
+   'echo "Mesh OK."; echo "Mesh OK."; echo End'
+  ]){mock('checkMesh',body);const failedQuality=execute([caseDir,'--run']);assert.notStrictEqual(failedQuality.r.status,0);assert(!fs.existsSync(path.join(failedQuality.work,'logs','solver.log')))}
+  assert.strictEqual(fs.readFileSync(path.join(check.work,'logs','checkMesh-default.status'),'utf8').trim(),'strict-mesh-ok-reported');
+  mock('checkMesh','echo "Mesh OK."; echo End');mock('foamRun','exit 7');
   const failed=execute([caseDir,'--run']);assert.strictEqual(failed.r.status,7);
   fs.symlinkSync(path.join(caseDir,'0','T'),path.join(caseDir,'0','linked'));
   assert.notStrictEqual(execute([caseDir,'--run']).r.status,0);
@@ -255,3 +264,12 @@ assert.throws(()=>api.compareRunLogs(api.inspectRunLog(residual(2,'metal',0.5)+r
 assert.throws(()=>api.compareRunLogs({...aa,truncated:true},bb,{region:'metal',field:'p_rgh',metric:'initial'}));
 assert.throws(()=>api.compareRunLogs(aa,bb,{region:'metal',field:'p_rgh',metric:'unknown'}));
 console.log('Constant fluid native draft and A/B source-preserving comparison PASS');
+
+const normalHeader=api.inspectRunLog('sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).\nTime = 1\ndeltaT = 0.001\nEnd\n');
+assert.strictEqual(normalHeader.fatalMarkers,0);
+const badNumeric=api.inspectRunLog('Time = 1\ndeltaT = 0.001\nTime = -inf\nGAMG: Solving for p_rgh, Initial residual = 0.1, Final residual = 0.01, No Iterations 1\ndeltaT = +nan\nCourant Number mean: nan max: inf\nFloating point exception (core dumped)\n');
+assert.strictEqual(badNumeric.residualRows[0].time,null);
+assert.strictEqual(badNumeric.lastDeltaT,null);
+assert.strictEqual(badNumeric.nonfiniteMarkers,3);
+assert.strictEqual(badNumeric.fatalMarkers,1);
+console.log('Strict preflight source contract and real log-header/nonfinite regression PASS');
