@@ -292,6 +292,37 @@ const flCaseBuilder=(()=>{
   }
   return {lastTime,lastDeltaT:Number.isFinite(dt)?dt:null,timeSteps:steps,normalEndMarkers:ends,fatalMarkers:fatal,nonfiniteMarkers:nonfinite,residualRows:rows,courantRows:courant,truncated:rows.length===50000||courant.length===50000,runSuccessVerified:false}
  }
+ function compareRunLogs(a,b,selection){
+  if(!a||!b||!selection||!['initial','final','iterations'].includes(selection.metric)||typeof selection.field!=='string'||!selection.field||!(selection.region===null||typeof selection.region==='string'))fail('Select exact residual field, region and metric');
+  const extract=log=>{
+   const byTime=new Map(),duplicates=new Set();let missingTime=0,invalid=0,previous=null,restart=false;
+   for(const row of log.residualRows){
+    if(row.field!==selection.field||row.region!==selection.region)continue;
+    if(!Number.isFinite(row.time)){missingTime++;continue}
+    if(previous!==null&&row.time<previous)restart=true;
+    previous=row.time;
+    const value=row[selection.metric];if(!Number.isFinite(value)||value<0){invalid++;continue}
+    if(byTime.has(row.time))duplicates.add(row.time);
+    byTime.set(row.time,value);
+   }
+   return {byTime,duplicates:duplicates.size,missingTime,invalid,restart}
+  };
+  const aa=extract(a),bb=extract(b);
+  if(aa.restart||bb.restart)fail('Non-monotonic selected time history: split restarted logs before comparison');
+  if(a.truncated||b.truncated)fail('Truncated log evidence: comparison would be incomplete');
+  const times=[...new Set([...aa.byTime.keys(),...bb.byTime.keys()])].sort((x,y)=>x-y);
+  const rows=times.map(time=>{const A=aa.byTime.get(time)??null,B=bb.byTime.get(time)??null;return {time,A,B,delta_B_minus_A:A===null||B===null?null:B-A}});
+  const pairs=rows.filter(r=>r.A!==null&&r.B!==null);
+  return {selection:{...selection},alignment:'exact physical time, no interpolation; last recorded solve per selected field/region/time',rows,matched:pairs.length,onlyA:rows.filter(r=>r.A!==null&&r.B===null).length,onlyB:rows.filter(r=>r.A===null&&r.B!==null).length,duplicateTimesA:aa.duplicates,duplicateTimesB:bb.duplicates,missingTimeA:aa.missingTime,missingTimeB:bb.missingTime,invalidA:aa.invalid,invalidB:bb.invalid,sourceFatalMarkers:[a.fatalMarkers,b.fatalMarkers],sourceNonfiniteMarkers:[a.nonfiniteMarkers,b.nonfiniteMarkers],meanAbsoluteDifference:pairs.length?pairs.reduce((avg,r,i)=>avg+(Math.abs(r.delta_B_minus_A)-avg)/(i+1),0):null,runSuccessVerified:false,physicalEquivalenceVerified:false}
+ }
+ function comparisonCsv(report){
+  return 'time_s,A,B,delta_B_minus_A\n'+report.rows.map(r=>[r.time,r.A??'',r.B??'',r.delta_B_minus_A??''].join(',')).join('\n')+'\n'
+ }
+ function residualSelections(a,b){
+  const map=new Map();
+  for(const log of [a,b])for(const r of log?.residualRows??[]){const k=JSON.stringify([r.region,r.field]);if(!map.has(k))map.set(k,{region:r.region,field:r.field})}
+  return [...map.values()].sort((x,y)=>JSON.stringify(x).localeCompare(JSON.stringify(y)))
+ }
  function build(input){
   if(!input||!['13','14'].includes(input.version)||!['single','multi'].includes(input.mode))fail('Select Foundation 13/14 and case mode');
   const end=num(input.endTime,'endTime'),dt=num(input.deltaT,'deltaT'),write=num(input.writeInterval,'writeInterval');
@@ -423,7 +454,7 @@ const flCaseBuilder=(()=>{
   entries.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'},{name:'case-builder.json',data:JSON.stringify({schema,input},null,2)+'\n'},{name:'README.txt',data:'DRAFT ONLY. This is not a runnable or validated OpenFOAM case. No solver run or mesh geometry generated. Only explicitly selected constant solid/fluid physicalProperties drafts may be present; other material models require manual completion. Reciprocal mappedWall names and coupled temperature draft entries do not validate geometric mapping or heat balance. Compare every declared patch to original polyMesh/boundary and complete the missing files listed in manifest.json. Extract to a new folder; never overlay an existing case without review.\n'});
   return {manifest,entries}
  }
- return Object.freeze({build,schema,parseBoundary,materialAt,phasePreview,inspectRunLog})
+ return Object.freeze({build,schema,parseBoundary,materialAt,phasePreview,inspectRunLog,compareRunLogs,comparisonCsv,residualSelections})
 })();
 /* FOAMLENS_CASE_BUILDER_CORE_END */
 function flMountCaseBuilder(){
@@ -464,6 +495,7 @@ function flMountCaseBuilder(){
  '<div class="cgTools"><label>'+t('Preview region','Región de consulta')+' <input id="flCbTableRegion"></label><label>T [K] <input id="flCbTableT" inputmode="decimal"></label><button type="button" class="btn soft" id="flCbTablePreview">'+t('Interpolate table','Interpolar tabla')+'</button></div><pre id="flCbTableResult"></pre>'+
  '<p class="cgNotice">'+t('Mapped thermal interfaces: import both region boundary files, declare reciprocal mappedWall, set T to coupledTemperature with explicit initial patch value on both sides. Cyclic and nonconformal variants unsupported. Tables are exported as SI CSV, not native thermo models.','Interfaces térmicas: importa ambos boundary, declara mappedWall recíproco y T con coupledTemperature y valor inicial explícito en ambos lados. Variantes cíclicas y no conformes no soportadas. Las tablas se exportan en CSV SI, no como modelos termo nativos.')+'</p>'+
  '<details style="margin-top:12px"><summary><b>'+t('Execution preparation and log review','Preparación de ejecución y revisión de logs')+'</b></summary><p class="cgNotice">'+t('ZIP includes an optional Bash script for trusted completed cases. Run in WSL with --check or explicitly --run; it copies the initial case into a new /tmp directory. No launch from FoamLens yet.','ZIP incluye un script Bash opcional para casos completos de confianza. Ejecuta en WSL con --check o explícitamente --run; copia el caso inicial a un directorio nuevo en /tmp. Aún sin lanzamiento desde FoamLens.')+'</p><label>'+t('Read solver log locally (8 MiB max)','Leer log local (máx. 8 MiB)')+' <input type="file" id="flCbLogFile"></label><button type="button" class="btn soft" id="flCbLogExport" disabled>'+t('Export parsed evidence ZIP','Exportar evidencia de log ZIP')+'</button><pre id="flCbLogStatus" style="white-space:pre-wrap;max-height:300px;overflow:auto"></pre></details>'+
+ '<details style="margin-top:12px"><summary><b>'+t('Compare solver logs A/B','Comparar logs de solver A/B')+'</b></summary><p class="cgNotice">'+t('Exact time alignment; last solve per field/region/time. No interpolation or convergence certification. Unknown region stays unknown.','Alineación temporal exacta; última resolución por campo/región/tiempo. Sin interpolación ni certificación de convergencia. Región desconocida permanece desconocida.')+'</p><div class="cgTools"><label>Log A <input type="file" id="flCbCompareA"></label><label>Log B <input type="file" id="flCbCompareB"></label></div><div class="cgTools"><label>'+t('Region / field','Región / campo')+' <select id="flCbCompareField" disabled></select></label><label>'+t('Metric','Métrica')+' <select id="flCbCompareMetric"><option value="initial">'+t('Initial residual','Residual inicial')+'</option><option value="final">'+t('Final residual','Residual final')+'</option><option value="iterations">'+t('Iterations','Iteraciones')+'</option></select></label><button type="button" class="btn soft" id="flCbCompareExport" disabled>ZIP</button></div><div id="flCbComparePlot" style="width:100%;min-height:40px"></div><pre id="flCbCompareStatus" style="white-space:pre-wrap;max-height:300px;overflow:auto"></pre></details>'+
  '<div class="cgTools"><button type="button" class="btn primary" id="flCbValidate">'+t('Validate and preview draft','Validar y previsualizar borrador')+'</button><button type="button" class="btn soft" id="flCbExport" disabled>'+t('Export draft ZIP','Exportar borrador ZIP')+'</button><label>'+t('Reopen draft JSON','Reabrir borrador JSON')+' <input type="file" id="flCbImport" accept=".json,application/json"></label></div>'+
  '<p id="flCbStatus" class="cgNotice" aria-live="polite"></p><label>'+t('Generated file','Archivo generado')+' <select id="flCbFile" disabled></select></label><pre id="flCbPreview" style="white-space:pre-wrap;max-height:380px;overflow:auto"></pre>';
  anchor.insertAdjacentElement('afterend',panel);
@@ -488,6 +520,32 @@ function flMountCaseBuilder(){
  el('LogFile').onchange=async()=>{const file=el('LogFile').files[0];el('LogFile').value='';if(!file)return;const token=++logRevision;logEvidence=null;el('LogExport').disabled=true;el('LogStatus').textContent='';
   try{if(file.size>8*1024*1024)throw Error('Log exceeds 8 MiB');const raw=await file.text();if(token!==logRevision)return;const log=flCaseBuilder.inspectRunLog(raw);logEvidence=log;const {residualRows,courantRows,...summary}=log;el('LogStatus').textContent=JSON.stringify({...summary,residualSamples:residualRows.length,courantSamples:courantRows.length,lastResiduals:residualRows.slice(-8)},null,2);el('LogExport').disabled=false}catch(e){if(token===logRevision)el('LogStatus').textContent=e.message}};
  el('LogExport').onclick=()=>{if(logEvidence)cgDownloadZip('FoamLens-solver-log-evidence.zip',cgStoreZip([{name:'solver-log-summary.json',data:JSON.stringify(logEvidence,null,2)}]))};
+ const compareLogs={A:null,B:null},compareEpoch={A:0,B:0};let compareReport=null;
+ const drawComparison=report=>{
+  const host=el('ComparePlot');host.replaceChildren();if(!report.rows.length)return;
+  const ns='http://www.w3.org/2000/svg',make=(tag,attrs)=>{const n=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,String(v));return n};
+  const svg=make('svg',{viewBox:'0 0 640 240',role:'img','aria-label':cgUi('A/B residual history','Historial de residuales A/B')});svg.style.cssText='width:100%;height:auto';
+  const all=report.rows.flatMap(r=>[r.A,r.B]).filter(v=>v!==null),log=report.selection.metric!=='iterations'&&all.every(v=>v>0),transform=v=>log?Math.log10(v):v;
+  let lo=Infinity,hi=-Infinity;for(const v of all){const z=transform(v);lo=Math.min(lo,z);hi=Math.max(hi,z)}if(lo===hi){lo-=1;hi+=1}
+  const t0=report.rows[0].time,t1=report.rows.at(-1).time,x=t=>58+560*(t1===t0?0.5:(t-t0)/(t1-t0)),y=v=>196-168*(transform(v)-lo)/(hi-lo);
+  for(let i=0;i<=4;i++){const yy=28+42*i;svg.append(make('line',{x1:58,x2:618,y1:yy,y2:yy,stroke:'currentColor','stroke-opacity':'.18'}));const tx=make('text',{x:52,y:yy+4,'text-anchor':'end',fill:'currentColor','font-size':10});tx.textContent=(log?10**(hi-(hi-lo)*i/4):hi-(hi-lo)*i/4).toExponential(1);svg.append(tx)}
+  const step=Math.max(1,Math.ceil(report.rows.length/1500));
+  for(const [k,color] of [['A','#38bdf8'],['B','#f59e0b']]){
+   let d='',started=false;for(let i=0;i<report.rows.length;i++){const r=report.rows[i];if(r[k]===null){started=false;continue}if(i%step&&i!==report.rows.length-1)continue;const xx=x(r.time),yy=y(r[k]);d+=(started?' L':' M')+xx+' '+yy;started=true;if(step===1&&report.rows.length<100)svg.append(make('circle',{cx:xx,cy:yy,r:2,fill:color}))}
+   svg.append(make('path',{d,fill:'none',stroke:color,'stroke-width':1.7}))
+  }
+  const label=(x,y,str,color='currentColor')=>{const n=make('text',{x,y,fill:color,'font-size':11});n.textContent=str;svg.append(n)};
+  label(58,214,String(t0));label(560,214,String(t1));label(265,230,'Time [s]');label(58,15,log?'log scale':'linear scale');label(510,15,'A','#38bdf8');label(555,15,'B','#f59e0b');host.append(svg)
+ };
+ const refreshComparison=()=>{
+  compareReport=null;el('CompareExport').disabled=true;el('ComparePlot').replaceChildren();el('CompareStatus').textContent='';
+  if(!compareLogs.A||!compareLogs.B)return;
+  try{const [region,field]=JSON.parse(el('CompareField').value);compareReport=flCaseBuilder.compareRunLogs(compareLogs.A,compareLogs.B,{region,field,metric:el('CompareMetric').value});drawComparison(compareReport);const {rows,...summary}=compareReport;el('CompareStatus').textContent=JSON.stringify(summary,null,2);el('CompareExport').disabled=false}catch(e){el('CompareStatus').textContent=e.message}
+ };
+ const refreshFields=()=>{const select=el('CompareField'),old=select.value;select.replaceChildren();for(const s of flCaseBuilder.residualSelections(compareLogs.A,compareLogs.B)){const o=document.createElement('option');o.value=JSON.stringify([s.region,s.field]);o.textContent=(s.region??cgUi('unknown region','región desconocida'))+' / '+s.field;select.append(o)}if([...select.options].some(o=>o.value===old))select.value=old;select.disabled=!select.options.length;refreshComparison()};
+ for(const k of ['A','B'])el('Compare'+k).onchange=async()=>{const file=el('Compare'+k).files[0];if(!file)return;const epoch=++compareEpoch[k];compareLogs[k]=null;refreshFields();try{if(file.size>8*1024*1024)throw Error('Log exceeds 8 MiB');const raw=await file.text();if(epoch!==compareEpoch[k])return;compareLogs[k]=flCaseBuilder.inspectRunLog(raw);refreshFields()}catch(e){if(epoch===compareEpoch[k])el('CompareStatus').textContent=e.message}};
+ el('CompareField').onchange=refreshComparison;el('CompareMetric').onchange=refreshComparison;
+ el('CompareExport').onclick=()=>{if(!compareReport)return;const {rows,...summary}=compareReport;cgDownloadZip('FoamLens-log-comparison.zip',cgStoreZip([{name:'comparison.csv',data:flCaseBuilder.comparisonCsv(compareReport)},{name:'comparison-manifest.json',data:JSON.stringify(summary,null,2)}]))};
  const preview=()=>{el('Preview').textContent=plan?.entries.find(e=>e.name===el('File').value)?.data||''};
  el('File').onchange=preview;
  const validate=()=>{clear();try{plan=flCaseBuilder.build(read());for(const e of plan.entries){const o=document.createElement('option');o.value=e.name;o.textContent=e.name;el('File').append(o)}el('File').disabled=false;el('Export').disabled=false;el('Status').textContent=plan.manifest.regions.length+' · '+cgUi('regions; structural draft valid, NOT solver-ready.','regiones; borrador estructural válido, NO apto para solver.');preview()}catch(e){el('Status').textContent=e.message}};
