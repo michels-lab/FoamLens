@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 545; classified: 541; readable documents: 126; above read cap: 1; findings: 3.
+Tracked: 546; classified: 542; readable documents: 127; above read cap: 1; findings: 3.
 
 ## File roles
 
@@ -16,7 +16,7 @@ Tracked: 545; classified: 541; readable documents: 126; above read cap: 1; findi
 | bitacora | 2 |
 | build_script | 10 |
 | config | 8 |
-| document | 119 |
+| document | 120 |
 | index | 6 |
 | installer_metadata | 1 |
 | license | 1 |
@@ -29,7 +29,7 @@ Tracked: 545; classified: 541; readable documents: 126; above read cap: 1; findi
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 8 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js, desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js, desktop/tests/field-probe.test.cjs, desktop/tests/isosurface.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 200c9f06f8f02192)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 10 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js, desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js, desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js, desktop/tests/field-probe.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID d7e84787f51d3a58)
 - **REVIEW / UNKNOWN_PURPOSE** tools/native-quality/Make/files: No reliable purpose category from path. Next: Declare role after reviewing usage (ID d9f5be2807d4a759)
 - **REVIEW / UNKNOWN_PURPOSE** tools/native-quality/Make/options: No reliable purpose category from path. Next: Declare role after reviewing usage (ID 80ac214ba57179dd)
 

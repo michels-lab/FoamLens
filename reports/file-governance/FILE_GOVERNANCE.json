@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 545,
-  "classified_files_total": 541,
-  "docs_content_inspected": 126,
+  "tracked_files_total": 546,
+  "classified_files_total": 542,
+  "docs_content_inspected": 127,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 8,
-    "document": 119,
+    "document": 120,
     "index": 6,
     "installer_metadata": 1,
     "license": 1,
@@ -28,8 +28,8 @@
     "UNKNOWN_PURPOSE": 2
   },
   "finding_total": 3,
-  "inventory_fingerprint": "b841b1d0239e16979ec64b70a5c904564b4ba4afe03ab066b203f2a381c86111",
-  "evidence_fingerprint": "6f10205cd234034c2cbfc6ca19f9d6f5c08af3ed80be6d7ad5e41eeaa8995134",
+  "inventory_fingerprint": "a1c9b9610a085bb2f4c081850b1123b61cb4f85e6e772ace9c8b8e50afcf3b18",
+  "evidence_fingerprint": "4781d4eca5cddd7855c837fe30efac0734cf1c94e0839bc4e7eb84b8f5a518aa",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1177,7 +1177,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "50016f3f54495e4019f77fbf7885dd9da2bec7cd"
+      "blob": "a9e8b847ea49a3c96816e7d4ce3050b710640d15"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-physics-evidence-explorer.js",
@@ -1807,7 +1807,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "a5f8778db0c9fffc26b75c74004369c6cf1a7dc5"
+      "blob": "45fe56f517a5f9a7e26bf9211e504bc401e984ae"
     },
     {
       "path": "desktop/tests/multiregion-energy-loader.spec.cjs",
@@ -2487,6 +2487,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "11f88d46f248fec39c8f66e339e8efd249957921"
+    },
+    {
+      "path": "docs/GRANADA_ENERGY_EXACT_TIME_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "ceb6ee84fdc5457c5511ad98f0b8b612cb1a2d2c"
     },
     {
       "path": "docs/GRANADA_ENTITY_SELECTION_2026-11-27.md",
@@ -3821,11 +3828,11 @@
   ],
   "findings": [
     {
-      "id": "200c9f06f8f02192",
+      "id": "d7e84787f51d3a58",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "8 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js, desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js, desktop/tests/field-probe.test.cjs, desktop/tests/isosurface.test.cjs",
+      "observation": "10 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js, desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js, desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js, desktop/tests/field-probe.test.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     },
