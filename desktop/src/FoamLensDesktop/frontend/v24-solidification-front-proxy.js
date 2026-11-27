@@ -106,6 +106,7 @@ function pfConnectedCrossingFaces(mesh,geometry,crossed,axis){
     for(let k=0;k<3;k++)g.weighted[k]+=a*geometry.faceCentroids[3*fi+k];
     for(let j=offsets[fi];j<offsets[fi+1];j++)for(let k=0;k<3;k++){const v=pts[3*ids[j]+k];g.boundsMin[k]=Math.min(g.boundsMin[k],v);g.boundsMax[k]=Math.max(g.boundsMax[k],v)}
   }
+  if(groups.size>5000)return{status:'unavailable-limit',count:null,components:[],reason:'Component count exceeds 5000 per snapshot; no silent truncation'};
   const components=[...groups.values()].sort((a,b)=>b.areaProxyM2-a.areaProxyM2||a.firstFace-b.firstFace).map((g,i)=>({
     frameComponent:i+1,firstSourceFace:g.firstFace,faceCount:g.faceCount,areaProxyM2:g.areaProxyM2,centroidM:g.weighted.map(v=>v/g.areaProxyM2),boundsMinM:g.boundsMin,boundsMaxM:g.boundsMax,axisMinM:g.boundsMin[axis],axisMaxM:g.boundsMax[axis]
   }));
@@ -236,7 +237,7 @@ function pfRuntimeMeshIdentity(mesh){
 }
 function pfInvalidate(note=''){
   pfToken++;pfLast=null;pfBinding=null;
-  for(const id of ['pfExport','pfExportCsv','pfCancel']){const b=pfEl(id);if(b)b.disabled=true}
+  for(const id of ['pfExport','pfExportCsv','pfExportComponents','pfCancel']){const b=pfEl(id);if(b)b.disabled=true}
   const out=pfEl('pfResult');if(out)out.textContent='';
   const plot=pfEl('pfPlot'),ctx=plot?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,plot.width,plot.height);
   if(note&&pfEl('pfStatus'))pfEl('pfStatus').textContent=note
