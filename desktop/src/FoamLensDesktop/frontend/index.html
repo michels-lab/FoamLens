@@ -27,6 +27,15 @@ body.dark{
 
 .app{display:grid;grid-template-columns:var(--sidebar-w) minmax(0,1fr);height:100vh;position:relative;transition:grid-template-columns .18s ease}
 .sidebar{padding:18px;border-right:1px solid var(--line);background:linear-gradient(180deg,#fbfdff,#f4f8fd);overflow:auto;min-width:0;transition:opacity .16s ease,padding .16s ease}
+ /* Shared workspace sizing: shrink layout containers, not scientific data.
+    Keep intentional scroll regions (tables, charts and logs) untouched. */
+ .app>.main,.app>.sidebar,.main>.workspace,.main>.modeSurface,.workspace>.plotcard,.workspace>.listcard,.sidebar>.card,.sidebar>.fwControlsDrawer{min-width:0;max-width:100%;box-sizing:border-box}
+ .sidebar :is(.card,.field,.row2,.fwViewCard,.fwViewCardControls,.fw3DViewCases,.fwControlsCard){min-width:0;max-width:100%;box-sizing:border-box}
+ .sidebar :is(.field,.row2,.fwViewCardControls) :is(select,input:not([type=checkbox]):not([type=radio]),textarea){min-width:0;max-width:100%;box-sizing:border-box}
+ .sidebar :is(.field label,.fwViewCardSummary,.fwInspectorHead){overflow-wrap:anywhere}
+ .sidebar>.fwControlsDrawer.fwSidebarContext{min-width:0;max-width:100%;box-sizing:border-box}
+ .workspace:not(:has(>.listcard:not(.hidden):not([hidden]))){grid-template-columns:minmax(0,1fr)}
+ .workspace>.plotcard{width:100%}
 body.dark .sidebar{background:linear-gradient(180deg,#101923,#0b131c)}
 
 .brand{display:flex;gap:12px;align-items:center;margin-bottom:16px;padding-right:44px}
@@ -87,7 +96,7 @@ body.appMode-analysis .analysisSubNav{display:flex}
 .analysisSubBtn:hover{color:var(--text);border-color:var(--accent)}
 
 .workspace{padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;min-height:0;min-width:0;overflow:hidden}
-.modeSurface{display:none;padding:14px;min-height:0;overflow:auto}
+.modeSurface{display:none;padding:14px;min-height:0;min-width:0;max-width:100%;box-sizing:border-box;overflow:auto}
 body.appMode-workspace #workspace,body.appMode-review #workspace,body.appMode-live #workspace{display:none}
 body.appMode-workspace #workspaceOverview,body.appMode-review #reviewSurface,body.appMode-live #liveSurface{display:block}
 body.appMode-data #workspace,body.appMode-analysis #workspace{display:grid}
@@ -5955,7 +5964,7 @@ function uniqueLogFiles(){return new Set(logContextOptionsBase().map(s=>s.source
 
 function diagEs(){return $('language')?.value==='es'}
 function flUi(en,es){return diagEs()?es:en}
-function flDesktopVersion(){return document.documentElement.dataset.foamLensDesktopVersion||'1.8.23'}
+function flDesktopVersion(){return document.documentElement.dataset.foamLensDesktopVersion||'1.8.24'}
 function flBuildIdentity(){return 'FoamLens v51 / Desktop v'+flDesktopVersion()}
 function flSyncVersionLabels(){
   const label='Desktop v'+flDesktopVersion();

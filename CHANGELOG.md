@@ -1,3 +1,11 @@
+## Desktop v1.8.24 — GRANADA CAD and native Mesh Studio (2026-11-25)
+
+- Curved blockMesh import, arc editing, SI round-trip export, Cartesian plans, native topology and exact region/entity selection.
+- Gmsh 2.2/4.1 HEX8 groups and contact diagnostics; source-bound ROI, area/volume weighted integration and Field overlays.
+- Foundation 13/14 native blockMesh, Gmsh and split-region quality checks; six native mesh metrics, histograms, thresholds and evidence ZIP. Both core suites passed, as did Windows Setup/Portable and real QuickCup on PR #381.
+- Refined snappyHexMesh remains **diagnostic-only**; strict native mesh quality checks fail in both Foundation versions (concave cells and low face weights). No solver-readiness certification. Tracked under #148 / roadmap 4.3.
+- Publication pending exact release-source Windows validation and public artifact verification. Owner physical and scientific acceptance pending; direct GitHub Windows assets may be unsigned.
+
 ## Desktop v1.8.23 — GRANADA Field recovery and scientific comparisons (2026-11-24)
 
 - **Field A–D recovery:** linked time/camera preferences remain saved, but the effective linkage suspends when A lacks a valid mesh or loaded physical field/time. Other panes use their actual stored timestamps and locally fitted cameras, with a visible reason; valid A restores effective linkage. No synthetic t=0 or fake mesh.

@@ -38,10 +38,11 @@ function chRuntime(text='',name=''){
     if(time){const t=chNumber(time[1]);if(Number.isFinite(t)){physicalTimes.push(t);lastProgressLine=i}}
     if(/^(?:Courant\s+Number|Solving\s+for\s+|ExecutionTime\s*=|Time\s*step\s*=)/i.test(line))lastProgressLine=i;
     if(/^End\s*$/i.test(line)){hasEnd=true;lastEndLine=i;add('explicit-end',line,i)}
-    if(/\bFOAM\s+FATAL\s+(?:IO\s+)?ERROR\b|\bFloating\s+point\s+exception\b|^\s*Segmentation\s+fault\b/i.test(line)){
+    // Normal Foundation sigFpe startup announces trapping, not an exception.
+    if(/\bFOAM\s+FATAL\s+(?:IO\s+)?ERROR\b|^\s*(?:Floating\s+point\s+exception|Segmentation\s+fault)\b/i.test(line)){
       fatal=true;add('fatal',line,i)
     }
-    if(/\bFOAM\s+aborting\b|\bSIG(?:SEGV|FPE)\b/i.test(line)){foamAbort=true;add('abort',line,i)}
+    if(/\bFOAM\s+aborting\b|\b(?:received|caught|terminated by)\s+(?:signal\s+)?SIG(?:SEGV|FPE)\b/i.test(line)||/^SIG(?:SEGV|FPE)\b/.test(line)){foamAbort=true;add('abort',line,i)}
   }
   const noBackwards=physicalTimes.every((t,i)=>i===0||t>=physicalTimes[i-1]);
   const endAfterProgress=hasEnd&&lastEndLine>=lastProgressLine;

@@ -210,3 +210,41 @@ console.log('Granada #149 PASS: independent A–D heights/focus, 1024/1280/1920 
     'A readout must not be incorrectly counted as a canvas overlay');
   console.log('Granada Field metric caption audit PASS: narrow layout, real XYZ/legend clipping and no false canvas collisions');
 }
+
+// Floating geometry operates on original view IDs without changing source ownership.
+{
+ const floats=new Function(moduleSrc.slice(start,end)+';return {rect:pvFloatRect,move:pvFloatMove}')();
+ const r=floats.rect({x:130,y:100,w:500,h:560,z:2},1200);
+ assert.deepStrictEqual(r,{x:130,y:100,w:500,h:560,z:2});
+ assert.deepStrictEqual(floats.move(r,240,180,1200),{x:370,y:280,w:500,h:560,z:2});
+ assert.deepStrictEqual(floats.move(r,-900,-900,1200),{x:0,y:0,w:500,h:560,z:2});
+ assert.deepStrictEqual(floats.move(r,100,80,1200,true),{x:130,y:100,w:600,h:640,z:2});
+ assert.equal(floats.rect(r,280).w,280);assert.equal(floats.rect(r,280).x,0);
+ assert.equal(floats.move(r,2000,0,1200,true).w,1070);
+ assert.equal(floats.move(r,-2000,-2000,1200,true).h,300);
+ assert(moduleSrc.includes('requestFullscreen()')&&moduleSrc.includes('document.exitFullscreen()'));
+ assert(moduleSrc.includes('pvFloatApply(grid,views)')&&moduleSrc.includes('foamlens.field.floating.geometry.v1'));
+ assert(native.includes('ContainsFullScreenElementChanged')&&native.includes('Screen.FromControl(this).Bounds')&&native.includes('WindowState = _viewFullscreenPriorState'));
+ console.log('Floating geometry and native fullscreen contract PASS');
+}
+
+// All eight resize handles preserve the opposite edge and never escape the deck.
+{
+ const f=new Function(moduleSrc.slice(start,end)+';return {rect:pvFloatRect,move:pvFloatMove}')();
+ const r={x:130,y:100,w:500,h:560,z:2};
+ assert.deepStrictEqual(f.move(r,-100,-80,1200,'nw'),{x:30,y:20,w:600,h:640,z:2});
+ assert.deepStrictEqual(f.move(r,100,-80,1200,'ne'),{x:130,y:20,w:600,h:640,z:2});
+ assert.deepStrictEqual(f.move(r,-100,80,1200,'sw'),{x:30,y:100,w:600,h:640,z:2});
+ assert.equal(f.move(r,9999,0,1200,'w').x+r.w-180,630);
+ let checks=0;
+ for(const width of [240,320,640,900,1280,1920])for(const edge of ['n','s','e','w','nw','ne','sw','se'])for(const dx of [-1000,-40,0,40,1000])for(const dy of [-3000,-80,0,80,3000]){
+   const a=f.rect(r,width),b=f.move(a,dx,dy,width,edge);
+   assert(b.x>=0&&b.x+b.w<=width&&b.w>=Math.min(320,width));
+   assert(b.y>=0&&b.y<=2400&&b.h>=300&&b.h<=1400);
+   if(!edge.includes('w'))assert.equal(b.x,a.x);else assert.equal(b.x+b.w,a.x+a.w);
+   if(!edge.includes('n'))assert.equal(b.y,a.y);else assert.equal(b.y+b.h,a.y+a.h);
+   checks++;
+ }
+ assert(moduleSrc.includes('minimized:[...pvFloatMinimized]'));
+ console.log('Eight floating resize directions: '+checks+' combinations PASS');
+}

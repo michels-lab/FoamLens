@@ -44,6 +44,11 @@ internal static class Program
             NativeCadOcctConverter.SelfTest();
             return;
         }
+        if (args.Any(arg => string.Equals(arg, "--cad-cartesian-self-test", StringComparison.OrdinalIgnoreCase)))
+        {
+            NativeCartesianMesh.SelfTest();
+            return;
+        }
         if (args.Any(arg => string.Equals(arg, "--cad-surfacecheck-self-test",
                 StringComparison.OrdinalIgnoreCase)))
         {
@@ -133,6 +138,43 @@ internal sealed class FoamLensForm : Form
         Shown += async (_, _) => await InitializeAsync();
     }
 
+    private bool _viewFullscreen;
+    private FormWindowState _viewFullscreenPriorState;
+    private FormBorderStyle _viewFullscreenPriorBorder;
+    private Rectangle _viewFullscreenPriorBounds;
+    private Size _viewFullscreenPriorMinimum;
+    private bool _viewFullscreenPriorTopMost;
+
+    // WebView2's actual HTML fullscreen event drives the native monitor window.
+    // Do not create another WebView or move/reload the original case renderer.
+    private void SetViewFullscreen(bool enter)
+    {
+        if (enter == _viewFullscreen || IsDisposed) return;
+        if (enter)
+        {
+            var monitor = Screen.FromControl(this).Bounds;
+            _viewFullscreenPriorState = WindowState;
+            _viewFullscreenPriorBounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+            _viewFullscreenPriorBorder = FormBorderStyle;
+            _viewFullscreenPriorMinimum = MinimumSize;
+            _viewFullscreenPriorTopMost = TopMost;
+            _viewFullscreen = true;
+            WindowState = FormWindowState.Normal;
+            MinimumSize = Size.Empty;
+            FormBorderStyle = FormBorderStyle.None;
+            Bounds = monitor;
+            TopMost = true;
+            return;
+        }
+        _viewFullscreen = false;
+        TopMost = _viewFullscreenPriorTopMost;
+        WindowState = FormWindowState.Normal;
+        FormBorderStyle = _viewFullscreenPriorBorder;
+        MinimumSize = _viewFullscreenPriorMinimum;
+        Bounds = _viewFullscreenPriorBounds;
+        WindowState = _viewFullscreenPriorState;
+    }
+
     private async Task InitializeAsync()
     {
         try
@@ -176,6 +218,7 @@ internal sealed class FoamLensForm : Form
             _web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
             _web.CoreWebView2.Settings.IsStatusBarEnabled = false;
             _web.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+            _web.CoreWebView2.ContainsFullScreenElementChanged += (_, _) => SetViewFullscreen(_web.CoreWebView2.ContainsFullScreenElement);
 #if FOAMLENS_DEVELOPER
             // Inject the developer-only auditor at document creation.
             // This assembly resource is not embedded in the normal FoamLens binary
@@ -201,6 +244,7 @@ internal sealed class FoamLensForm : Form
             };
             _web.CoreWebView2.ProcessFailed += (_, e) =>
             {
+                SetViewFullscreen(false);
                 Log($"WebView2 process failed: {e.ProcessFailedKind}");
 #if FOAMLENS_DEVELOPER
                 try
@@ -4191,6 +4235,15 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
                 case "convertCadBrep":
                     await HandleConvertCadBrepAsync(root, requestId);
                     break;
+                case "runGmshMesh":
+                    await HandleRunCartesianMeshAsync(root, requestId, true);
+                    break;
+                case "probeFoamMeshEnvironment":
+                    await HandleProbeFoamMeshEnvironmentAsync(root, requestId);
+                    break;
+                case "runCartesianMesh":
+                    await HandleRunCartesianMeshAsync(root, requestId);
+                    break;
                 case "runCadSurfaceCheck":
                     await HandleRunCadSurfaceCheckAsync(root, requestId);
                     break;
@@ -4443,6 +4496,44 @@ window.__foamLensSmokeImportNativeRefs=async function(refs,options={}){
         {
             EndOperation(requestId, operation);
         }
+    }
+
+    private async Task HandleProbeFoamMeshEnvironmentAsync(JsonElement root, string requestId)
+    {
+        var operation=BeginOperation(requestId);
+        try
+        {
+            if(root.GetRawText().Length>4096)throw new ArgumentException("Preflight request too large.");
+            var report=await NativeCartesianMesh.ProbeAsync(RequiredString(root,"version"),operation.Token);
+            Reply(requestId,true,report,null);
+        }
+        catch(OperationCanceledException){Reply(requestId,false,null,"WSL preflight cancelled.");}
+        catch(ArgumentException ex){Reply(requestId,false,null,ex.Message);}
+        catch(NotSupportedException ex){Reply(requestId,false,null,ex.Message);}
+        catch(TimeoutException ex){Reply(requestId,false,null,ex.Message);}
+        catch(Exception ex){Log("Native WSL preflight failed: "+ex.GetType().Name);Reply(requestId,false,null,"WSL preflight failed; no case modified.");}
+        finally{EndOperation(requestId,operation);}
+    }
+
+    private async Task HandleRunCartesianMeshAsync(JsonElement root, string requestId, bool gmsh = false)
+    {
+        var operation = BeginOperation(requestId);
+        try
+        {
+            if (root.GetRawText().Length > (gmsh ? 36 * 1024 * 1024 : root.TryGetProperty("snappy",out _) ? 6 * 1024 * 1024 : 200000)) throw new ArgumentException("Cartesian request too large.");
+            var report = await NativeCartesianMesh.RunAsync(root, operation.Token, gmsh);
+            Reply(requestId, true, report, null);
+        }
+        catch (OperationCanceledException) { Reply(requestId, false, null, "Native mesh operation cancelled."); }
+        catch (ArgumentException ex) { Reply(requestId, false, null, ex.Message); }
+        catch (NotSupportedException ex) { Reply(requestId, false, null, ex.Message); }
+        catch (TimeoutException ex) { Reply(requestId, false, null, ex.Message); }
+        catch (Exception ex)
+        {
+            Log("Native Cartesian mesh failed: " + ex.GetType().Name);
+            Reply(requestId, false, null, "Invalid mesh plan or native WSL execution failed. Original case untouched.");
+        }
+        finally { EndOperation(requestId, operation); }
     }
 
     private async Task HandleRunCadSurfaceCheckAsync(JsonElement root, string requestId)

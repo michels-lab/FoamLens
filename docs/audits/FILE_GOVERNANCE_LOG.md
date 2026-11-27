@@ -1500,3 +1500,35 @@ Automatic evidence deltas, pending human triage. No deletion authority.
 
 - All tracked 522; findings 0; inventory 2d2c1b913754; evidence 4f53cda18c2b. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
 - Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-11-24 20:49 UTC
+
+- All tracked 523; findings 1; inventory bbd80a34c804; evidence fc51ac09e6f0. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 1 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID b4d9ab2d5ec0460d).
+
+## 2026-11-24 20:54 UTC
+
+- All tracked 523; findings 1; inventory 18bc44d82924; evidence fc51ac09e6f0. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 0 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+
+## 2026-11-25 20:30 UTC
+
+- All tracked 533; findings 2; inventory ceb1e95a999f; evidence f0923749992f. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 2 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 10 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — UNKNOWN_PURPOSE at `tools/native-quality/Make/options` (ID 80ac214ba57179dd).
+- NEW — UNKNOWN_PURPOSE at `tools/native-quality/Make/files` (ID d9f5be2807d4a759).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID b4d9ab2d5ec0460d).
+
+## 2026-11-26 01:42 UTC
+
+- All tracked 533; findings 3; inventory 30f5f8926f26; evidence 1e57ad6c1e3f. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 0 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 9d86eca58684a638).
+
+## 2026-11-26 03:21 UTC
+
+- All tracked 533; findings 3; inventory dd065f148a2f; evidence 90d45d8984b4. Full local report in reports/file-governance/. Status REVIEW_REQUIRED.
+- Finding changes: 1 NEW; 1 NO_LONGER_DETECTED (not necessarily resolved). Inventory: 0 new paths, 0 removed paths, 0 reclassified paths.
+- NEW — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID ab5d23cf9702cceb).
+- NO_LONGER_DETECTED — POTENTIAL_UNLOGGED_CHANGES at `docs/GIT_AUDIT_LOG.md` (ID 9d86eca58684a638).

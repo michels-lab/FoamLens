@@ -1713,7 +1713,7 @@ function fcRefreshSelectors(preserve=true){
 function fcMvp(canvas){return fcMvpForCamera(fcCameraFor(fcState,fcState.mesh),canvas)}
 function fcRender(exportSize=null){
   if((fcState._fcFrameHold||fcState._fcGroupHold)&&!exportSize)return;
-  if(!fcState.enabled)return;const r=fcState.renderer,canvas=document.getElementById('fcCanvas');if(!r||!canvas||!fcState.mesh)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
+  const r=fcState.renderer,canvas=document.getElementById('fcCanvas');if(!fcState.enabled||!r||!canvas||!fcState.mesh){if(typeof window!=='undefined')window.FoamLensSpatialOverlayDraw?.('B',fcState,canvas,null,false);return;}const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcMvp(canvas));
   const visual=fcVisualFor(fcState,'fcView2'),showSurface=visual.surface,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,opacity=visual.opacity,sliceOpacity=fvClamp(document.getElementById('fvSliceOpacity')?.value??.96,.05,1),isoOpacity=fvClamp(document.getElementById('fvIsoOpacity')?.value??.88,.05,1),interiorActive=showSlice||showIso;
   const showPrimary=fcPhysicalFor(fcState).choices.get(fcState.region)?.visible!==false;
@@ -1726,7 +1726,8 @@ function fcRender(exportSize=null){
   }finally{gl.depthMask(true)}
   fcPhysicalOverlayFor('B',fcState,canvas,fcMvp(canvas),fcCameraFor(fcState,fcState.mesh));
   fcPhysicalCaption(fcState,'B');
-  fcUpdateProbeOverlay(document.getElementById('fcViewport'),canvas,'fcProbeMarker',fcState.probe,fcMvp(canvas))
+  fcUpdateProbeOverlay(document.getElementById('fcViewport'),canvas,'fcProbeMarker',fcState.probe,fcMvp(canvas));
+  if(!exportSize&&typeof window!=='undefined')window.FoamLensSpatialOverlayDraw?.('B',fcState,canvas,fcMvp(canvas),showPrimary)
 }
 function fcUploadMesh(mesh){
   const canvas=document.getElementById('fcCanvas');if(!canvas)return;if(!fcState.renderer)fcState.renderer=fvCreateRenderer(canvas);const r=fcState.renderer,b=fvBuildSurfaceBuffers(mesh),fb=fvBuildInternalFaceBuffers(mesh);
@@ -1923,7 +1924,7 @@ function fcExtraComponent(state){return fcExtraDom(state.id,'Component')?.value|
 function fcExtraMvp(state,canvas){return fcMvpForCamera(fcCameraFor(state,state.mesh),canvas)}
 function fcExtraRender(state,exportSize=null){
   if(state&&(state._fcFrameHold||state._fcGroupHold)&&!exportSize)return;
-  if(!fcState.enabled||!state?.renderer||!state.mesh)return;const canvas=fcExtraDom(state.id,'Canvas'),r=state.renderer;if(!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
+  if(!fcState.enabled||!state?.renderer||!state.mesh){if(state&&typeof window!=='undefined')window.FoamLensSpatialOverlayDraw?.(String.fromCharCode(64+Number(state.id)),state,null,null,false);return;}const canvas=fcExtraDom(state.id,'Canvas'),r=state.renderer;if(!canvas)return;const gl=r.gl,rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),forced=exportSize&&Number(exportSize.width)>1&&Number(exportSize.height)>1,w=forced?Math.round(Number(exportSize.width)):Math.max(2,Math.round(rect.width*dpr)),h=forced?Math.round(Number(exportSize.height)):Math.max(2,Math.round(rect.height*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
   gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fcExtraMvp(state,canvas));
   const visual=fcVisualFor(state,'fcExtra'+state.id),opacity=visual.opacity,showEdges=visual.edges,showSlice=visual.slice,showIso=visual.iso,interior=state.storage!=='surface';
   const showPrimary=fcPhysicalFor(state).choices.get(state.region)?.visible!==false;
@@ -1931,7 +1932,8 @@ function fcExtraRender(state,exportSize=null){
   if(showPrimary&&visual.edges){gl.depthMask(false);try{fvBindDraw(r,r.edgePos,r.edgeColor,r.edgeCount,gl.LINES,Math.min(1,opacity+.08))}finally{gl.depthMask(true)}}
   fcPhysicalOverlayFor(String(state.id),state,canvas,fcExtraMvp(state,canvas),fcCameraFor(state,state.mesh));
   fcPhysicalCaption(state,String(state.id));
-  fcUpdateProbeOverlay(fcExtraDom(state.id,'Viewport'),canvas,'fcExtra'+state.id+'ProbeMarker',state.probe,fcExtraMvp(state,canvas))
+  fcUpdateProbeOverlay(fcExtraDom(state.id,'Viewport'),canvas,'fcExtra'+state.id+'ProbeMarker',state.probe,fcExtraMvp(state,canvas));
+  if(!exportSize&&typeof window!=='undefined')window.FoamLensSpatialOverlayDraw?.(String.fromCharCode(64+Number(state.id)),state,canvas,fcExtraMvp(state,canvas),showPrimary)
 }
 function fcExtraUpload(state,data){
   const canvas=fcExtraDom(state.id,'Canvas');if(!canvas)return;

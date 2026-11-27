@@ -1980,6 +1980,7 @@ function fvRender(exportSize=null){
     if(axes)axes.replaceChildren();
     if(dimensions){dimensions.textContent='';dimensions.hidden=true}
     if(secondary)secondary.innerHTML='';
+    if(typeof window!=='undefined')window.FoamLensSpatialOverlayDraw?.('A',fvState,canvas,null,false);
     return
   }
   gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(r.program);gl.uniformMatrix4fv(r.mvp,false,fvMvp(canvas));
@@ -2029,7 +2030,8 @@ function fvRender(exportSize=null){
   // A pin may belong to any physical region, including a mold behind an
   // enclosing translucent shell. Draw its scientific marker after ALL regions.
   if(r.probeCount){gl.depthFunc(gl.ALWAYS);gl.depthMask(false);fvBindDraw(r,r.probePos,r.probeColor,r.probeCount,gl.LINES,1);gl.depthMask(true);gl.depthFunc(gl.LEQUAL)}
-  fvUpdateAxisGizmo();fvPhysicalOverlayRender(canvas)
+  fvUpdateAxisGizmo();fvPhysicalOverlayRender(canvas);
+  if(!exportSize&&typeof window!=='undefined')window.FoamLensSpatialOverlayDraw?.('A',fvState,canvas,fvMvp(canvas),primaryVisible)
 }
 function fvUpdateMeshBuffers(mesh,resetCamera=true){
   const canvas=document.getElementById('fvCanvas');if(!fvState.renderer)fvState.renderer=fvCreateRenderer(canvas);const r=fvState.renderer,b=fvBuildSurfaceBuffers(mesh),fb=fvBuildInternalFaceBuffers(mesh);mesh._internalTriangleFaces=fb.triangleFaces;
