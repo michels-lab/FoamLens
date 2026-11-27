@@ -112,7 +112,7 @@ function eaMergedRole(g,role){
 }
 function eaAnalyzeFluxGroup(g,epsilon=1e-12){
   const A=eaMergedRole(g,'advective'),D=eaMergedRole(g,'diffusive'),T=eaMergedRole(g,'total');
-  const aligned=taAlignSeries([A,D,T],{mode:'common',method:'linear',maxPoints:5000});if(!aligned.valid)return{ok:false,group:g,reason:'no shared physical-time interval'};
+  const aligned=taAlignSeries([A,D,T],{mode:'common',method:'linear'});if(!aligned.valid)return{ok:false,group:g,reason:aligned.reason||'no shared physical-time interval'};
   const a=aligned.series[0].y,d=aligned.series[1].y,t=aligned.series[2].y,m=eaClosureMetrics(a,d,t,epsilon);
   // Missing values are not synchronized measurements. eaClosureMetrics
   // intentionally omits invalid triples, so its compact residual array

@@ -206,3 +206,30 @@ test('core contains no project fixture names', () => {
 
 console.log('Temporal alignment / difference regression suite passed: '+passed.length+' checks.');
 for(const name of passed) console.log('  ✓ '+name);
+
+test('scientific grid preserves a pulse beyond the old 2500 point UI cutoff',()=>{
+ const n=6001,t=Array.from({length:n},(_,i)=>i),y=t.map(i=>i===3001?100:0);
+ const A={t,y},B={t:[0,n-1],y:[0,0]};
+ const r=api.taAlignSeries([A,B],{mode:'common'});
+ assert(r.valid);assert.equal(r.grid.length,n);assert.equal(r.subsampled,false);
+ const m=api.taPairMetrics(r.grid,r.series[0].y,r.series[1].y);assert.equal(m.maxAbs,100);assert.equal(m.maxAbsTime,3001);
+ const limited=api.taAlignSeries([A,B],{mode:'common',maxPoints:2500});assert(!limited.valid);assert.equal(limited.reason,'operational-budget-exceeded');assert.equal(limited.grid.length,0);
+ const preview=api.taAlignSeries([A,B],{mode:'common',purpose:'preview',maxPoints:2500});assert(preview.valid);assert(preview.subsampled);assert.equal(preview.originalPoints,n);
+});
+test('distinct early timestamps and strict overlap must not be fuzzy-coalesced',()=>{
+ const A={t:[0,1e-12,2e-12,1],y:[0,10,0,0]},B={t:[0,1],y:[0,0]};
+ const r=api.taAlignSeries([A,B],{mode:'common'});
+ assert(r.valid);assert.deepStrictEqual(r.grid,[0,1e-12,2e-12,1]);assert.equal(r.series[0].y[1],10);
+ const p=api.taFinitePairs({t:[1e-12,1],y:[1,2]});assert(!api.taLinearSample(p,0).ok);assert(!api.taNearestSample(p,0).ok);
+ const q=api.taLinearSample(api.taFinitePairs(B),1e-12);assert.equal(q.status,'interpolated');
+});
+test('contradictory duplicates fail closed and exact equal duplicates deduplicate',()=>{
+ assert.deepStrictEqual(api.taFinitePairs({t:[0,1,1,2],y:[0,1,2,3]}),[]);
+ assert.equal(api.taFinitePairs({t:[0,1,1,2],y:[0,1,1,3]}).length,3);
+ assert(!api.taAlignSeries([{t:[0,0,1],y:[0,1,2]},{t:[0,1],y:[0,1]}],{mode:'common'}).valid);
+});
+test('scientific grid supports more than 100000 original times under explicit budget',()=>{
+ const n=110001,t=Array.from({length:n},(_,i)=>i),r=api.taAlignSeries([{t,y:t},{t:[0,n-1],y:[0,n-1]}],{mode:'common',pointBudget:n});
+ assert(r.valid);assert.equal(r.grid.length,n);assert(!r.subsampled);assert.equal(r.series[1].y.at(-1),n-1);
+ assert(!api.taAlignSeries([{t,y:t},{t:[0,n-1],y:[0,n-1]}],{mode:'common',pointBudget:100000}).valid);
+});
