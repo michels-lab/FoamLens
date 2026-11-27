@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 548,
-  "classified_files_total": 544,
-  "docs_content_inspected": 129,
+  "tracked_files_total": 549,
+  "classified_files_total": 545,
+  "docs_content_inspected": 130,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 8,
-    "document": 122,
+    "document": 123,
     "index": 6,
     "installer_metadata": 1,
     "license": 1,
@@ -28,7 +28,7 @@
     "UNKNOWN_PURPOSE": 2
   },
   "finding_total": 3,
-  "inventory_fingerprint": "1910add989764adfd63edae1f55435b8ac4781146e2be958c9b02ba82425df42",
+  "inventory_fingerprint": "a9884085bee1e87379869e079339d6b058c09b9c3df32397ef230107fcc4da05",
   "evidence_fingerprint": "26dd8543003a62b067766ab1573661346479e0080eafbb62e34518053dc50dd5",
   "files": [
     {
@@ -897,7 +897,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "cdc4bd4d81e45d433f2e03481dbd972eff13e032"
+      "blob": "12d8272072de90603ce72ef8b9f31300b4db226c"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-temporal-alignment.js",
@@ -2059,7 +2059,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3137384dcf2c96a1d4479184a23a7fef778f306f"
+      "blob": "ca655856f18b7759546231abb3846e3c443db752"
     },
     {
       "path": "desktop/tests/store-msix.test.cjs",
@@ -2830,6 +2830,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "9aae97ff694bf4a58b89aec1564bbd48391e9649"
+    },
+    {
+      "path": "docs/GRANADA_SPATIAL_FULL_DOMAIN_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "5a239310b9bff7e2691120105b5df0531c6c8511"
     },
     {
       "path": "docs/GRANADA_SPATIAL_SOURCE_INTEGRITY_2026-11-27.md",
