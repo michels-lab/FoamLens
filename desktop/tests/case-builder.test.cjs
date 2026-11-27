@@ -41,3 +41,48 @@ assert.throws(()=>api.build({...multi,regions:multi.regions+'\nMETAL|solid|solid
 assert(src.includes("cgDownloadZip('FoamLens-case-draft.zip',cgStoreZip(current.entries))"));
 assert(src.includes("if(token!==revision)return"));
 console.log('Case Builder source: single/multi, scalar/vector, SI, complete BC coverage, safe paths, round-trip and '+(negatives.length+1)+' reject cases PASS');
+
+function boundary(region,patch,nbr,other,faces=12){
+ return '/* source boundary */\nFoamFile { format ascii; class polyBoundaryMesh; location "constant/'+region+'/polyMesh"; object boundary; }\n1\n(\n'+patch+' { type mappedWall; inGroups 1(wall); nFaces '+faces+'; startFace 100; neighbourRegion '+nbr+'; neighbourPatch '+other+'; }\n)';
+}
+const aText=boundary('metal','contactA','mold','contactB'),bText=boundary('mold','contactB','metal','contactA',15);
+const cht={...multi,patches:'metal|contactA|mappedWall\nmold|contactB|mappedWall',fields:'metal|T|volScalarField|0 0 0 1 0 0 0|1600\nmold|T|volScalarField|0 0 0 1 0 0 0|300',boundaries:'metal|T|contactA|coupledTemperature|1600\nmold|T|contactB|coupledTemperature|300',boundarySources:[{region:'metal',text:aText},{region:'mold',text:bText}],materialTables:'metal|1000|7000|500|20\nmetal|1600|6800|700|30\nmold|300|2000|1000|1\nmold|900|1900|1300|2'};
+const q=api.build(cht);
+assert.strictEqual(q.manifest.thermalInterfaces.length,2);
+assert.strictEqual(q.manifest.allDeclaredPatchInventoriesMatched,true);
+assert.strictEqual(q.manifest.meshPatchInventoryVerified,false);
+assert.strictEqual(q.manifest.thermalInterfaces[0].geometryVerified,false);
+assert.strictEqual(q.manifest.thermalInterfaces[0].neighbourFaces,15);
+assert.match(file(q,'draft/0/metal/T'),/type coupledTemperature;\n        value uniform 1600;/);
+assert.match(file(q,'draft/0/mold/T'),/type coupledTemperature;\n        value uniform 300;/);
+assert.strictEqual(file(q,'material-data/metal.csv'),'T_K,rho_kg_m3,Cp_J_kg_K,k_W_m_K\n1000,7000,500,20\n1600,6800,700,30\n');
+assert.deepStrictEqual(api.materialAt(q.manifest.materialTables[0],1300),{T_K:1300,rho_kg_m3:6900,Cp_J_kg_K:600,k_W_m_K:25});
+assert.strictEqual(api.materialAt(q.manifest.materialTables[0],1600).Cp_J_kg_K,700);
+assert.deepStrictEqual(api.build(JSON.parse(file(q,'case-builder.json')).input),q);
+for(const version of ['13','14'])assert.match(file(api.build({...cht,version}),'draft/0/metal/T'),/type coupledTemperature;/);
+const badCht=[
+ {boundarySources:[]},
+ {boundarySources:cht.boundarySources.slice(0,1)},
+ {boundarySources:[...cht.boundarySources,{region:'metal',text:aText}]},
+ {boundarySources:[{region:'metal',text:aText.replace('constant/metal/','constant/mold/')},cht.boundarySources[1]]},
+ {boundarySources:[{region:'metal',text:aText.replace('neighbourPatch contactB','neighbourPatch absent')},cht.boundarySources[1]]},
+ {boundarySources:[{region:'metal',text:aText.replace('nFaces 12','nFaces 0')},cht.boundarySources[1]]},
+ {boundarySources:[{region:'metal',text:aText.replace('format ascii','format binary')},cht.boundarySources[1]]},
+ {boundarySources:[{region:'metal',text:aText.replace('startFace 100','startFace 100; startFace 100')},cht.boundarySources[1]]},
+ {boundarySources:[{region:'metal',text:aText+'\n#include "bad"'},cht.boundarySources[1]]},
+ {patches:cht.patches.replace('contactA','ContactA')},
+ {patches:cht.patches.replace('mappedWall','wall')},
+ {boundaries:cht.boundaries.replace('coupledTemperature|1600','fixedValue|1600')},
+ {boundaries:cht.boundaries.replace('coupledTemperature|1600','coupledTemperature|-1')},
+ {fields:cht.fields.replace('metal|T|','metal|P|'),boundaries:cht.boundaries.replace('metal|T|','metal|P|')},
+ {materialTables:cht.materialTables.replace('1600|6800','1000|6800')},
+ {materialTables:cht.materialTables.replace('500|20','0|20')},
+ {materialTables:'metal|1000|7000|500|20'},
+ {materialTables:cht.materialTables.replace('metal','unknown')}
+];
+for(const bad of badCht)assert.throws(()=>api.build({...cht,...bad}),JSON.stringify(bad));
+for(const t of [999,1601,NaN])assert.throws(()=>api.materialAt(q.manifest.materialTables[0],t));
+const simple='FoamFile { format ascii; class polyBoundaryMesh; object boundary; } 2 ( a { type wall; nFaces 4; startFace 20; } b { type patch; nFaces 2; startFace 24; } )';
+assert.strictEqual(api.parseBoundary(simple,'metal','single').patches.length,2);
+assert.throws(()=>api.parseBoundary(simple.replace('startFace 24','startFace 25'),'metal','single'));
+console.log('Case Builder thermal extension: actual-source parser, reciprocal mappings, SI table preview, round trip and '+(badCht.length+4)+' negative fixtures PASS');
