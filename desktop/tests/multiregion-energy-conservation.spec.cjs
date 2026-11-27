@@ -204,3 +204,16 @@ for(const req of [
 for(const banned of ['QuickCup','metalTop','metalMold','B14_','C14_'])
   assert(!source.includes(banned),'Fixture-specific implementation leaked: '+banned);
 console.log('Granada #151 multi-region conservation PASS: nonuniform grid, interface cancellation, sources/boundaries, units, provenance, invalid/rejected cases and UI export.');
+
+const early=input();
+early.regions[0].interfaceFlux=mk('metal','W',[0,1e-12,2e-12,3],[4,40,4,4]);
+const er=lib.eval(early);assert(er.valid,er.reason);assert(er.grid.includes(1e-12));assert(er.grid.includes(2e-12));near(er.interface.integratedMismatch,36e-12,1e-15);
+const weighted=input();weighted.regions[0].interfaceFlux=mk('metal','W',[0,1,3],[4,7,4]);
+const wr=lib.eval(weighted);assert(wr.valid,wr.reason);near(wr.interface.timeWeightedRmsPowerMismatch,Math.sqrt(3));assert(wr.timeGridEvidence.subsampled===false);
+const count=105001,ts=Array.from({length:count},(_,i)=>i/(count-1)*3);
+const large=input({maxPoints:count+2});large.regions[0].interfaceFlux=mk('metal','W',ts,ts.map(()=>4));
+const lr=lib.eval(large);assert(lr.valid,lr.reason);assert(lr.grid.length>=count);near(lr.interface.integratedMismatch,0);assert(!lib.eval({...large,maxPoints:100000}).valid);
+for(const budget of [0,1,2.5,NaN,Infinity])assert(!lib.eval(input({maxPoints:budget})).valid);
+const huge=input();huge.regions[0].interfaceFlux.unit='MW';huge.regions[0].interfaceFlux.y=[1e308,1e308,1e308];assert(!lib.eval(huge).valid);
+const overflow=input();overflow.regions[0].interfaceFlux.y=[1e308,1e308,1e308];assert(!lib.eval(overflow).valid);
+const tinyConflict=input();tinyConflict.regions[0].interfaceFlux.t=[0,1,1,3];tinyConflict.regions[0].interfaceFlux.y=[4,4,4+1e-12,4];assert(!lib.eval(tinyConflict).valid);
