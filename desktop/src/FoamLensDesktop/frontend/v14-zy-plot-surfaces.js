@@ -214,14 +214,15 @@ function fesConfig(raw={}){
  return c
 }
 function fesExtract(input,raw){
- const fail=reason=>({valid:false,reason}),cfg=fesConfig(raw);if(!cfg)return fail('invalid-filter');
+ const fail=reason=>({valid:false,reason}),chain=Array.isArray(raw?.stages)?raw.stages:null,cfg=chain?null:fesConfig(raw),stages=chain?chain.map(fesConfig):[cfg],limit=chain?fesNum(raw.limit??100000):cfg?.limit;
+ if(!stages.length||stages.length>12||stages.some(x=>!x)||!Number.isSafeInteger(limit)||limit<1||limit>100000)return fail('invalid-filter');
  const {mesh,values,source,boundary}=input||{};
  if(!mesh||!source||source.caseId==null||!String(source.caseId).trim()||!String(source.field||'').trim()||!Number.isFinite(source.time_s)||!Array.isArray(source.paths)||!source.paths.length||source.paths.some(x=>typeof x!=='string'||!x.trim())||!['volume','point','surface'].includes(source.association))return fail('source-not-ready');
  const assoc=source.association,count=assoc==='volume'?mesh.cellCount:assoc==='point'?mesh.pointCount:mesh.internalFaceCount;
  if(!Number.isSafeInteger(count)||count<0||values?.length!==count)return fail('field-count-mismatch');
  if(assoc==='surface'&&(!Number.isSafeInteger(mesh.faceCount)||mesh.faceCount<count))return fail('face-count-mismatch');
- const total=assoc==='surface'?mesh.faceCount:count,ids=cfg.ids?new Set(cfg.ids):null;
- if(ids&&cfg.ids.some(i=>i>=total))return fail('id-outside-source');
+ const total=assoc==='surface'?mesh.faceCount:count,sets=stages.map(c=>c.ids?new Set(c.ids):null);
+ if(stages.some(c=>c.ids?.some(i=>i>=total)))return fail('id-outside-source');
  const rows=[],coverage={total,examined:0,missingGeometry:0,missingValue:0,excluded:0,selected:0};let min=Infinity,max=-Infinity;
  for(let i=0;i<total;i++){
   coverage.examined++;
@@ -229,13 +230,13 @@ function fesExtract(input,raw){
   const value=i<count?values[i]:boundary?.get?.(i);
   if(!point){coverage.missingGeometry++;continue}
   if(!Number.isFinite(value)){coverage.missingValue++;continue}
-  if((ids&&!ids.has(i))||(cfg.threshold&&(value<cfg.threshold[0]||value>cfg.threshold[1]))||(cfg.bounds&&point.some((v,k)=>v<cfg.bounds[2*k]||v>cfg.bounds[2*k+1]))||(cfg.mode==='plane'&&(cfg.side==='above'?point[cfg.axis]<cfg.offset:point[cfg.axis]>cfg.offset))){coverage.excluded++;continue}
-  if(rows.length>=cfg.limit)return fail('selection-limit-exceeded');
+  if(stages.some((c,j)=>(sets[j]&&!sets[j].has(i))||(c.threshold&&(value<c.threshold[0]||value>c.threshold[1]))||(c.bounds&&point.some((v,k)=>v<c.bounds[2*k]||v>c.bounds[2*k+1]))||(c.mode==='plane'&&(c.side==='above'?point[c.axis]<c.offset:point[c.axis]>c.offset)))){coverage.excluded++;continue}
+  if(rows.length>=limit)return fail('selection-limit-exceeded');
   rows.push({id:i,point_m:point,value,kind:assoc==='surface'?(i<count?'internal-face':'explicit-boundary-face'):assoc==='point'?'mesh-point':'cell-centre'});
   min=Math.min(min,value);max=Math.max(max,value);
  }
  coverage.selected=rows.length;
- return{valid:true,schema:'foamlens/entity-selection/1',source:{...source,paths:source.paths.slice(),dimensions:Array.isArray(source.dimensions)?source.dimensions.slice():null},filter:cfg,coverage,range:rows.length?{min,max}:null,rows,method:'Whole-entity selection by representative coordinate and original scalar/component value. Face coordinates are vertex averages. IDs are indices in the loaded mesh (assembled when decomposed), not persistent global IDs. No interpolation, volume clipping or integration.'}
+ return{valid:true,schema:'foamlens/entity-selection/1',source:{...source,paths:source.paths.slice(),dimensions:Array.isArray(source.dimensions)?source.dimensions.slice():null},filter:chain?{mode:'pipeline',stages,limit}:cfg,coverage,range:rows.length?{min,max}:null,rows,method:'Whole-entity selection by representative coordinate and original scalar/component value. Face coordinates are vertex averages. IDs are indices in the loaded mesh (assembled when decomposed), not persistent global IDs. No interpolation, volume clipping or integration.'}
 }
 function fesCsv(r){
  const cell=v=>{if(v==null)return '';let q=String(v);if(typeof v==='string'&&/^\s*[=+@\-]/.test(q))q="'"+q;return '"'+q.replace(/"/g,'""')+'"'};
@@ -243,8 +244,50 @@ function fesCsv(r){
  return [h.join(','),...r.rows.map(p=>[s.caseId,s.region,s.field,s.association,s.component,s.unit,s.time_s,s.meshId,p.id,p.kind,...p.point_m,p.value,JSON.stringify(s.paths)].map(cell).join(','))].join('\n')+'\n'
 }
 function fesPreview(rows,limit=4000){if(rows.length<=limit)return rows.slice();return Array.from({length:limit},(_,i)=>rows[Math.floor(i*(rows.length-1)/(limit-1))])}
+function fesRecipeKey(source,hasIds=false){
+ if(!source)return '';
+ return JSON.stringify([source.association,source.field,source.component,source.unit,source.dimensions??null,...(hasIds?[source.caseId,source.region,source.meshId,source.time_s,source.paths]:[])]);
+}
+function fesRecipe(stages,source){
+ if(!source||!Array.isArray(stages)||!stages.length||stages.length>12||stages.some(x=>!fesConfig(x)))return null;
+ const hasIds=stages.some(x=>x.mode==='ids');
+ return {schema:'foamlens/selection-recipe/1',key:fesRecipeKey(source,hasIds),hasIds,stages:JSON.parse(JSON.stringify(stages))};
+}
+function fesRecipeMatches(recipe,source){return !!recipe&&recipe.schema==='foamlens/selection-recipe/1'&&Array.isArray(recipe.stages)&&recipe.stages.length>0&&recipe.stages.length<=12&&recipe.stages.every(x=>!!fesConfig(x))&&recipe.hasIds===recipe.stages.some(x=>x.mode==='ids')&&recipe.key===fesRecipeKey(source,recipe.hasIds)}
+function fesClipTriangle(tri,axis,offset,side){
+ if(!Array.isArray(tri)||tri.length!==3||tri.some(p=>!Array.isArray(p)||p.length!==3||!p.every(Number.isFinite))||![0,1,2].includes(axis)||!Number.isFinite(offset)||!['above','below'].includes(side))return [];
+ const inside=p=>side==='above'?p[axis]>=offset:p[axis]<=offset,poly=[];
+ const same=(a,b)=>a.every((v,i)=>v===b[i]),push=p=>{if(!poly.length||!same(poly.at(-1),p))poly.push(p)};
+ for(let i=0;i<3;i++){
+  const a=tri[i],b=tri[(i+1)%3],ia=inside(a),ib=inside(b);
+  if(ia)push(a.slice());
+  if(ia!==ib){let q;if(a[axis]===offset)q=a.slice();else if(b[axis]===offset)q=b.slice();else{const scale=Math.max(Math.abs(a[axis]),Math.abs(b[axis]),Math.abs(offset),Number.MIN_VALUE),f=(offset/scale-a[axis]/scale)/(b[axis]/scale-a[axis]/scale);q=a.map((v,k)=>v*(1-f)+b[k]*f);q[axis]=offset}if(!q.every(Number.isFinite))return [];push(q)}
+ }
+ if(poly.length>1&&same(poly[0],poly.at(-1)))poly.pop();
+ const out=[];for(let i=1;i+1<poly.length;i++){const a=poly[0],b=poly[i],c=poly[i+1],u=b.map((v,k)=>v-a[k]),v=c.map((v,k)=>v-a[k]),area=Math.hypot(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]);if(Number.isFinite(area)&&area>0)out.push([a,b,c])}
+ return out
+}
+function fesClipSurface(input,raw){
+ const fail=reason=>({valid:false,reason}),axis=['x','y','z'].indexOf(raw?.axis),offset=fesNum(raw?.offset),side=raw?.side,limit=fesNum(raw?.limit??100000);
+ if(axis<0||!Number.isFinite(offset)||!['above','below'].includes(side)||!Number.isSafeInteger(limit)||limit<1||limit>100000)return fail('invalid-clip');
+ const {mesh,source}=input||{},indices=mesh?.surfaceTriangles;
+ if(!source||!indices?.length||indices.length%3!==0||!mesh?.points?.length)return fail('surface-unavailable');
+ const triangles=[],coverage={inputTriangles:indices.length/3,invalid:0,discarded:0,retained:0,outputTriangles:0};
+ for(let i=0;i<indices.length;i+=3){
+  const tri=[0,1,2].map(j=>fesXYZ(mesh.points,indices[i+j]));if(tri.some(p=>!p)){coverage.invalid++;continue}
+  const clipped=fesClipTriangle(tri,axis,offset,side);if(!clipped.length){coverage.discarded++;continue}
+  if(triangles.length+clipped.length>limit)return fail('clip-limit-exceeded');
+  coverage.retained++;for(const vertices of clipped)triangles.push({sourceTriangle:i/3,vertices});
+ }
+ coverage.outputTriangles=triangles.length;
+ return {valid:true,schema:'foamlens/clipped-exterior/1',source:JSON.parse(JSON.stringify(source)),plane:{axis:raw.axis,offset_m:offset,side},coverage,triangles,limitations:'Exterior surface triangles clipped against a physical plane. Open uncapped shell, not a clipped volume mesh or integrated field. No scalar interpolation or solver modification.'}
+}
+function fesClipObj(result){
+ const lines=['# FoamLens clipped exterior; coordinates in metres; uncapped shell','# Original exterior triangle index preceding each output face'];let n=1;
+ for(const tri of result.triangles){lines.push('# sourceTriangle '+tri.sourceTriangle);for(const p of tri.vertices)lines.push('v '+p.join(' '));lines.push('f '+n+' '+(n+1)+' '+(n+2));n+=3}return lines.join('\n')+'\n'
+}
 /* FOAMLENS_ENTITY_SELECTION_CORE_END */
-let fesResult=null,fesPage=0,fesSelected=null;
+let fesResult=null,fesPage=0,fesSelected=null,fesStages=[],fesStageSource=null,fesClipResult=null;
 const fesE=id=>document.getElementById(id);
 function fesUi(en,es){try{return flUi(en,es)}catch{return en}}
 function fesSource(){
@@ -271,7 +314,8 @@ function fesDefaults(){
  fesClear(fesUi('Bounds copied from current source. Apply to extract.','Límites copiados de la fuente actual. Aplica para extraer.'))
 }
 function fesRun(){
- fesClear();const result=fesExtract(fesSource(),fesReadConfig());
+ fesClear();const current=fesSource(),cfg=fesReadConfig();if(fesStages.length&&!fesRecipeMatches(fesStageSource,current?.source)){fesE('fesStatus').textContent=fesUi('Pipeline source differs. Clear or restore a compatible recipe.','La fuente del pipeline cambió. Limpia o restaura una receta compatible.');return}
+ const result=fesExtract(current,fesStages.length?{stages:fesStages,limit:cfg.limit}:cfg);
  if(!result.valid){const reasons={'invalid-filter':['Invalid filter or missing limits.','Filtro inválido o límites ausentes.'],'source-not-ready':['Load a complete Field A frame with source files.','Carga un cuadro completo de Field A con archivos de origen.'],'field-count-mismatch':['Field length does not match mesh association.','La longitud del campo no coincide con su asociación.'],'face-count-mismatch':['Invalid mesh face count.','Número de caras inválido.'],'id-outside-source':['An ID is outside the loaded mesh.','Un ID está fuera de la malla cargada.'],'selection-limit-exceeded':['Too many selected entities; narrow the filter. No partial export.','Demasiadas entidades seleccionadas; acota el filtro. Sin exportación parcial.']};fesE('fesStatus').textContent=fesUi(...(reasons[result.reason]||[result.reason,result.reason]));return}
  fesResult=result;const q=result.coverage,u=result.source;
  fesE('fesStatus').textContent=fesUi('Snapshot','Captura')+' · '+u.caseName+' / '+(u.region||fesUi('Default','Predeterminada'))+' · '+u.field+' '+u.component+' · t='+u.time_s+' s · '+q.selected+'/'+q.total+' '+fesUi('selected','seleccionadas')+' · '+fesUi('missing geometry/value','sin geometría/valor')+': '+q.missingGeometry+'/'+q.missingValue+(result.range?' · '+result.range.min+'–'+result.range.max+' '+u.unit:'');
@@ -296,6 +340,47 @@ function fesExport(kind){
  if(typeof downloadText==='function'){downloadText(name,data,mime);return}
  const url=URL.createObjectURL(new Blob([data],{type:mime})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
+function fesPipelineRender(){
+ const host=fesE('fesStages');if(!host)return;host.replaceChildren();
+ for(let i=0;i<fesStages.length;i++){const cfg=fesConfig(fesStages[i]),row=document.createElement('div');row.style.cssText='display:flex;gap:5px;align-items:center;flex-wrap:wrap';
+ const text=document.createElement('span');text.style.flex='1';text.textContent=(i+1)+'. '+cfg.mode+(cfg.threshold?' ['+cfg.threshold.join(', ')+']':'')+(cfg.bounds?' XYZ '+cfg.bounds.join(', '):'')+(cfg.mode==='plane'?' '+'XYZ'[cfg.axis]+' '+cfg.side+' '+cfg.offset+' m':'')+(cfg.ids?' · '+cfg.ids.length+' IDs':'');row.append(text);
+ const rm=document.createElement('button');rm.className='btn tiny';rm.type='button';rm.textContent=fesUi('Remove','Quitar');rm.onclick=()=>{const x=fesSource(),matches=fesRecipeMatches(fesStageSource,x?.source);if(!matches){fesE('fesPipelineHint').textContent=fesUi('Source changed; clear stages first.','Cambió la fuente; limpia las etapas primero.');return}fesStages.splice(i,1);fesStageSource=fesStages.length?fesRecipe(fesStages,x.source):null;
+ fesPipelineRender();fesClear()};row.append(rm);host.append(row)}
+ fesE('fesPipelineHint').textContent=fesStages.length?fesUi('Apply evaluates saved stages with AND; editor changes are not included until added.','Aplicar evalúa etapas con AND; los cambios del editor no se incluyen hasta agregarlos.'):fesUi('No stages: apply the editor filter directly.','Sin etapas: aplica directamente el filtro del editor.');
+}
+function fesPipelineAdd(){
+ const x=fesSource(),cfg=fesReadConfig();if(!x||!fesConfig(cfg)||fesStages.length>=12){fesE('fesPipelineHint').textContent=fesUi('Load a source and valid filter (maximum 12 stages).','Carga una fuente y filtro válido (máximo 12 etapas).');return}
+ if(fesStages.length&&!fesRecipeMatches(fesStageSource,x.source)){fesE('fesPipelineHint').textContent=fesUi('Source changed; clear or load a compatible recipe.','Cambió la fuente; limpia o carga una receta compatible.');return}
+ fesStages.push(cfg);fesStageSource=fesRecipe(fesStages,x.source);fesPipelineRender();fesClear()
+}
+function fesPipelineStore(load){
+ const key='foamlens.selection.recipe.v1',x=fesSource();
+ try{if(load){const r=JSON.parse(localStorage.getItem(key)||'null');if(!fesRecipeMatches(r,x?.source)||r.hasIds)throw Error('incompatible');fesStages=r.stages;fesStageSource=r;fesPipelineRender();fesClear();return}
+ if(!fesStages.length||!fesRecipeMatches(fesStageSource,x?.source)||fesStageSource.hasIds)throw Error('incompatible');
+ localStorage.setItem(key,JSON.stringify(fesStageSource));fesE('fesPipelineHint').textContent=fesUi('Recipe saved locally.','Receta guardada localmente.')
+ }catch{fesE('fesPipelineHint').textContent=fesUi('No compatible recipe or storage unavailable. ID stages are session-only.','No hay receta compatible o almacenamiento disponible. Las etapas de IDs son solo de sesión.')}
+}
+function fesClipDraw(){
+ const host=fesE('fesClipPlot');host.replaceChildren();const r=fesClipResult;if(!r?.triangles.length)return;
+ const canvas=document.createElement('canvas');canvas.width=480;canvas.height=300;canvas.style.cssText='display:block;width:100%;height:auto;background:#101827;border-radius:8px';host.append(canvas);const ctx=canvas.getContext('2d');if(!ctx)return;
+ const yaw=Number(fesE('fesClipYaw').value)*Math.PI/180,pitch=Number(fesE('fesClipPitch').value)*Math.PI/180,rot=p=>{const x=p[0]*Math.cos(yaw)-p[1]*Math.sin(yaw),y=p[0]*Math.sin(yaw)+p[1]*Math.cos(yaw);return[x,y*Math.sin(pitch)+p[2]*Math.cos(pitch),y*Math.cos(pitch)-p[2]*Math.sin(pitch)]};
+ let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;for(const t of r.triangles)for(const p of t.vertices){const [x,y]=rot(p);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}
+ const dx=maxX-minX,dy=maxY-minY,k=Math.min(dx?440/dx:Infinity,dy?260/dy:Infinity);if(!Number.isFinite(k)||k<=0)return;
+ const proj=p=>[240+(p[0]-(minX+dx/2))*k,150-(p[1]-(minY+dy/2))*k],preview=fesPreview(r.triangles,4000).map(t=>t.vertices.map(rot)).sort((a,b)=>a.reduce((s,p)=>s+p[2],0)-b.reduce((s,p)=>s+p[2],0));
+ ctx.strokeStyle='#3bafc4';ctx.fillStyle='rgba(49,131,168,.14)';ctx.lineWidth=.6;for(const tri of preview){ctx.beginPath();tri.forEach((p,i)=>{const [x,y]=proj(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill();ctx.stroke()}
+ const note=document.createElement('div');note.className='smallnote';note.textContent=preview.length+'/'+r.triangles.length+' '+fesUi('triangles in preview; full geometry in export.','triángulos en vista previa; geometría completa al exportar.');host.append(note)
+}
+function fesClipClear(){fesClipResult=null;fesE('fesClipPlot').replaceChildren();fesE('fesClipStatus').textContent='';fesE('fesClipObj').disabled=true;fesE('fesClipJson').disabled=true}
+function fesClipRun(){fesClipClear();const r=fesClipSurface(fesSource(),{axis:fesE('fesClipAxis').value,offset:fesE('fesClipOffset').value,side:fesE('fesClipSide').value,limit:fesE('fesLimit').value});if(!r.valid){fesE('fesClipStatus').textContent=r.reason;return}fesClipResult=r;const c=r.coverage;fesE('fesClipStatus').textContent=r.source.caseName+' / '+r.source.region+' · t='+r.source.time_s+' s · '+c.outputTriangles+' '+fesUi('triangles; invalid source triangles','triángulos; triángulos de origen inválidos')+': '+c.invalid;fesE('fesClipObj').disabled=!c.outputTriangles;fesE('fesClipJson').disabled=false;fesClipDraw()}
+function fesClipExport(kind){if(!fesClipResult)return;const data=kind==='obj'?fesClipObj(fesClipResult):JSON.stringify(fesClipResult,null,2),name='FoamLens_clipped_exterior.'+kind,mime=kind==='obj'?'text/plain':'application/json';if(typeof downloadText==='function'){downloadText(name,data,mime);return}const url=URL.createObjectURL(new Blob([data],{type:mime})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function fesMountExtra(box){
+ const div=document.createElement('div');div.innerHTML='<details class="analysisExt"><summary><strong data-fl-en="Filter pipeline" data-fl-es="Pipeline de filtros">Filter pipeline</strong></summary><div id="fesStages"></div><div class="extActions"><button class="btn soft" type="button" id="fesAddStage" data-fl-en="Add editor filter" data-fl-es="Agregar filtro del editor">Add editor filter</button><button class="btn soft" type="button" id="fesResetStages" data-fl-en="Clear stages" data-fl-es="Limpiar etapas">Clear stages</button><button class="btn soft" type="button" id="fesSaveRecipe" data-fl-en="Save recipe" data-fl-es="Guardar receta">Save recipe</button><button class="btn soft" type="button" id="fesLoadRecipe" data-fl-en="Load recipe" data-fl-es="Cargar receta">Load recipe</button></div><p id="fesPipelineHint" class="smallnote" aria-live="polite"></p></details>'+
+ '<details class="analysisExt"><summary><strong data-fl-en="Clip exterior surface" data-fl-es="Recortar superficie exterior">Clip exterior surface</strong></summary><p class="smallnote" data-fl-en="Real triangle-plane clipping of the loaded exterior only. Open shell; no volume or field interpolation." data-fl-es="Recorte real triángulo-plano del exterior cargado. Superficie abierta; sin volumen ni interpolación de campos.">Real triangle-plane clipping of the loaded exterior only. Open shell; no volume or field interpolation.</p><div class="row2"><div class="field"><label data-fl-en="Axis" data-fl-es="Eje">Axis</label><select id="fesClipAxis"><option>x</option><option>y</option><option>z</option></select></div><div class="field"><label data-fl-en="Side" data-fl-es="Lado">Side</label><select id="fesClipSide"><option value="above">≥</option><option value="below">≤</option></select></div></div><div class="field"><label data-fl-en="Plane coordinate [m]" data-fl-es="Coordenada del plano [m]">Plane coordinate [m]</label><input type="number" step="any" id="fesClipOffset"></div><div class="extActions"><button class="btn soft" id="fesClipMid" type="button" data-fl-en="Use midpoint" data-fl-es="Usar punto medio">Use midpoint</button><button class="btn primary" id="fesClipRun" type="button">Clip</button><button class="btn soft" id="fesClipObj" type="button">OBJ</button><button class="btn soft" id="fesClipJson" type="button">JSON</button></div><p class="smallnote" id="fesClipStatus"></p><div class="field"><label>Yaw</label><input id="fesClipYaw" type="range" min="-180" max="180" value="35"></div><div class="field"><label>Pitch</label><input id="fesClipPitch" type="range" min="-90" max="90" value="30"></div><div id="fesClipPlot"></div></details>';
+ box.querySelector('.extSectionBody').append(div);fesE('fesAddStage').onclick=fesPipelineAdd;fesE('fesResetStages').onclick=()=>{fesStages=[];fesStageSource=null;fesPipelineRender();fesClear()};fesE('fesSaveRecipe').onclick=()=>fesPipelineStore(false);fesE('fesLoadRecipe').onclick=()=>fesPipelineStore(true);
+ for(const id of ['fesClipAxis','fesClipSide','fesClipOffset'])fesE(id).addEventListener('input',fesClipClear);
+ fesE('fesClipMid').onclick=()=>{const mesh=fesSource()?.mesh,i=['x','y','z'].indexOf(fesE('fesClipAxis').value),a=mesh?.boundsMin?.[i],b=mesh?.boundsMax?.[i];fesClipClear();if(Number.isFinite(a)&&Number.isFinite(b))fesE('fesClipOffset').value=String(a/2+b/2)};
+ fesE('fesClipRun').onclick=fesClipRun;fesE('fesClipObj').onclick=()=>fesClipExport('obj');fesE('fesClipJson').onclick=()=>fesClipExport('json');fesE('fesClipYaw').oninput=fesClipDraw;fesE('fesClipPitch').oninput=fesClipDraw;fesPipelineRender();fesClipClear()
+}
 function fesMount(){
  if(fesE('fesPanel'))return true;const host=fesE('fieldViewControls');if(!host)return false;
  const box=document.createElement('details');box.className='analysisExt';box.id='fesPanel';
@@ -311,7 +396,7 @@ function fesMount(){
  '<div class="field"><label data-fl-en="Projection" data-fl-es="Proyección">Projection</label><select id="fesProjection"><option value="xy">XY</option><option value="xz">XZ</option><option value="yz">YZ</option></select></div><div id="fesPlot"></div><div class="extActions"><button class="btn tiny" id="fesPrev" type="button">←</button><span id="fesPageText"></span><button class="btn tiny" id="fesNext" type="button">→</button></div><div id="fesRows" style="display:grid;gap:4px;max-height:320px;overflow:auto"></div></div>';
  host.append(box);for(const el of box.querySelectorAll('input,textarea,select'))if(el.id!=='fesProjection')el.addEventListener('input',()=>{fesControls();fesClear(fesUi('Filter changed; extract again.','Cambió el filtro; extrae otra vez.'))});
  fesE('fesDefaults').onclick=fesDefaults;fesE('fesRun').onclick=fesRun;fesE('fesJson').onclick=()=>fesExport('json');fesE('fesCsv').onclick=()=>fesExport('csv');fesE('fesProjection').onchange=fesDraw;fesE('fesPrev').onclick=()=>{fesPage--;fesDraw()};fesE('fesNext').onclick=()=>{fesPage++;fesDraw()};
- try{flApplyBilingualText(box)}catch{}fesControls();fesClear();return true
+ fesMountExtra(box);try{flApplyBilingualText(box)}catch{}fesControls();fesClear();return true
 }
 function fesInstall(){if(fesMount())return;const watch=new MutationObserver(()=>{if(fesMount())watch.disconnect()});watch.observe(document.body,{childList:true,subtree:true})}
 fesInstall();

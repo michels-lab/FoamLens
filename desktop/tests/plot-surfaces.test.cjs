@@ -110,7 +110,7 @@ for(const name of passed)console.log('  ✓ '+name);
 
 const fesStart=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_START */'),fesEnd=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_END */');
 assert(fesStart>=0&&fesEnd>fesStart);
-const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview};')();
+const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj};')();
 const source={caseId:'a',region:'metal',field:'T',association:'volume',component:'value',unit:'K',time_s:0,paths:['0/metal/T'],dimensions:[0,0,0,1,0,0,0],meshId:'mesh-A'};
 const mesh={cellCount:4,cellCenters:[0,0,0,1,0,0,2,1,0,3,1,0]};
 const input={mesh,source,values:[0,100,200,null]};
@@ -140,4 +140,23 @@ test('preview does not remove export rows and snapshots are immutable with respe
 });
 test('extractor mounts inside Field and exports immutable selected snapshot',()=>{
  assert(surfaces.includes("const host=fesE('fieldViewControls')"));assert(surfaces.includes('fesResult=result'));assert(surfaces.includes('FoamLens_entity_selection.'));assert(surfaces.includes('No interpolation, volume clipping or integration.'));
+});
+
+test('pipeline intersects original coordinates and field values without truncating intermediate stages',()=>{
+ const q=fes.fesExtract(input,{stages:[{mode:'threshold',min:0,max:200,limit:1},{mode:'plane',axis:'x',side:'above',offset:1},{mode:'box',bounds:[0,1,0,1,0,1]}],limit:1});assert(q.valid);assert.deepStrictEqual(q.rows.map(x=>x.id),[1]);assert.strictEqual(q.filter.stages.length,3);
+ assert(!fes.fesExtract(input,{stages:[]}).valid);assert(!fes.fesExtract(input,{stages:[{mode:'ids',ids:'999'}]}).valid);
+});
+test('recipes preserve field association and ID stages bind exact mesh/time',()=>{
+ const p=fes.fesRecipe([{mode:'threshold',min:0,max:100}],source);assert(fes.fesRecipeMatches(p,{...source,time_s:2}));assert(!fes.fesRecipeMatches(p,{...source,unit:'C'}));
+ const q=fes.fesRecipe([{mode:'ids',ids:'0'}],source);assert(fes.fesRecipeMatches(q,source));assert(!fes.fesRecipeMatches(q,{...source,meshId:'other'}));assert(!fes.fesRecipeMatches(q,{...source,time_s:1}));assert(!fes.fesRecipeMatches({...q,hasIds:false},source));
+});
+test('surface clip produces real intersection vertices and preserves triangle winding',()=>{
+ const tri=[[0,0,0],[2,0,0],[0,2,0]],q=fes.fesClipTriangle(tri,0,1,'above');assert.strictEqual(q.length,1);assert(q[0].every(p=>p[0]>=1));assert(q[0].some(p=>p[0]===1&&p[1]===1));assert(q[0].some(p=>p[0]===1&&p[1]===0));
+ const b=fes.fesClipTriangle(tri,0,1,'below');assert.strictEqual(b.length,2);
+ assert.strictEqual(fes.fesClipTriangle(tri,0,3,'above').length,0);assert.strictEqual(fes.fesClipTriangle(tri,0,0,'below').length,0);
+ const area=xs=>xs.reduce((sum,[a,b,c])=>sum+((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]))/2,0);assert.strictEqual(area(q)+area(b),2);
+});
+test('surface clip exports original triangle IDs, open shell and coverage',()=>{
+ const m={points:[0,0,0,2,0,0,0,2,0],surfaceTriangles:[0,1,2,0,1,99]},a=fes.fesClipSurface({mesh:m,source},{axis:'x',offset:1,side:'below'});assert(a.valid);assert.strictEqual(a.triangles.length,2);assert.strictEqual(a.coverage.invalid,1);assert(a.triangles.every(t=>t.sourceTriangle===0));assert(a.limitations.includes('uncapped'));
+ const obj=fes.fesClipObj(a);assert(obj.includes('f 1 2 3'));assert(obj.includes('f 4 5 6'));assert(obj.includes('sourceTriangle 0'));assert(!fes.fesClipSurface({mesh:m,source},{axis:'x',offset:1,side:'below',limit:1}).valid);assert(!fes.fesClipSurface({mesh:m,source},{axis:'x',offset:'',side:'above'}).valid);
 });
