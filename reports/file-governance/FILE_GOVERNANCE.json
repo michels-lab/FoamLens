@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 533,
-  "classified_files_total": 529,
-  "docs_content_inspected": 114,
+  "tracked_files_total": 545,
+  "classified_files_total": 541,
+  "docs_content_inspected": 126,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 8,
-    "document": 107,
+    "document": 119,
     "index": 6,
     "installer_metadata": 1,
     "license": 1,
@@ -28,8 +28,8 @@
     "UNKNOWN_PURPOSE": 2
   },
   "finding_total": 3,
-  "inventory_fingerprint": "dd065f148a2f0c821b7c6dec41f4d3e685e3a98b83959a9a4f42e472fdb6f0ef",
-  "evidence_fingerprint": "90d45d8984b430d5d48216b640d6284ecae7ff3bfcabe490987e1d90a78603ec",
+  "inventory_fingerprint": "99c733728c840c75db5f37010f8c7af3dd411c21f934aaed8ceb3a4063178360",
+  "evidence_fingerprint": "92fcc602191e37a10ffe50643af210a9caeb0418f23378549cd7c36f3b18642f",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -547,7 +547,7 @@
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "783260dc3f69012537205bfb5f68a625387badf1"
+      "blob": "c369d41a61175ffaf5ce0e6da38d816828ba22bc"
     },
     {
       "path": ".michelslab/agents/contrarian.md",
@@ -610,7 +610,7 @@
       "role": "agent",
       "purpose": "assistant role/instructions",
       "certainty": "rule",
-      "blob": "cf840137cf75591f1d8a6d7b8e57e85ec941d2eb"
+      "blob": "dae6f15f2d6f7d7476c209fa12900d8e39f4ff28"
     },
     {
       "path": "CHANGELOG.md",
@@ -897,7 +897,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "13fd73f0b063799ec26b3914fca7616df7642d74"
+      "blob": "cdc4bd4d81e45d433f2e03481dbd972eff13e032"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-temporal-alignment.js",
@@ -967,7 +967,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "ca2e8ece792d701dcde7c1f54aae45f6aef7235f"
+      "blob": "057b7603985b072057419e76f6d1472fc5e972b4"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-momentum-mechanisms.js",
@@ -981,7 +981,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "4a45fd3a866b1516d5ea1234cacb287bcfe2bafb"
+      "blob": "9565920faf3072f3f75114bcc678a003ba035d2a"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-sidebar-sections.js",
@@ -1016,7 +1016,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8dcad6257efb5763caaae6d140e018387a4dbbe9"
+      "blob": "9c85defa9b661953a418fda523f58fcd64d104c5"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js",
@@ -1604,7 +1604,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "83f5e0ff6237691b8562f13f98067069a74b03c4"
+      "blob": "7e3fe4900d0e20274c78c57f180786298d75f1b1"
     },
     {
       "path": "desktop/tests/field-region-camera-midpoint.test.cjs",
@@ -1744,7 +1744,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "c2b4bbadbd0d7831ec1adaa2939db3b6eecad32f"
+      "blob": "d14ea2aa58992df02aa4d74239ae02331518a12a"
     },
     {
       "path": "desktop/tests/large-project-stress.test.cjs",
@@ -1898,7 +1898,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "3271d67a6937cd53bb8012bb06c48df14a5d947d"
+      "blob": "7558dd61725ed1d89a9be761ab3f864c7a16b168"
     },
     {
       "path": "desktop/tests/point-interior.test.cjs",
@@ -2059,7 +2059,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "a94519ca1b65af4fa940c55a56fbe23f8af0aae4"
+      "blob": "3137384dcf2c96a1d4479184a23a7fef778f306f"
     },
     {
       "path": "desktop/tests/store-msix.test.cjs",
@@ -2475,6 +2475,27 @@
       "blob": "e726a11107fa6c2c722a1ca5fe369da63b11318c"
     },
     {
+      "path": "docs/GRANADA_CELL_BUDGET_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "9058323996f718c54a3d862760a0889b34fb96d6"
+    },
+    {
+      "path": "docs/GRANADA_DERIVED_FIELDS_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "11f88d46f248fec39c8f66e339e8efd249957921"
+    },
+    {
+      "path": "docs/GRANADA_ENTITY_SELECTION_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "3620444fa8124e8ee0d25f2640589265a54e7e9e"
+    },
+    {
       "path": "docs/GRANADA_EXPERIMENTAL_PHASE_ROLE_2026-11-03.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2720,6 +2741,13 @@
       "blob": "9db57432f15600df759cb1ff1cdf96402ab8cd24"
     },
     {
+      "path": "docs/GRANADA_INTERFACE_TOPOLOGY_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "c7287a311ad5e662d2fb78a84dcea9c712c822fa"
+    },
+    {
       "path": "docs/GRANADA_MASTERPROJECT_CROSS_CASE_EVIDENCE_2026-11-23.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2734,11 +2762,32 @@
       "blob": "3a5d79b31e205cba7911293bd4de9d53beb0d039"
     },
     {
+      "path": "docs/GRANADA_MATERIAL_TABLES_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "8bce469fb07fca2957e4079f12b6d879cf6134b2"
+    },
+    {
       "path": "docs/GRANADA_ORIGINAL_COMMAND_SEARCH_2026-10-21.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "17062e78e2fb50dd4109a6c5ea54150320ad2263"
+    },
+    {
+      "path": "docs/GRANADA_PIPELINE_CLIP_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "2c0c71fd1a12a6d3558668c5fcfce105ab8b8f39"
+    },
+    {
+      "path": "docs/GRANADA_PROBE_CONTOUR_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "3c7b29b67658a7f8feb84e44cc53ef501ab24375"
     },
     {
       "path": "docs/GRANADA_RELEASE_PROOF_GATE_2026-10-21.md",
@@ -2755,6 +2804,20 @@
       "blob": "7ddc5cc77bd9404c50217ae822f79767756490f6"
     },
     {
+      "path": "docs/GRANADA_SCIENTIFIC_REPORT_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "9aae97ff694bf4a58b89aec1564bbd48391e9649"
+    },
+    {
+      "path": "docs/GRANADA_SPATIAL_SOURCE_INTEGRITY_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "cfab63236d1e812db08ee4d82ef4a6537651e1b6"
+    },
+    {
       "path": "docs/GRANADA_T1_AXIS_SOURCE_INTEGRITY_2026-11-23.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
@@ -2762,11 +2825,32 @@
       "blob": "c49257f8cf8259390b0db0cd1c3b2791db412c47"
     },
     {
+      "path": "docs/GRANADA_THERMAL_PHASE_PREVIEW_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "1705f919330166a714a94fb4b3c241176aac7862"
+    },
+    {
+      "path": "docs/GRANADA_TRANSIENT_INVENTORY_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "2130ccc48ad3666b03fb505e5ba742a77e4cbe41"
+    },
+    {
+      "path": "docs/GRANADA_VOLUME_RESAMPLE_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "80b3933acf39884329ceca2eb06f8aef3f8c1092"
+    },
+    {
       "path": "docs/IMPLEMENTATION_ROADMAP_V2_2026-11-24.md",
       "role": "document",
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
-      "blob": "7746fe7219163d78e29f619e4e9417becca62c2f"
+      "blob": "5ebab67b508dd84573e1a097d97019d2c8ad0b9a"
     },
     {
       "path": "docs/IMPORT_PERFORMANCE_REPORT_2026-10-12.md",
@@ -3737,11 +3821,11 @@
   ],
   "findings": [
     {
-      "id": "ab5d23cf9702cceb",
+      "id": "e67a6aabc5dd0732",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "10 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/NativeCartesianMesh.cs, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v14-zz-field-workspace.js, desktop/src/FoamLensDesktop/frontend/v18-context-help-resize.js, desktop/src/FoamLensDesktop/frontend/v24-field-f2-viewport-layout.js",
+      "observation": "18 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/NativeCartesianMesh.cs, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     },
