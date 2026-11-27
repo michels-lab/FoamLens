@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace FoamLensDesktop;
 
@@ -226,6 +227,42 @@ internal static class NativeCartesianMesh
             throw new ArgumentException("Split requires 2–12 nonempty explicit cell zones covering every cell, with distinct non-reserved region names.");
     }
 
+    // Explicit alternate mesh strategy: put the requested equal refinement
+    // into the background counts, not local octree transitions. Only uniform
+    // grading is supported; local boxes/overrides/layers cannot be substituted.
+    internal static (JsonElement Input,int? UniformLevel,long? OriginalCells) PrepareSnappyBackground(JsonElement root)
+    {
+        if(!root.TryGetProperty("snappy",out var settings)||!settings.TryGetProperty("uniformBackground",out var flag)||!flag.GetBoolean())return(root,null,null);
+        var (_,baseCells)=Build(root);
+        int min=settings.GetProperty("minLevel").GetInt32(),max=settings.GetProperty("maxLevel").GetInt32(),cap=settings.GetProperty("maxCells").GetInt32();
+        if(min!=max||min<1||min>4)throw new ArgumentException("Uniform background requires equal requested refinement levels 1–4.");
+        if(root.GetProperty("zones").GetArrayLength()!=0||(root.TryGetProperty("splitRegions",out var split)&&split.GetBoolean())||
+           (settings.TryGetProperty("boxes",out var boxes)&&boxes.GetArrayLength()!=0)||
+           (settings.TryGetProperty("surfaceSettings",out var overrides)&&overrides.GetArrayLength()!=0))
+            throw new ArgumentException("Uniform background is an alternative without zones, local boxes or per-surface overrides/layers.");
+        if(cap<baseCells||cap>350000)throw new ArgumentException("Invalid maxGlobalCells for uniform background.");
+        var factor=1<<min;
+        long refined=checked(baseCells*factor*factor*factor);
+        if(refined>MaxCells||refined>cap)throw new ArgumentException("Uniform refined background exceeds native 200,000-cell or selected maxGlobalCells limit.");
+        var node=JsonNode.Parse(root.GetRawText())!.AsObject();
+        foreach(var axis in node["axes"]!.AsArray())
+        {
+            if(axis!["grading"]!.AsArray().Any(x=>x!.GetValue<double>()!=1))throw new ArgumentException("Uniform background requires unit grading in every interval.");
+            var counts=axis["counts"]!.AsArray();
+            for(int i=0;i<counts.Count;i++)
+            {
+                int count=checked(counts[i]!.GetValue<int>()*factor);
+                if(count>10000)throw new ArgumentException("Refined axis interval exceeds 10,000 cells.");
+                counts[i]=JsonValue.Create(count);
+            }
+        }
+        var sn=node["snappy"]!.AsObject();
+        sn["minLevel"]=0;sn["maxLevel"]=0;sn.Remove("uniformBackground");
+        var prepared=JsonSerializer.SerializeToElement(node);
+        if(Build(prepared).Cells!=refined)throw new InvalidOperationException("Uniform background cell accounting mismatch.");
+        return(prepared,min,baseCells);
+    }
+
     internal static (string Dictionary, Dictionary<string,byte[]> Surfaces) BuildSnappy(JsonElement root, long cells)
     {
         var settings=root.GetProperty("snappy");
@@ -308,7 +345,7 @@ internal static class NativeCartesianMesh
             }
             snapControls { nSmoothPatch 3; tolerance {{(explicitFeatures?"1":"2")}}; nSolveIter {{(explicitFeatures?300:30)}}; nRelaxIter 5; nFeatureSnapIter 10; implicitFeatureSnap {{(explicitFeatures?"false":"true")}}; explicitFeatureSnap {{(explicitFeatures?"true":"false")}}; multiRegionFeatureSnap {{(explicitFeatures?"true":"false")}}; }
             addLayersControls { relativeSizes true; layers { {{layerPatches.ToString()}} } expansionRatio {{Num(expansion)}}; finalLayerThickness {{Num(final)}}; minThickness {{Num(minThickness)}}; nGrow 0; featureAngle 60; nRelaxIter 5; nSmoothSurfaceNormals 1; nSmoothNormals 3; nSmoothThickness 10; maxFaceThicknessRatio 0.5; maxThicknessToMedialRatio 0.3; minMedialAxisAngle 90; nBufferCellsNoExtrude 0; nLayerIter 50; }
-            meshQualityControls { maxNonOrtho 65; maxBoundarySkewness 20; maxInternalSkewness 4; maxConcave 80; minVol 1e-20; minTetQuality 1e-15; minArea -1; minTwist 0.02; minDeterminant 0.001; minFaceWeight 0.02; minVolRatio 0.01; minTriangleTwist -1; nSmoothScale 4; errorReduction 0.75; }
+            meshQualityControls { maxNonOrtho 65; maxBoundarySkewness 20; maxInternalSkewness 4; maxConcave 80; minVol 1e-20; minTetQuality 1e-15; minArea -1; minTwist 0.02; minDeterminant 0.001; minFaceWeight 0.05; minVolRatio 0.01; minTriangleTwist -1; nSmoothScale 4; errorReduction 0.75; }
             singleRegionName true;
             debug 0;
             mergeTolerance 1e-6;
@@ -595,6 +632,8 @@ internal static class NativeCartesianMesh
         bool snappy=!gmsh&&root.TryGetProperty("snappy",out _);
         if(snappy&&split)throw new ArgumentException("Surface snappy and zone splitting are separate operations.");
         if(snappy&&(!root.TryGetProperty("snappyDiagnosticOnly",out var diagnostic)||diagnostic.ValueKind!=JsonValueKind.True))throw new ArgumentException("Snappy refinement is diagnostic-only until strict native quality acceptance; explicit acknowledgement required.");
+        var background=snappy?PrepareSnappyBackground(root):(Input:root,UniformLevel:(int?)null,OriginalCells:(long?)null);
+        root=background.Input;
         var expected=new Dictionary<string,long>(StringComparer.Ordinal);
         var (dict,cells)=gmsh?("",ValidateGmsh(msh!,split?expected:null)):Build(root);
         if(split){if(gmsh)ValidateSplit(expected,cells);else expected=CartesianZones(root,cells);}
@@ -751,7 +790,7 @@ internal static class NativeCartesianMesh
                 }
                 if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;total+=captured.Bytes;var volumes=await ReadVolumes(null,exportLimit-total);nativeQualityFields=volumes.Fields;nativeVolumeStatus=volumes.Status;total+=volumes.Bytes;var quality=await ReadQuality(null,exportLimit-total);nativeMetrics=quality.Metrics;nativeMetricsStatus=quality.Status;nativeMetricsManifest=quality.Manifest;}
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,uniformBackgroundLevel=background.UniformLevel,originalBackgroundCells=background.OriginalCells,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
