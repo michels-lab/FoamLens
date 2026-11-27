@@ -188,3 +188,22 @@ const plateau=hapi.history([0,1,3],m,g,config);plateau.push(0,m,[.5,.2,.8]);plat
 assert(source.includes('params.cellHistory!==b.cellHistory'));assert(source.includes("historyFailure='Missing original frame at '"));
 console.log('Cell history: fixed mesh, first arrival bracket, volume weighting, censoring, recrossings, mushy dwell, source-role normalization, complete CSV PASS');
 }
+
+{
+const hapi=new Function(source.slice(first,last)+';return {history:pfCellHistory,slice:pfHistorySlice,csv:pfHistorySliceCsv}')();
+const m=cubeMesh([0,1,3,6]),g=api.geometry(m),h=hapi.history([0,2],m,g,{low:.2,high:.8,iso:.5,role:'liquidFraction'});
+h.push(0,m,[1,0,1]);h.push(2,m,[.4,.6,.9]);const result=h.finish();
+const full=hapi.slice(result,{axis:'z',from:0,to:1,metric:'arrival',bins:8});
+assert.equal(full.selectedCells,3);assert.equal(full.eligibleCells,1);near(full.selectedVolumeM3,6);near(full.eligibleVolumeM3,1);near(full.range[0],5/3);
+assert.equal(full.counts.reduce((a,b)=>a+b,0),3);assert.equal(full.validCounts.reduce((a,b)=>a+b,0),1);
+const partial=hapi.slice(result,{axis:'x',from:0,to:2,metric:'mushy',bins:8});
+assert.equal(partial.selectedCells,2);near(partial.selectedVolumeM3,3);assert.equal(partial.eligibleCells,2);near(partial.range[0],4/3);
+const empty=hapi.slice(result,{axis:'x',from:0,to:.1,metric:'upward',bins:8});assert.equal(empty.selectedCells,0);assert.equal(empty.range,null);
+assert.throws(()=>hapi.slice(result,{axis:'z',from:2,to:1,metric:'arrival',bins:8}));
+assert.throws(()=>hapi.slice(result,{axis:'z',from:0,to:1,metric:'unknown',bins:8}));
+assert.throws(()=>hapi.slice(result,{axis:'z',from:0,to:1,metric:'arrival',bins:512}));
+const csv=hapi.csv(full);assert(csv.includes('eligible_volume_m3,volume_weighted_mean,unit'));assert(csv.split('\n').some(x=>x.endsWith(',0,,s')));
+assert(source.includes("pfEl('pfHistorySliceExport').onclick=()=>pfExport('slice')"));
+assert(source.includes('if(pfLast){pfPlot(pfLast);pfDrawHistorySlice()}'));
+console.log('Cell history slab: exact cell-center selection, weighted bins, missing coverage and CSV PASS');
+}

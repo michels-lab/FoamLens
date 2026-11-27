@@ -301,6 +301,41 @@ function* pfCellHistoryCsv(history,chunkSize=8192){
   }
   if(rows.length)yield rows.join('')
 }
+// A center-binned slice preview; every selected native cell contributes once.
+// This is not an interpolated surface, cut-cell geometry, or sampled solver field.
+function pfHistorySlice(history,{axis,from,to,metric,bins=64}){
+  if(history?.summary?.status!=='available')throw Error('Complete cell history required');
+  const d=['x','y','z'].indexOf(axis),uv=[0,1,2].filter(k=>k!==d),lo=history.mesh.boundsMin,hi=history.mesh.boundsMax;
+  if(d<0||!Number.isFinite(from)||!Number.isFinite(to)||from>to||!lo||!hi||uv.some(k=>!(hi[k]>lo[k]))||from<lo[d]||to>hi[d]||!Number.isSafeInteger(bins)||bins<8||bins>256||
+      !['arrival','mushy','upward'].includes(metric))throw Error('Invalid physical slab, metric or display resolution');
+  const n=bins*bins,counts=new Uint32Array(n),validCounts=new Uint32Array(n),volume=new Float64Array(n),validVolume=new Float64Array(n),weighted=new Float64Array(n);
+  let selectedCells=0,eligibleCells=0,selectedVolumeM3=0,eligibleVolumeM3=0;
+  const index=(v,k)=>Math.min(bins-1,Math.max(0,Math.floor(bins*(v-lo[k])/(hi[k]-lo[k]))));
+  for(let i=0;i<history.summary.cells;i++){
+    const p=history.mesh.cellCenters,coord=p[i*3+d];if(!Number.isFinite(coord))throw Error('Invalid original center');
+    if(coord<from||coord>to)continue;
+    const u=p[i*3+uv[0]],v=p[i*3+uv[1]],w=history.geometry.cellVolumes[i];
+    if(!Number.isFinite(u)||!Number.isFinite(v)||u<lo[uv[0]]||u>hi[uv[0]]||v<lo[uv[1]]||v>hi[uv[1]]||!(w>0)||!Number.isFinite(w))throw Error('Original center or volume outside verified mesh bounds');
+    const k=index(u,uv[0])+bins*index(v,uv[1]);counts[k]++;volume[k]+=w;selectedCells++;selectedVolumeM3+=w;
+    const value=metric==='arrival'?history.firstDown[i]:metric==='mushy'?history.mushy[i]:history.up[i];
+    if(!Number.isFinite(value))continue;
+    validCounts[k]++;validVolume[k]+=w;weighted[k]+=value*w;eligibleCells++;eligibleVolumeM3+=w
+  }
+  const mean=new Float64Array(n).fill(NaN);let min=Infinity,max=-Infinity;
+  for(let k=0;k<n;k++)if(validVolume[k]>0){
+    const v=weighted[k]/validVolume[k];if(!Number.isFinite(v))throw Error('Nonfinite bin value');
+    mean[k]=v;min=Math.min(min,v);max=Math.max(max,v)
+  }
+  return {axis,from,to,metric,unit:metric==='upward'?'1':'s',bins,uAxis:'xyz'[uv[0]],vAxis:'xyz'[uv[1]],uMin:lo[uv[0]],uMax:hi[uv[0]],vMin:lo[uv[1]],vMax:hi[uv[1]],counts,validCounts,volume,validVolume,mean,selectedCells,eligibleCells,selectedVolumeM3,eligibleVolumeM3,range:eligibleCells?[min,max]:null,method:'whole-cell center slab selection and volume-weighted 2D display bins; no cut geometry, no interpolation; blank arrival values remain missing'};
+}
+function pfHistorySliceCsv(q){
+  const rows=['u_axis,v_axis,u_min_m,u_max_m,v_min_m,v_max_m,selected_cells,eligible_cells,selected_volume_m3,eligible_volume_m3,volume_weighted_mean,unit'];
+  for(let k=0;k<q.counts.length;k++)if(q.counts[k]){
+    const i=k%q.bins,j=Math.floor(k/q.bins),u=x=>q.uMin+(q.uMax-q.uMin)*x/q.bins,v=x=>q.vMin+(q.vMax-q.vMin)*x/q.bins;
+    rows.push([q.uAxis,q.vAxis,u(i),u(i+1),v(j),v(j+1),q.counts[k],q.validCounts[k],q.volume[k],q.validVolume[k],Number.isFinite(q.mean[k])?q.mean[k]:'',q.unit].join(','))
+  }
+  return rows.join('\n')+'\n'
+}
 function pfSourceTimeWindow(rawTimes,fromIndex,toExclusive,maxFrames=120){
   const fail=reason=>({ok:false,reason,times:[]});
   if(!Array.isArray(rawTimes)||!rawTimes.length)
@@ -322,14 +357,14 @@ function pfSourceTimeWindow(rawTimes,fromIndex,toExclusive,maxFrames=120){
 function pfUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function pfEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function pfEl(id){return document.getElementById(id)}
-let pfToken=0,pfLast=null,pfBinding=null,pfCaseRef=null,pfGroupRef=null,pfHistory=null;
+let pfToken=0,pfLast=null,pfBinding=null,pfCaseRef=null,pfGroupRef=null,pfHistory=null,pfSlice=null;
 const pfGeomCache=new WeakMap(),pfMeshIds=new WeakMap();let pfNextMeshId=1;
 function pfRuntimeMeshIdentity(mesh){
   if(!pfMeshIds.has(mesh))pfMeshIds.set(mesh,pfNextMeshId++);
   return pfMeshIds.get(mesh)
 }
 function pfInvalidate(note=''){
-  pfToken++;pfLast=null;pfBinding=null;pfHistory=null;const historyButton=pfEl('pfExportHistory');if(historyButton)historyButton.disabled=true;
+  pfToken++;pfLast=null;pfBinding=null;pfHistory=null;pfSlice=null;const historyButton=pfEl('pfExportHistory');if(historyButton)historyButton.disabled=true;
   for(const id of ['pfExport','pfExportCsv','pfExportComponents','pfCancel']){const b=pfEl(id);if(b)b.disabled=true}
   const out=pfEl('pfResult');if(out)out.textContent='';
   const plot=pfEl('pfPlot'),ctx=plot?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,plot.width,plot.height);
@@ -376,6 +411,23 @@ function pfParams(){
     from:pfEl('pfFrom')?.value,to:pfEl('pfTo')?.value,
     reconstruct:pfEl('pfReconstruct')?.checked===true,cellHistory:pfEl('pfCellHistory')?.checked===true,
     phaseRoleConfirmed:pfEl('pfConfirmAlpha')?.checked===true}
+}
+function pfDrawHistorySlice(){
+  const q=pfSlice,canvas=pfEl('pfHistoryCanvas');if(!canvas||!q)return;
+  const ctx=canvas.getContext('2d');if(!ctx)return;
+  const width=Math.max(260,canvas.clientWidth||640),height=280,dpr=Math.min(2,window.devicePixelRatio||1),l=65,r=22,t=26,b=42;
+  canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
+  const w=width-l-r,h=height-t-b,ratio=(q.uMax-q.uMin)/(q.vMax-q.vMin),pw=Math.min(w,h*ratio),ph=pw/ratio,x0=l+(w-pw)/2,y0=t+(h-ph)/2;
+  for(let k=0;k<q.counts.length;k++)if(q.counts[k]){
+    const i=k%q.bins,j=Math.floor(k/q.bins),v=q.mean[k],range=q.range;
+    if(!Number.isFinite(v))ctx.fillStyle='#737b88';
+    else{const f=range[1]===range[0]?.5:(v-range[0])/(range[1]-range[0]);ctx.fillStyle='hsl('+Math.round(240-240*f)+' 73% 53%)'}
+    ctx.fillRect(x0+i*pw/q.bins,y0+(q.bins-j-1)*ph/q.bins,pw/q.bins+.15,ph/q.bins+.15)
+  }
+  ctx.strokeStyle='#8a99ad';ctx.strokeRect(x0,y0,pw,ph);ctx.font='11px sans-serif';ctx.fillStyle='#8a99ad';
+  const fmt=v=>Number(v).toPrecision(5);ctx.fillText(q.uAxis.toUpperCase()+' [m] '+fmt(q.uMin)+' → '+fmt(q.uMax),l,height-8);
+  ctx.fillText(q.vAxis.toUpperCase()+' [m]',4,16);ctx.fillText(fmt(q.vMax),4,y0+10);ctx.fillText(fmt(q.vMin),4,y0+ph);
+  if(q.range)ctx.fillText('Blue '+fmt(q.range[0])+' → red '+fmt(q.range[1])+' ['+q.unit+']',l,16)
 }
 function pfPlot(report){
   const canvas=pfEl('pfPlot');if(!canvas||!report?.evolution?.rows?.length)return;
@@ -494,6 +546,16 @@ async function pfRun(){
     '<details><summary>'+pfUi('Spatial front components by snapshot','Componentes espaciales del frente por instante')+'</summary>'+evolution.rows.map(r=>{const q=r.front.connectivity;return '<details><summary>t = '+pfEsc(r.timeS)+' s · '+pfEsc(q.count??q.status)+'</summary><p class="smallnote">'+pfEsc(q.method??q.reason??'')+' · '+pfEsc(r.frontConnectivityChange)+'</p>'+(q.components.length?'<div class="extTableWrap"><table class="extTable"><thead><tr>'+['ID (frame only)','Faces','Area proxy [m²]','Axis min [m]','Axis max [m]','Centroid [m]'].map(h=>'<th>'+pfEsc(h)+'</th>').join('')+'</tr></thead><tbody>'+q.components.slice(0,100).map(g=>'<tr>'+[g.frameComponent,g.faceCount,fmt(g.areaProxyM2),fmt(g.axisMinM),fmt(g.axisMaxM),g.centroidM.map(fmt).join(', ')].map(v=>'<td>'+pfEsc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'')+(q.components.length>100?'<p class="smallnote">First 100 shown; full component evidence in JSON/CSV.</p>':'')+'</details>'}).join('')+'</details>'+
     (cellHistory?'<details open><summary>'+pfUi('Cell arrival and mushy residence','Llegada por celda y permanencia pastosa')+'</summary><p class="smallnote">'+pfEsc(pfLast.cellHistory.method??pfLast.cellHistory.reason??'Unavailable')+'</p>'+ (pfHistory?'<div class="extTableWrap"><table class="extTable"><thead><tr><th>Category</th><th>Cells</th><th>Volume [m³]</th></tr></thead><tbody>'+Object.entries(pfHistory.summary.categories).map(([k,v])=>'<tr><td>'+pfEsc(k)+'</td><td>'+pfEsc(v.cells)+'</td><td>'+pfEsc(fmt(v.volumeM3))+'</td></tr>').join('')+'</tbody></table></div><p>'+pfUi('Volume-weighted arrival estimate [s]: ','Llegada estimada ponderada por volumen [s]: ')+pfEsc(fmt(pfHistory.summary.volumeWeightedArrivalEstimateS))+' · '+pfUi('Volume-weighted mushy duration [s]: ','Duración pastosa ponderada por volumen [s]: ')+pfEsc(fmt(pfHistory.summary.volumeWeightedMushyDurationEstimateS))+'</p><div class="extTableWrap"><table class="extTable"><thead><tr><th>From [s]</th><th>To [s]</th><th>First arrivals</th><th>Volume [m³]</th></tr></thead><tbody>'+pfHistory.summary.intervals.map(v=>'<tr>'+[v.fromTimeS,v.toTimeS,v.firstArrivalCells,fmt(v.firstArrivalVolumeM3)].map(z=>'<td>'+pfEsc(z)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'')+'</details>':'')+
     (excluded.length?'<p class="smallnote">Excluded exact source times: '+pfEsc(excluded.map(x=>x.timeS+': '+x.reason).join(' | '))+'</p>':'');
+  if(pfHistory){
+    const host=pfEl('pfResult'),section=document.createElement('details');section.open=true;
+    section.innerHTML='<summary>'+pfUi('Spatial cell-history preview','Vista espacial del historial por celda')+'</summary><p class="smallnote">'+pfUi('Cell-center slab; volume-weighted bins, not a cut mesh. Gray: selected cells without arrival evidence. Export full native cell IDs separately.','Banda de centros de celda; bins ponderados por volumen, no malla cortada. Gris: celdas seleccionadas sin evidencia de llegada. Exporta IDs nativos completos por separado.')+'</p><div class="extGrid2"><label>'+pfUi('Normal axis','Eje normal')+' <select id="pfHistoryAxis"><option>x</option><option>y</option><option>z</option></select></label><label>'+pfUi('Metric','Métrica')+' <select id="pfHistoryMetric"><option value="arrival">'+pfUi('Arrival estimate','Llegada estimada')+'</option><option value="mushy">'+pfUi('Mushy duration','Duración pastosa')+'</option><option value="upward">'+pfUi('Upward crossings','Cruces ascendentes')+'</option></select></label><label>'+pfUi('Slab from [m]','Banda desde [m]')+' <input id="pfHistoryFrom" inputmode="decimal"></label><label>'+pfUi('Slab to [m]','Banda hasta [m]')+' <input id="pfHistoryTo" inputmode="decimal"></label><label>'+pfUi('Display bins per axis','Bins visuales por eje')+' <select id="pfHistoryBins"><option>32</option><option selected>64</option><option>128</option></select></label></div><div class="extActions"><button id="pfHistorySliceRun" class="btn soft" type="button">'+pfUi('Update slab','Actualizar banda')+'</button><button id="pfHistorySliceExport" class="btn soft" type="button" disabled>'+pfUi('Export slab bins CSV','Exportar bins CSV')+'</button></div><p class="smallnote" id="pfHistorySliceStatus" aria-live="polite"></p><canvas id="pfHistoryCanvas" style="width:100%;height:280px" aria-label="Volume-weighted cell-center slab preview"></canvas>';
+    host.appendChild(section);
+    const clear=()=>{pfSlice=null;pfEl('pfHistorySliceExport').disabled=true;pfEl('pfHistorySliceStatus').textContent=pfUi('Update slab to compute.','Actualiza la banda para calcular.');const cv=pfEl('pfHistoryCanvas');cv.getContext('2d')?.clearRect(0,0,cv.width,cv.height)};
+    const defaults=()=>{const d='xyz'.indexOf(pfEl('pfHistoryAxis').value);pfEl('pfHistoryFrom').value=pfHistory.mesh.boundsMin[d];pfEl('pfHistoryTo').value=pfHistory.mesh.boundsMax[d];clear()};
+    pfEl('pfHistoryAxis').onchange=defaults;for(const id of ['pfHistoryMetric','pfHistoryFrom','pfHistoryTo','pfHistoryBins'])pfEl(id).addEventListener('input',clear);
+    pfEl('pfHistorySliceRun').onclick=()=>{clear();try{pfSlice=pfHistorySlice(pfHistory,{axis:pfEl('pfHistoryAxis').value,from:pfNumber(pfEl('pfHistoryFrom').value),to:pfNumber(pfEl('pfHistoryTo').value),metric:pfEl('pfHistoryMetric').value,bins:pfNumber(pfEl('pfHistoryBins').value)});pfDrawHistorySlice();const q=pfSlice;pfEl('pfHistorySliceStatus').textContent=q.selectedCells+' '+pfUi('selected cells, ','celdas seleccionadas, ')+q.eligibleCells+' '+pfUi('with metric; volume coverage: ','con métrica; cobertura volumétrica: ')+(q.selectedVolumeM3>0?fmt(100*q.eligibleVolumeM3/q.selectedVolumeM3)+'%':'—');pfEl('pfHistorySliceExport').disabled=false}catch(e){pfEl('pfHistorySliceStatus').textContent=e.message}};
+    pfEl('pfHistorySliceExport').onclick=()=>pfExport('slice');defaults();pfEl('pfHistorySliceRun').click();
+  }
   status.textContent=frames.length+' selected original-time frames, '+excluded.length+
     ' unavailable in selection, '+timeWindow.explicitlyExcludedTimes+
     ' source times outside selection. Declared role: '+role+
@@ -517,7 +579,8 @@ function pfExport(kind){
     pfNumber(params.iso)!==b.iso||params.axis!==b.axis){
     pfInvalidate('Case, source alpha field or mesh inventory changed. Recalculate before exporting.');return
   }
-  if(kind==='history'){
+  if(kind==='slice'){if(pfSlice)pfDownload('FoamLens_cell_history_slab_bins.csv',pfHistorySliceCsv(pfSlice),'text/csv')}
+  else if(kind==='history'){
     if(!pfHistory)return;
     try{
       const parts=[...pfCellHistoryCsv(pfHistory)],url=URL.createObjectURL(new Blob(parts,{type:'text/csv;charset=utf-8'})),a=document.createElement('a');
@@ -578,7 +641,8 @@ function pfInstall(){
     for(const type of ['input','change'])
       pfEl(id).addEventListener(type,
         ()=>pfInvalidate('Source parameters changed. Re-run before exporting physical evidence.'));
-  el.addEventListener('toggle',()=>{if(el.open)pfRefresh('cases')});
+  el.addEventListener('toggle',()=>{if(el.open){if(pfLast){pfPlot(pfLast);pfDrawHistorySlice()}else pfRefresh('cases')}});
+  window.addEventListener('resize',()=>{if(el.open&&pfLast){pfPlot(pfLast);pfDrawHistorySlice()}});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(el)}catch{}
   pfRefresh('cases')
 }
