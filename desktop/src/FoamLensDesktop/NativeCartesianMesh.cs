@@ -124,6 +124,33 @@ internal static class NativeCartesianMesh
             var (sd,surface)=BuildSnappy(sn.RootElement,cells);
             if(!sd.Contains("insidePoint (0.5 0.5 0.5);")||!sd.Contains("level (1 2)")||!sd.Contains("addLayers false;")||surface.Count!=1||surface.Values.Single().Length!=134)throw new InvalidOperationException("Snappy dictionary self-test failed.");
         }
+        // Exact native transformation, independently of frontend validation.
+        var uniformNode=JsonNode.Parse(snappyJson)!.AsObject();
+        foreach(var axis in uniformNode["axes"]!.AsArray())
+        {
+            var grading=axis!["grading"]!.AsArray();
+            for(int j=0;j<grading.Count;j++)grading[j]=JsonValue.Create(1.0);
+        }
+        uniformNode["snappy"]!["maxLevel"]=1;
+        uniformNode["snappy"]!["uniformBackground"]=true;
+        var uniform=PrepareSnappyBackground(JsonSerializer.SerializeToElement(uniformNode));
+        if(uniform.UniformLevel!=1||uniform.OriginalCells!=cells||Build(uniform.Input).Cells!=cells*8||
+           !BuildSnappy(uniform.Input,cells*8).Dictionary.Contains("level (0 0)")||
+           !BuildSnappy(uniform.Input,cells*8).Dictionary.Contains("minFaceWeight 0.05;"))
+            throw new InvalidOperationException("Uniform background self-test failed.");
+        foreach(var kind in new[]{"unequal","cap","grading","boxes","overrides"})
+        {
+            var invalid=JsonNode.Parse(uniformNode.ToJsonString())!.AsObject();
+            var sn=invalid["snappy"]!.AsObject();
+            if(kind=="unequal")sn["maxLevel"]=2;
+            if(kind=="cap")sn["maxCells"]=cells*8-1;
+            if(kind=="grading")invalid["axes"]![0]!["grading"]![0]=2.0;
+            if(kind=="boxes")sn["boxes"]=JsonNode.Parse("[{}]");
+            if(kind=="overrides")sn["surfaceSettings"]=JsonNode.Parse("[{}]");
+            bool rejected=false;
+            try{PrepareSnappyBackground(JsonSerializer.SerializeToElement(invalid));}catch(ArgumentException){rejected=true;}
+            if(!rejected)throw new InvalidOperationException("Incompatible uniform background accepted: "+kind);
+        }
         var advancedJson=snappyJson[..^2]+",\"boxes\":[{\"min\":[0.1,0.1,0.1],\"max\":[0.4,0.4,0.4],\"level\":3}],\"surfaceSettings\":[{\"id\":1,\"minLevel\":2,\"maxLevel\":3,\"layers\":2}],\"layerSettings\":{\"expansionRatio\":1.25,\"finalLayerThickness\":0.25,\"minThickness\":0.125}}}";
         using(var sn=JsonDocument.Parse(advancedJson)){
             var (sd,_)=BuildSnappy(sn.RootElement,cells);
