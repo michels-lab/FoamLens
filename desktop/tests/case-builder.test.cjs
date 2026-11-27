@@ -110,3 +110,41 @@ const badSolid=[
 ];
 for(const bad of badSolid)assert.throws(()=>api.build(bad));
 console.log('Constant solid physicalProperties template: both versions, region paths, explicit Cv, conflict rejection and 8 negatives PASS');
+
+const nc={...single,schemes:'metal|Euler|Gauss linear|Gauss linear corrected|linear|corrected',divSchemes:'metal|div(phi,U)|Gauss upwind\nmetal|div(((rho*nuEff)*dev2(T(grad(U)))))|Gauss linear',linearSolvers:'metal|p_rgh|GAMG|symGaussSeidel|1e-7|0.01|0\nmetal|U|PBiCGStab|DILU|1e-7|0.1|0\nmetal|rho|diagonal|-|-|-|-',pimple:'metal|5|2|1|yes',relaxation:'metal|equations|U|0.7',residualControl:'metal|p_rgh|1e-6|0',adaptiveTime:'on',maxCo:'0.5',maxDeltaT:'0.1'};
+for(const version of ['13','14']){
+ const n=api.build({...nc,version}),fs=file(n,'draft/system/fvSchemes'),sol=file(n,'draft/system/fvSolution'),ctrl=file(n,'draft/system/controlDict');
+ assert.match(fs,/default Euler;/);assert.match(fs,/div\(phi,U\) Gauss upwind;/);assert.match(fs,/default none;/);
+ assert.match(sol,/p_rghFinal\s*\{[\s\S]*?relTol 0;/);assert.match(sol,/preconditioner DILU;/);assert.match(sol,/rhoFinal\s*\{\s*solver diagonal;\s*\}/);
+ assert.match(sol,/nOuterCorrectors 5;/);assert.match(sol,/nCorrectors 2;/);assert.match(sol,/outerCorrectorResidualControl/);assert.match(sol,/U 0.7;/);
+ assert.match(ctrl,/adjustTimeStep yes;\nmaxCo 0.5;\nmaxDeltaT 0.1;/);assert.match(ctrl,/writeControl adjustableRunTime;/);
+ assert.strictEqual(n.manifest.numerics.nativeExecutionVerified,false);assert.strictEqual(n.manifest.solverReady,false);
+ assert.deepStrictEqual(api.build(JSON.parse(file(n,'case-builder.json')).input),n);
+}
+const nm={...multi,schemes:nc.schemes+'\nmold|backward|Gauss linear|Gauss linear corrected|linear|corrected',divSchemes:nc.divSchemes,linearSolvers:nc.linearSolvers+'\nmold|e|PCG|DIC|1e-8|0.1|0',pimple:'@global|7|-|-|-\nmetal|-|3|2|yes\nmold|-|-|1|-',relaxation:nc.relaxation,residualControl:nc.residualControl};
+const nn=api.build(nm);
+assert.match(file(nn,'draft/system/fvSolution'),/nOuterCorrectors 7;/);
+assert.match(file(nn,'draft/system/metal/fvSolution'),/nCorrectors 3;/);
+assert.match(file(nn,'draft/system/mold/fvSolution'),/nNonOrthogonalCorrectors 1;/);
+assert(!file(nn,'draft/system/mold/fvSolution').includes('momentumPredictor'));
+assert.match(file(nn,'draft/system/mold/fvSolution'),/eFinal/);
+assert(!file(nn,'draft/system/metal/fvSolution').includes('nOuterCorrectors'));
+assert(!file(nn,'draft/system/fvSchemes'));
+assert(!file(p,'draft/system/fvSolution'));
+const badNumerics=[
+ {schemes:''},{pimple:''},{linearSolvers:''},{schemes:nc.schemes.replace('Euler','Euler; #include bad')},
+ {schemes:nc.schemes.replace('Euler','steadyState')},{divSchemes:'metal|div(phi,U));|Gauss linear'},
+ {divSchemes:'metal|div(phi,U)|Gauss unknown'},{divSchemes:nc.divSchemes+'\nmetal|div(phi,U)|Gauss linear'},
+ {linearSolvers:nc.linearSolvers.replace('GAMG|symGaussSeidel','PCG|DILU')},
+ {linearSolvers:nc.linearSolvers.replace('1e-7','0')},{linearSolvers:nc.linearSolvers.replace('0.01','1.1')},
+ {linearSolvers:nc.linearSolvers.replace('rho|diagonal|-|-|-|-','rho|diagonal|-|1e-5|-|-')},
+ {linearSolvers:nc.linearSolvers.replace('p_rgh|GAMG','p_rghFinal|GAMG')},
+ {linearSolvers:nc.linearSolvers.replace('p_rgh|GAMG','p_rghFINAL|GAMG')},
+ {pimple:'metal|0|2|1|yes'},{pimple:'metal|5|2.5|1|yes'},{pimple:'metal|5|2|-1|yes'},
+ {relaxation:'metal|equations|u|0.7'},{relaxation:'metal|equations|U|0'},
+ {residualControl:'metal|rho|1e-6|0'},{residualControl:'metal|unknown|1e-6|0'},
+ {maxCo:'0'},{maxDeltaT:'0.001'},{maxDeltaT:'11'},{adaptiveTime:'off'}
+];
+for(const bad of badNumerics)assert.throws(()=>api.build({...nc,...bad}),JSON.stringify(bad));
+for(const bad of [{pimple:nm.pimple.replace('@global|7|-|-|-\n','')},{pimple:nm.pimple.replace('mold|-|-|1|-','mold|-|2|1|yes')},{pimple:nm.pimple.replace('metal|-|3','metal|4|3')},{schemes:nc.schemes}])assert.throws(()=>api.build({...nm,...bad}));
+console.log('Numerical configuration: Foundation 13/14, regional solvers/schemes, PIMPLE, adaptive time and '+(badNumerics.length+4)+' negative fixtures PASS');
