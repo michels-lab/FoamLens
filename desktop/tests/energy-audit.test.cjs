@@ -117,3 +117,24 @@ test('product wiring uses common physical time, provenance and explicit no-infer
 
 console.log('FoamLens automatic energy audit regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+test('energy integration retains close times and exact restart precedence',()=>{
+ const r=api.eaMergeSeries([{t:[0,1e-12,2e-12,1],y:[0,100,0,0]}]);
+ assert.equal(r.t.length,4);near(api.eaTrapezoid(r.t,r.y).final,1e-10,1e-20);
+ const m=api.eaMergeSeries([{t:[0,1e-12],y:[0,10]},{t:[1e-12,2e-12],y:[20,0]}]);
+ assert.deepEqual(m.t,[0,1e-12,2e-12]);assert.deepEqual(m.y,[0,20,0]);
+});
+test('large energy closure avoids spread limits and retains finite scaled RMS',()=>{
+ const n=150001,a=new Array(n).fill(0),d=new Array(n).fill(0),t=new Array(n).fill(1e200);
+ const m=api.eaClosureMetrics(a,d,t);assert.equal(m.n,n);assert.equal(m.maxAbs,1e200);assert.equal(m.rms,1e200);
+ assert(!Number.isFinite(api.eaTrapezoid([0,2],[1e308,1e308]).final));
+});
+test('actual energy closure path keeps a peak beyond previous 5000 point cap',()=>{
+ const taSource=fs.readFileSync(path.join(root,'src','FoamLensDesktop','frontend','v13-temporal-alignment.js'),'utf8');
+ const ac=taSource.slice(taSource.indexOf('/* FOAMLENS_TEMPORAL_ALIGNMENT_CORE_START */'),taSource.indexOf('/* FOAMLENS_TEMPORAL_ALIGNMENT_CORE_END */'));
+ const product=source.slice(source.indexOf('function eaMergedRole('),source.indexOf('function eaInventoryRows('));
+ const analyze=new Function(core+'\n'+ac+'\n'+product+'\nreturn eaAnalyzeFluxGroup;')();
+ const n=10001,t=Array.from({length:n},(_,i)=>i),zero=t.map(()=>0),pulse=t.map(i=>i===5001?100:0);
+ const r=analyze({roles:{advective:[{t,y:zero}],diffusive:[{t,y:zero}],total:[{t,y:pulse}]}});
+ assert(r.ok,r.reason);assert.equal(r.grid.length,n);near(r.metrics.maxAbs,100);near(r.integrals.residual,100);
+});

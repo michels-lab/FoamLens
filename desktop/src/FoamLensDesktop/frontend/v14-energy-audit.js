@@ -12,17 +12,18 @@ function eaPhysicalNumber(raw){
   // Null/blank/false are not OpenFOAM energy measurements or timestamps.
   if(typeof raw==='number')return Number.isFinite(raw)?raw:NaN;
   if(typeof raw!=='string'||!raw.trim())return NaN;
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(raw.trim()))return NaN;
   const value=Number(raw);return Number.isFinite(value)?value:NaN
 }
 function eaNorm(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'')}
 function eaFinitePairs(t,y){
   const out=[];for(let i=0;i<Math.min(t?.length||0,y?.length||0);i++){const x=eaPhysicalNumber(t[i]),v=eaPhysicalNumber(y[i]);if(Number.isFinite(x)&&Number.isFinite(v))out.push([x,v])}
-  out.sort((a,b)=>a[0]-b[0]);const d=[];for(const p of out){if(d.length&&Math.abs(d.at(-1)[0]-p[0])<=Math.max(1e-12,Math.max(Math.abs(p[0]),1)*1e-10))d[d.length-1]=p;else d.push(p)}return d
+  out.sort((a,b)=>a[0]-b[0]);const d=[];for(const p of out){if(d.length&&d.at(-1)[0]===p[0])d[d.length-1]=p;else d.push(p)}return d
 }
 function eaMergeSeries(seriesList){
   const all=[];for(const s of seriesList||[])for(const p of eaFinitePairs(s?.t,s?.y))all.push(p);
   all.sort((a,b)=>a[0]-b[0]);const t=[],y=[];
-  for(const [x,v] of all){if(t.length&&Math.abs(t.at(-1)-x)<=Math.max(1e-12,Math.max(Math.abs(x),1)*1e-10)){t[t.length-1]=x;y[y.length-1]=v}else{t.push(x);y.push(v)}}
+  for(const [x,v] of all){if(t.length&&t.at(-1)===x){t[t.length-1]=x;y[y.length-1]=v}else{t.push(x);y.push(v)}}
   return{t,y}
 }
 function eaRoleFromDescriptor(d={}){
@@ -38,8 +39,8 @@ function eaRoleFromDescriptor(d={}){
   return''
 }
 function eaTrapezoid(t,y){
-  const p=eaFinitePairs(t,y);if(!p.length)return{t:[],y:[],final:NaN};let acc=0;const tt=[p[0][0]],out=[0];
-  for(let i=1;i<p.length;i++){const dt=p[i][0]-p[i-1][0];if(dt>0)acc+=.5*(p[i-1][1]+p[i][1])*dt;tt.push(p[i][0]);out.push(acc)}
+  const p=eaFinitePairs(t,y);if(!p.length)return{t:[],y:[],final:NaN};let acc=0,c=0;const tt=[p[0][0]],out=[0];
+  for(let i=1;i<p.length;i++){const dt=p[i][0]-p[i-1][0];if(dt>0){const term=(.5*p[i-1][1]+.5*p[i][1])*dt,adjusted=term-c,next=acc+adjusted;c=(next-acc)-adjusted;acc=next}if(!Number.isFinite(acc))return{t:[],y:[],final:NaN};tt.push(p[i][0]);out.push(acc)}
   return{t:tt,y:out,final:acc}
 }
 function eaQuantile(values,q){
@@ -50,10 +51,14 @@ function eaClosureMetrics(adv,diff,total,epsilon=1e-12){
   const n=Math.min(adv?.length||0,diff?.length||0,total?.length||0),res=[],rel=[];
   for(let i=0;i<n;i++){
     const a=eaPhysicalNumber(adv[i]),d=eaPhysicalNumber(diff[i]),tt=eaPhysicalNumber(total[i]);if(![a,d,tt].every(Number.isFinite))continue;
-    const r=tt-a-d,scale=Math.max(Math.abs(tt),Math.abs(a)+Math.abs(d),Math.abs(Number(epsilon)||0),1e-300);res.push(r);rel.push(Math.abs(r)/scale)
+    const r=tt-a-d,scale=Math.max(Math.abs(tt),Math.abs(a),Math.abs(d),Math.abs(Number(epsilon)||0),1e-300);
+    if(!Number.isFinite(r)||!Number.isFinite(scale))continue;
+    const normalizedScale=Math.max(Math.abs(tt)/scale,Math.abs(a)/scale+Math.abs(d)/scale,Math.abs(Number(epsilon)||0)/scale,1e-300/scale);
+    res.push(r);rel.push((Math.abs(r)/scale)/normalizedScale)
   }
-  const abs=res.map(Math.abs),rms=res.length?Math.sqrt(res.reduce((s,v)=>s+v*v,0)/res.length):NaN;
-  return{n:res.length,residual:res,relative:rel,meanAbs:abs.length?abs.reduce((s,v)=>s+v,0)/abs.length:NaN,rms,maxAbs:abs.length?Math.max(...abs):NaN,p95Relative:eaQuantile(rel,.95),maxRelative:rel.length?Math.max(...rel):NaN}
+  let maxAbs=0,maxRelative=0;for(let i=0;i<res.length;i++){maxAbs=Math.max(maxAbs,Math.abs(res[i]));maxRelative=Math.max(maxRelative,rel[i])}
+  let abs=0,squares=0;if(maxAbs>0)for(const r of res){const v=r/maxAbs;abs+=Math.abs(v);squares+=v*v}
+  return{n:res.length,residual:res,relative:rel,meanAbs:res.length?maxAbs*(abs/res.length):NaN,rms:res.length?maxAbs*Math.sqrt(squares/res.length):NaN,maxAbs:res.length?maxAbs:NaN,p95Relative:eaQuantile(rel,.95),maxRelative:rel.length?maxRelative:NaN}
 }
 function eaInventoryDelta(t,y){
   const p=eaFinitePairs(t,y);return p.length>=2?{startTime:p[0][0],endTime:p.at(-1)[0],start:p[0][1],end:p.at(-1)[1],delta:p.at(-1)[1]-p[0][1]}:{startTime:NaN,endTime:NaN,start:NaN,end:NaN,delta:NaN}
@@ -120,10 +125,11 @@ function eaAnalyzeFluxGroup(g,epsilon=1e-12){
   if(m.n!==aligned.grid.length)return{
     ok:false,group:g,reason:'incomplete synchronized energy samples; residual integral unavailable'
   };
-  const res=m.residual;
+  const res=m.residual,integrals={advective:eaTrapezoid(aligned.grid,a).final,diffusive:eaTrapezoid(aligned.grid,d).final,total:eaTrapezoid(aligned.grid,t).final,residual:eaTrapezoid(aligned.grid,res).final};
+  if(!Object.values(integrals).every(Number.isFinite))return{ok:false,group:g,reason:'nonfinite energy integral'};
   return{
     ok:true,group:g,range:aligned.range,grid:aligned.grid,advective:a,diffusive:d,total:t,residual:res,metrics:m,
-    integrals:{advective:eaTrapezoid(aligned.grid,a).final,diffusive:eaTrapezoid(aligned.grid,d).final,total:eaTrapezoid(aligned.grid,t).final,residual:eaTrapezoid(aligned.grid,res).final},
+    integrals,
     noExtrapolation:true
   }
 }
