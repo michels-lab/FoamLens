@@ -78,3 +78,20 @@ test('iso-surface module stays generic and contains no thesis fixture names',()=
 
 console.log('FoamLens Field View iso-surface regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+test('constant scalar plateau is not an identifiable contour',()=>{
+ const vertices=[[0,0,0],[1,0,0],[0,1,0],[0,0,1]];
+ assert.equal(api.fvIsoTetra(vertices,[.5,.5,.5,.5],.5).length,0);
+ assert.equal(api.fvIsoTetra(vertices,[null,1,0,0],.5).length,0);
+ assert.equal(api.fvIsoTetra(vertices,[0,1,0,0],'').length,0);
+ assert.equal(api.fvIsoTetra(vertices,[0,1,0,0],false).length,0);
+});
+test('scalar and geometric tolerances are not mixed',()=>{
+ const vertices=[[0,0,0],[1,0,0],[0,1,0],[0,0,1]],tris=api.fvIsoTetra(vertices,[0,1e-12,0,0],5e-13,1e-9);
+ assert.equal(tris.length,1);for(const p of tris[0])near(p[0],.5);
+});
+test('contour bounds use original data, not display palette; invalid input clears geometry',()=>{
+ assert(isoSource.includes('const sourceRange=fvFiniteRange(fvState.fieldValues)'));
+ assert(isoSource.includes('fvState.isoGeometry=null;flSetIssue(meta,\'iso-value-invalid\''));
+ assert(isoSource.includes('coverage:{examinedTetra,skippedTetra,plateauTetra,skippedCells}'));
+});

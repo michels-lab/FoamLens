@@ -18,7 +18,7 @@ const end='/* FOAMLENS_FIELD_PROBE_CORE_END */';
 const a=source.indexOf(begin),b=source.indexOf(end,a);
 assert(a>=0&&b>a,'Field Probe core markers missing.');
 const core=source.slice(a,b+end.length);
-const api=new Function(core+';return {fpMat4Invert,fpTransform4,fpPerspectiveDivide,fpRayTriangle,fpTriangleValue,fpPickTriangles};')();
+const api=new Function(core+';return {fpMat4Invert,fpTransform4,fpPerspectiveDivide,fpRayTriangle,fpTriangleValue,fpPickTriangles,fpMakePin,fpPinCsv};')();
 
 const passed=[];
 function test(name,fn){fn();passed.push(name)}
@@ -262,4 +262,18 @@ test('probe time histories cannot silently mix OpenFOAM cases or metal/mold regi
     'Physical source match must be enforced before loading OpenFOAM frames');
   assert(workspaceSource.includes('region:primary.region??fvState.region'),
     'Field histories must use the pinned measured region, not the selected primary');
+});
+
+test('small physical triangles are pickable and absent fields or IDs never become zero',()=>{
+ const tri=[0,0,0,1e-6,0,0,0,1e-6,0],hit=api.fpPickTriangles([2e-7,2e-7,1e-6],[0,0,-1],tri,{values:[null,2,3],cellIds:[null],faceIds:[-1],constantValue:null});
+ assert(hit);assert(Number.isNaN(hit.value));assert.equal(hit.cell,null);assert.equal(hit.face,null);
+ assert.equal(api.fpRayTriangle([NaN,0,1],[0,0,-1],[0,0,0],[1,0,0],[0,1,0]),null);
+});
+test('saved probes own their immutable coordinates and retain missing-value provenance',()=>{
+ const hit={caseId:17,region:'metal',fieldName:'T',storage:'volume',time:0,point:[0,.01,.02],value:0,cell:0,kind:'surface',parsed:{dimensions:[0,0,0,1,0,0,0]}};
+ const p=api.fpMakePin(hit,'value','K',1);assert(p);assert.equal(p.value,0);assert.equal(p.cell,0);hit.point[1]=4;hit.parsed.dimensions[3]=9;assert.equal(p.point_m[1],.01);assert.equal(p.dimensions[3],1);
+ const q=api.fpMakePin({...hit,geometryOnly:true},'value','K',2);assert.equal(q.value,null);
+ assert.equal(api.fpMakePin({...hit,time:NaN},'value','K',3),null);
+ const csv=api.fpPinCsv([p,{...q,field:'=bad'}]);assert(csv.includes("'=bad"));assert(csv.includes('time_s,x_m,y_m,z_m,value'));
+ assert(source.includes('fpState.pins.push(p)'));assert(source.includes('FoamLens_probe_observations.'));
 });
