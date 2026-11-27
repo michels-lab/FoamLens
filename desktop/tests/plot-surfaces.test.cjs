@@ -110,7 +110,7 @@ for(const name of passed)console.log('  ✓ '+name);
 
 const fesStart=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_START */'),fesEnd=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_END */');
 assert(fesStart>=0&&fesEnd>fesStart);
-const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish};')();
+const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish,fesHeatFlux,fesFaceArea,fesPatchPower,fesPhaseVolumes,fesDerivedPreviewData};')();
 const source={caseId:'a',region:'metal',field:'T',association:'volume',component:'value',unit:'K',time_s:0,paths:['0/metal/T'],dimensions:[0,0,0,1,0,0,0],meshId:'mesh-A'};
 const mesh={cellCount:4,cellCenters:[0,0,0,1,0,0,2,1,0,3,1,0]};
 const input={mesh,source,values:[0,100,200,null]};
@@ -205,4 +205,21 @@ test('temporal statistics uses irregular physical intervals and linear moments, 
  const frame=(time,v)=>({mesh:{cellCount:2},values:v,source:{...source,time_s:time}});
  const st=fes.fesTemporalStart(frame(0,[0,10]));assert(finishGenerator(fes.fesTemporalStep(st,frame(1,[2,null]))));assert(finishGenerator(fes.fesTemporalStep(st,frame(3,[6,20]))));const q=finishGenerator(fes.fesTemporalFinish(st));assert(q.valid);assert.strictEqual(q.duration_s,3);assert(Math.abs(q.columns[0].values[0]-3)<1e-10);assert(Math.abs(q.columns[1].values[0]-Math.sqrt(3))<1e-10);assert.strictEqual(q.columns[2].values[0],0);assert.strictEqual(q.columns[3].values[0],6);assert(Number.isNaN(q.columns[0].values[1]));assert.strictEqual(q.coverage.valid,1);
  const wrong=fes.fesTemporalStart(frame(0,[0,1]));assert(!finishGenerator(fes.fesTemporalStep(wrong,{...frame(1,[1,2]),source:{...source,time_s:1,meshId:'moved'}})));
+});
+
+test('Fourier heat flux validates conductivity and preserves gradient missing coverage',()=>{
+ const a={mesh:{cellCount:4,cellCenters:[0,0,0,.001,0,0,0,.001,0,0,0,.001],owners:[0,0,0],neighbours:[1,2,3]},values:[10,12,13,14],source};
+ const q=finishGenerator(fes.fesHeatFlux(a,2,'xyz'));assert(q.valid);assert.strictEqual(q.columns[0].values[0],-4000);assert.strictEqual(q.columns[1].values[0],-6000);assert.strictEqual(q.columns[2].values[0],-8000);assert.strictEqual(q.coverage.valid,1);assert(Number.isNaN(q.columns[0].values[1]));assert.deepStrictEqual(q.dimensions,[1,0,-3,0,0,0,0]);assert(!finishGenerator(fes.fesHeatFlux(a,-1,'xyz')).valid);
+ const k={...a,values:[3,3,3,3],source:{...source,field:'k',dimensions:[1,1,-3,-1,0,0,0]}};assert.strictEqual(finishGenerator(fes.fesHeatFlux(a,k,'xyz')).columns[0].values[0],-6000);assert(!finishGenerator(fes.fesHeatFlux(a,{...k,source:{...k.source,meshId:'bad'}},'xyz')).valid)
+});
+test('boundary power uses explicit face flux and area, sign and complete coverage',()=>{
+ const m={...cube(0,2),internalFaceCount:0,faceCount:6,boundaryPatches:[{name:'wall',type:'wall',startFace:0,nFaces:2}]},a={mesh:m,source:{...source,association:'surface',dimensions:[1,0,-3,0,0,0,0]},boundary:new Map([[0,10],[1,20]])};
+ assert.strictEqual(fes.fesFaceArea(m,0),4);const q=finishGenerator(fes.fesPatchPower(a,['wall'],'outward-positive'));assert(q.valid);assert.strictEqual(q.outwardPower_W,120);assert.strictEqual(q.area_m2,8);assert.strictEqual(finishGenerator(fes.fesPatchPower(a,['wall'],'inward-positive')).outwardPower_W,-120);assert(!finishGenerator(fes.fesPatchPower({...a,boundary:new Map([[0,10]])},['wall'],'outward-positive')).valid);assert(!finishGenerator(fes.fesPatchPower(a,['wall'],'')).valid);
+ const power={...a,source:{...a.source,dimensions:[1,2,-3,0,0,0,0]}};assert.strictEqual(finishGenerator(fes.fesPatchPower(power,['wall'],'outward-positive')).outwardPower_W,30);
+});
+test('phase volumes require explicit role, dimensionless field and valid fractions',()=>{
+ const a={mesh:cube(),values:[.25],source:{...source,field:'alpha',dimensions:[0,0,0,0,0,0,0]}},q=finishGenerator(fes.fesPhaseVolumes(a,'liquid'));assert(q.valid);assert.strictEqual(q.liquid_m3,.25);assert.strictEqual(q.solid_m3,.75);assert.strictEqual(finishGenerator(fes.fesPhaseVolumes(a,'solid')).liquid_m3,.75);assert(!finishGenerator(fes.fesPhaseVolumes({...a,values:[1.1]},'liquid')).valid);assert(!finishGenerator(fes.fesPhaseVolumes(a,'unknown')).valid);
+});
+test('derived preview samples display only and retains full measured extrema',()=>{
+ const mesh={cellCount:5,cellCenters:[0,0,0,1,0,0,2,0,0,3,0,0,4,0,0]},values=[1,99,3,NaN,5],q=fes.fesDerivedPreviewData(mesh,values,2);assert.strictEqual(q.valid,4);assert.strictEqual(q.missing,1);assert.strictEqual(q.max,99);assert(q.points.length<=2);assert.strictEqual(values.length,5);
 });
