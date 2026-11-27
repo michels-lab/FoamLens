@@ -148,3 +148,17 @@ assert.equal(components(edgeMesh,edgeGeo,new Array(100001).fill(0),0).status,'un
 assert(source.includes("'pfExport','pfExportCsv','pfExportComponents','pfCancel'"));
 assert(source.includes("pfExport('components')"));
 console.log('Granada #153 edge connectivity and phase category volume-rate regression PASS');
+
+const reconstructed=new Function(source.slice(first,last)+';return pfReconstructedMetrics')();
+const tri=reconstructed({triangleCount:1,positions:new Float32Array([0,0,0,2,0,0,0,2,0])});
+assert.equal(tri.status,'available');near(tri.areaM2,2);near(tri.centroidM[0],2/3);near(tri.centroidM[1],2/3);
+assert.equal(tri.physicalInterfaceVerified,false);
+assert.equal(reconstructed({triangleCount:0,positions:[]}).status,'no-triangles');
+assert.equal(reconstructed({triangleCount:1,positions:[0,0,0,1,0,0,2,0,0]}).status,'unavailable');
+assert.equal(reconstructed({triangleCount:1,positions:[0,0,0,1,0,0,NaN,1,0]}).status,'unavailable');
+assert.equal(reconstructed({triangleCount:1,positions:[0,0,0]}).status,'unavailable');
+assert(source.includes('fvBuildIsoSurfaceGeometry(mesh,values,cut)'));
+assert(source.includes('params.reconstruct!==b.reconstruct'));
+assert(source.includes('Exact threshold cell value; plateau ambiguity'));
+assert(source.includes('reconstruct&&times.length>20'));
+console.log('Optional reconstructed surface metrics, invalid triangle and source-binding checks PASS');
