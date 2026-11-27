@@ -237,6 +237,26 @@ foreach(bool explicitFeatures in new[]{false,true}){
   return new{cells,quality,snap=true,explicitFeatures,backgroundCells=4096,originalBackgroundCells=512,localRefinement=0,qualityCertified=false};
  });
 }
+// Independent uniform alternatives: preserve both named surfaces and optional
+// layer requests; record actual quality, never substitute for strict local gates.
+foreach(bool withLayers in new[]{false,true}){
+ if(suite=="core")break;
+ string scenario=withLayers?"snappy-uniform-multi-layers":"snappy-uniform-multi-explicit";
+ await Scenario(scenario,async()=>{
+  var surfaceSettings=withLayers?new[]{new{id=1,minLevel=1,maxLevel=1,layers=1},new{id=2,minLevel=1,maxLevel=1,layers=1}}:new[]{new{id=1,minLevel=1,maxLevel=1,layers=1}}.Take(0).ToArray();
+  var cfg=JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,uniformBackground=true,snapEnabled=true,explicitFeatures=true,transitionLayers=3,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.143f))},new{stlBase64=Convert.ToBase64String(SmallCube(.49f))}},surfaceSettings,layerSettings=new{expansionRatio=1.2,finalLayerThickness=.25,minThickness=.1}}});
+  var prepared=NativeCartesianMesh.PrepareSnappyBackground(cfg);
+  var (dict,surfaces)=NativeCartesianMesh.BuildSnappy(prepared.Input,4096);
+  if(surfaces.Count!=2||!dict.Contains("level (0 0)")||(withLayers&&!dict.Contains("nSurfaceLayers 1;")))throw new InvalidOperationException("Uniform multi-surface transform mismatch");
+  var dir=await Run(scenario,"snappyHexMesh",false,cfg);int cells=Cells(dir);
+  var boundary=File.ReadAllText(Path.Combine(dir,"constant","polyMesh","boundary"));
+  if(cells<=0||!boundary.Contains("flSurface_001")||!boundary.Contains("flSurface_002"))throw new InvalidOperationException("Uniform surface identities lost");
+  var quality=NativeCartesianMesh.QualityStatus(0,File.ReadAllText(Path.Combine(dir,"checkMesh.log")));
+  if(quality is not ("mesh-ok-reported" or "checks-failed"))throw new InvalidOperationException("Missing native quality evidence");
+  Console.WriteLine(scenario+" quality: "+quality);
+  return new{cells,quality,surfaces=2,withLayers,layerCoverageCertified=false,qualityCertified=false};
+ });
+}
 if(suite!="core")await Scenario("snappy-multi",async()=>{
 var multi=await Run("snappy-multi","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.125f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}}));
 var multiCells=Cells(multi);if(multiCells<=0||multiCells==512)throw new InvalidOperationException("Multi-surface snappy did not produce a different mesh");

@@ -107,3 +107,11 @@ assert.deepEqual(recovery.defects({...reject,checkMeshLog:reject.checkMeshLog+re
 assert.deepEqual(recovery.defects({...reject,checkMeshLog:'Failed 1 mesh checks.'}),{concaveCells:null});
 assert(src.includes('id="cmbSnappyPlanEstimate"'));assert(src.includes('function buttons(){updateSnappyEstimate();'));
 console.log('Read-only recovery budget and native concavity evidence PASS');
+
+const uniformLayer={id:1,minLevel:1,maxLevel:1,layers:1};
+assert.deepEqual(uniform(ub,ucfg,{...empty,surfaceSettings:[uniformLayer],snapEnabled:true}),{factor:2,cells:1920,level:1});
+for(const surfaceSettings of [[{...uniformLayer,maxLevel:2}],[uniformLayer,uniformLayer],[{...uniformLayer,id:0}],[{...uniformLayer,layers:9}]])assert.throws(()=>uniform(ub,ucfg,{...empty,surfaceSettings,snapEnabled:true}));
+assert.throws(()=>uniform(ub,ucfg,{...empty,surfaceSettings:[uniformLayer],snapEnabled:false}));
+assert.equal(recovery.estimate(ub,ucfg,false,[uniformLayer],true,true,true).uniform.cells,1920);
+assert.equal(receipt(ub,{snappy:{...request.snappy,surfaceSettings:[uniformLayer],snapEnabled:true}},nativeReceipt),true);
+console.log('Uniform matching surface layers and receipt compatibility PASS');

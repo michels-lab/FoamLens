@@ -162,6 +162,22 @@ internal static class NativeCartesianMesh
             try{PrepareSnappyBackground(JsonSerializer.SerializeToElement(invalid));}catch(ArgumentException){rejected=true;}
             if(!rejected)throw new InvalidOperationException("Incompatible uniform background accepted: "+kind);
         }
+        var uniformLayers=JsonNode.Parse(uniformNode.ToJsonString())!.AsObject();
+        uniformLayers["snappy"]!["surfaceSettings"]=JsonNode.Parse("[{\"id\":1,\"minLevel\":1,\"maxLevel\":1,\"layers\":1}]");
+        var preparedLayers=PrepareSnappyBackground(JsonSerializer.SerializeToElement(uniformLayers));
+        var layerDict=BuildSnappy(preparedLayers.Input,cells*8).Dictionary;
+        if(!layerDict.Contains("level (0 0)")||!layerDict.Contains("addLayers true;")||!layerDict.Contains("nSurfaceLayers 1;"))
+            throw new InvalidOperationException("Uniform layer transform failed.");
+        foreach(var kind in new[]{"level","duplicate","disabled","id"}){
+            var invalid=JsonNode.Parse(uniformLayers.ToJsonString())!.AsObject();
+            var settings=invalid["snappy"]!.AsObject();var rows=settings["surfaceSettings"]!.AsArray();
+            if(kind=="level")rows[0]!["maxLevel"]=2;
+            if(kind=="duplicate")rows.Add(JsonNode.Parse(rows[0]!.ToJsonString()));
+            if(kind=="disabled")settings["snapEnabled"]=false;
+            if(kind=="id")rows[0]!["id"]=2;
+            bool rejected=false;try{PrepareSnappyBackground(JsonSerializer.SerializeToElement(invalid));}catch(ArgumentException){rejected=true;}
+            if(!rejected)throw new InvalidOperationException("Invalid uniform layers accepted: "+kind);
+        }
         var advancedJson=snappyJson[..^2]+",\"boxes\":[{\"min\":[0.1,0.1,0.1],\"max\":[0.4,0.4,0.4],\"level\":3}],\"surfaceSettings\":[{\"id\":1,\"minLevel\":2,\"maxLevel\":3,\"layers\":2}],\"layerSettings\":{\"expansionRatio\":1.25,\"finalLayerThickness\":0.25,\"minThickness\":0.125}}}";
         using(var sn=JsonDocument.Parse(advancedJson)){
             var (sd,_)=BuildSnappy(sn.RootElement,cells);
@@ -267,7 +283,7 @@ internal static class NativeCartesianMesh
 
     // Explicit alternate mesh strategy: put the requested equal refinement
     // into the background counts, not local octree transitions. Only uniform
-    // grading is supported; local boxes/overrides/layers cannot be substituted.
+    // grading is supported; local boxes and unequal surface levels cannot be substituted.
     internal static (JsonElement Input,int? UniformLevel,long? OriginalCells) PrepareSnappyBackground(JsonElement root)
     {
         if(!root.TryGetProperty("snappy",out var settings)||!settings.TryGetProperty("uniformBackground",out var flag)||!flag.GetBoolean())return(root,null,null);
@@ -275,9 +291,22 @@ internal static class NativeCartesianMesh
         int min=settings.GetProperty("minLevel").GetInt32(),max=settings.GetProperty("maxLevel").GetInt32(),cap=settings.GetProperty("maxCells").GetInt32();
         if(min!=max||min<1||min>4)throw new ArgumentException("Uniform background requires equal requested refinement levels 1–4.");
         if(root.GetProperty("zones").GetArrayLength()!=0||(root.TryGetProperty("splitRegions",out var split)&&split.GetBoolean())||
-           (settings.TryGetProperty("boxes",out var boxes)&&boxes.GetArrayLength()!=0)||
-           (settings.TryGetProperty("surfaceSettings",out var overrides)&&overrides.GetArrayLength()!=0))
-            throw new ArgumentException("Uniform background is an alternative without zones, local boxes or per-surface overrides/layers.");
+           (settings.TryGetProperty("boxes",out var boxes)&&boxes.GetArrayLength()!=0))
+            throw new ArgumentException("Uniform background is an alternative without zones or local boxes.");
+        // Preserve requested layers only with identical refinement levels.
+        if(settings.TryGetProperty("surfaceSettings",out var overrides)){
+            int surfaceCount=settings.TryGetProperty("surfaces",out var list)?list.GetArrayLength():1;
+            var ids=new HashSet<int>();
+            bool snapping=!settings.TryGetProperty("snapEnabled",out var snap)||snap.GetBoolean();
+            foreach(var cfg in overrides.EnumerateArray()){
+                if(cfg.ValueKind!=JsonValueKind.Object||
+                   !cfg.TryGetProperty("id",out var idNode)||!idNode.TryGetInt32(out int id)||id<1||id>surfaceCount||!ids.Add(id)||
+                   !cfg.TryGetProperty("minLevel",out var lo)||!lo.TryGetInt32(out int low)||low!=min||
+                   !cfg.TryGetProperty("maxLevel",out var hi)||!hi.TryGetInt32(out int high)||high!=max||
+                   !cfg.TryGetProperty("layers",out var layerNode)||!layerNode.TryGetInt32(out int layers)||layers<0||layers>8||(!snapping&&layers>0))
+                    throw new ArgumentException("Uniform surface overrides require unique valid IDs, matching uniform levels, and snap for layers.");
+            }
+        }
         if(cap<baseCells||cap>350000)throw new ArgumentException("Invalid maxGlobalCells for uniform background.");
         var factor=1<<min;
         long refined=checked(baseCells*factor*factor*factor);
@@ -296,6 +325,8 @@ internal static class NativeCartesianMesh
         }
         var sn=node["snappy"]!.AsObject();
         sn["minLevel"]=0;sn["maxLevel"]=0;sn.Remove("uniformBackground");
+        if(sn["surfaceSettings"] is JsonArray uniformOverrides)
+            foreach(var cfg in uniformOverrides){cfg!["minLevel"]=0;cfg["maxLevel"]=0;}
         var prepared=JsonSerializer.SerializeToElement(node);
         if(Build(prepared).Cells!=refined)throw new InvalidOperationException("Uniform background cell accounting mismatch.");
         return(prepared,min,baseCells);
