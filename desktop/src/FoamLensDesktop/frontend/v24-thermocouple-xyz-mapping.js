@@ -117,6 +117,33 @@ function tcTemporalEvidence(a,b,start,end){
   if(!Object.values(metrics).every(Number.isFinite)||rates.some(z=>!Object.values(z).every(Number.isFinite)))throw Error('Nonfinite temporal evidence');
   return {metrics,rows,rates,method:'piecewise linear integration on both original time grids and explicit boundaries; negative interval slope is cooling rate; no extrapolation, smoothing or event identification'};
 }
+function tcThresholds(raw){
+ if(raw==null||raw==='')return [];
+ if(typeof raw!=='string')throw Error('Enter explicit Kelvin thresholds');
+ if(!raw.trim())return [];
+ const v=raw.split(/[,;]/).map(tcNumber);
+ if(v.some(x=>!Number.isFinite(x)||x<0)||new Set(v).size!==v.length)throw Error('Unique finite nonnegative Kelvin thresholds required');
+ return v.sort((a,b)=>a-b)
+}
+function tcThresholdEvidence(a,b,levels,start,end){
+ const events=[];
+ for(const thresholdK of levels)for(const [source,p] of [['simulation',a],['experiment',b]]){
+  for(let i=0;i<p.length;i++){
+   const [t,v]=p[i];
+   if(v===thresholdK){
+    const first=i;while(i+1<p.length&&p[i+1][1]===thresholdK)i++;
+    const lo=p[first][0],hi=p[i][0];
+    if(hi>=start&&lo<=end)events.push({source,thresholdK,status:first===i?'exact-source-level':'exact-source-plateau',direction:null,bracketStartS:lo,bracketEndS:hi,estimatedTimeS:first===i?t:null,windowStartS:Math.max(lo,start),windowEndS:Math.min(hi,end)});
+    continue
+   }
+   if(!i)continue;const [t0,v0]=p[i-1];
+   if(!((v0>thresholdK&&v<thresholdK)||(v0<thresholdK&&v>thresholdK)))continue;
+   const crossing=t0+(t-t0)*(thresholdK-v0)/(v-v0);
+   if(crossing>=start&&crossing<=end)events.push({source,thresholdK,status:'strict-crossing-linear-estimate',direction:v<v0?'downward':'upward',bracketStartS:t0,bracketEndS:t,estimatedTimeS:crossing,windowStartS:crossing,windowEndS:crossing})
+  }
+ }
+ return {thresholdsK:levels,events,method:'strict source brackets with linear estimate; exact sample levels and plateaus separately reported, direction unknown; selected common window only',metallurgicalEventsVerified:false}
+}
 function tcWindowCsv(rows,keys){return [keys.join(','),...rows.map(z=>keys.map(k=>z[k]??'').join(','))].join('\n')+'\n'}
 function tcCompare(sim,experimental,settings={}){
   const invalid=reason=>({valid:false,reason,rows:[],metrics:null,noExtrapolation:true});
@@ -183,7 +210,11 @@ function tcCompare(sim,experimental,settings={}){
     bias:rows.reduce((n,r)=>n+r.simMinusExpK,0)/rows.length,
     rmse:Math.sqrt(rows.reduce((n,r)=>n+r.simMinusExpK**2,0)/rows.length),
     maxAbs:rows.reduce((m,r)=>Math.max(m,Math.abs(r.simMinusExpK)),0)};
-  let temporal;try{temporal=tcTemporalEvidence(a.map(([t,v])=>[t,v+sourceK.offset]),expShifted.map(([t,v])=>[t,v+expK.offset]),commonStart,commonEnd)}catch(e){return invalid(e.message)}
+  let temporal,thresholdEvidence;try{
+ const simK=a.map(([t,v])=>[t,v+sourceK.offset]),expKelvin=expShifted.map(([t,v])=>[t,v+expK.offset]);
+ temporal=tcTemporalEvidence(simK,expKelvin,commonStart,commonEnd);
+ thresholdEvidence=tcThresholdEvidence(simK,expKelvin,tcThresholds(settings.thresholdsK),commonStart,commonEnd)
+ }catch(e){return invalid(e.message)}
   return{valid:true,schema:'foamlens/thermocouple-mapping/1',caseId:Number(sim.caseId),region,
     targetXYZm:measuredPoint,simProbeXYZm:simPoint,probeOffsetM:discrepancy,maxOffsetM:maxOffset,
     meshEvidence:{...location},probeCellEvidence:{...settings.probeLocation},sourceEvidence:{path:sim.sourcePath,fieldHistoryKey:sim.fieldHistoryKey,
@@ -192,7 +223,7 @@ function tcCompare(sim,experimental,settings={}){
     experimentalEvidence:{fileName:experimental.fileName||'',unit:experimental.unit,
       timeColumn:experimental.timeColumn||'',temperatureColumn:experimental.temperatureColumn||'',
       sourceSamples:b.length},settings:{timeShiftS:shift,maxOffsetM:maxOffset,startTimeS:requestedStart,endTimeS:requestedEnd},
-    commonTime:{start:commonStart,end:commonEnd},originalOverlap:{start:overlapStart,end:overlapEnd},metrics,rows,temporal,noExtrapolation:true,
+    commonTime:{start:commonStart,end:commonEnd},originalOverlap:{start:overlapStart,end:overlapEnd},metrics,rows,temporal,thresholdEvidence,noExtrapolation:true,
     noSpatialInterpolation:true,noAutomaticRecalescenceLabel:true,noCaseMutation:true,
     limitations:[
       'Cell containment confirms only the supplied XYZ in the CURRENT loaded OpenFOAM region mesh, not full physical thermocouple sensor calibration.',
@@ -237,9 +268,9 @@ function tcEsc(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'
 let tcFile=null,tcRows=null,tcSources=[],tcLast=null,tcRuntime=null,tcSequence=0;
 function tcEl(id){return document.getElementById(id)}
 function tcInvalidate(message=''){
-  tcLast=null;tcRuntime=null;for(const id of ['tcExportJson','tcExportCsv','tcExportTemporal','tcExportRates']){const el=tcEl(id);if(el)el.disabled=true}
+  tcLast=null;tcRuntime=null;for(const id of ['tcExportJson','tcExportCsv','tcExportTemporal','tcExportRates','tcExportThresholds']){const el=tcEl(id);if(el)el.disabled=true}
   const out=tcEl('tcReport');if(out)out.textContent='';
-  const canvas=tcEl('tcPlot'),ctx=canvas?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(const id of ['tcPlot','tcRatePlot']){const canvas=tcEl(id),ctx=canvas?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,canvas.width,canvas.height)}
   const s=tcEl('tcStatus');if(s&&message)s.textContent=message
 }
 function tcSourceCatalog(){
@@ -315,7 +346,7 @@ function tcRun(){
     mesh=tcActiveMesh(source),loc=tcLocateLive(mesh,point),probeLoc=tcLocateLive(mesh,tcProbePoint(source)),
     options={caseId:source.caseId,region:tcRegion(source),targetXYZ:xyz,coordinateUnit:unit,location:loc,
       probeLocation:probeLoc,maxOffsetM:tcEl('tcTolerance').value,timeShiftS:tcEl('tcTimeShift').value,
-      startTimeS:tcEl('tcWindowStart').value,endTimeS:tcEl('tcWindowEnd').value,sensitivityRadiusM:tcEl('tcSensitivityRadius').value,locateAlternative:p=>tcLocateLive(mesh,p)};
+      startTimeS:tcEl('tcWindowStart').value,endTimeS:tcEl('tcWindowEnd').value,thresholdsK:tcEl('tcThresholds').value,sensitivityRadiusM:tcEl('tcSensitivityRadius').value,locateAlternative:p=>tcLocateLive(mesh,p)};
   const result=tcCompare(source,exp,options);
   if(!result.valid){tcEl('tcStatus').textContent=result.reason+' · Mapping: '+loc.status+' ('+loc.reason+'). Load the exact 3D case/region in Field to verify the cell.';return}
   const sensitivity=tcSensitivity(source,tcSources,exp,options);
@@ -339,8 +370,10 @@ function tcRun(){
     ['Alternative measured probe XYZ [m]','Sensor distance [m]','RMSE [K]','ΔRMSE [K]','Time-weighted RMSE [K]','Window [s]','N']
        .map(x=>'<th>'+tcEsc(x)+'</th>').join('')+'</tr></thead><tbody>'+sensitivities+'</tbody></table></div>';
   if(sensitivity.results.length>100)tcEl('tcReport').innerHTML+='<p class="smallnote">First 100 alternatives displayed; all retained in evidence JSON.</p>';
-  tcDraw({...result,rows:result.temporal.rows});
-  tcEl('tcExportJson').disabled=false;tcEl('tcExportCsv').disabled=false;tcEl('tcExportTemporal').disabled=false;tcEl('tcExportRates').disabled=false
+  const events=result.thresholdEvidence.events;
+ if(result.thresholdEvidence.thresholdsK.length)tcEl('tcReport').innerHTML+='<details open><summary>'+tcUi('User-selected temperature levels','Temperaturas elegidas')+'</summary><p class="smallnote">'+tcEsc(result.thresholdEvidence.method)+'</p><div class="extTableWrap"><table class="extTable"><thead><tr>'+['Source','Threshold [K]','Status','Direction','Original bracket [s]','Estimate [s]'].map(v=>'<th>'+tcEsc(v)+'</th>').join('')+'</tr></thead><tbody>'+events.slice(0,200).map(e=>'<tr>'+[e.source,e.thresholdK,e.status,e.direction??'—',fmt(e.bracketStartS)+'–'+fmt(e.bracketEndS),fmt(e.estimatedTimeS)].map(v=>'<td>'+tcEsc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div><p class="smallnote">'+events.length+' '+tcUi('observations; CSV retains all, first 200 displayed.','observaciones; CSV completo, primeras 200 visibles.')+'</p></details>';
+ tcDraw({...result,rows:result.temporal.rows});tcDrawRates(result);
+  tcEl('tcExportJson').disabled=false;tcEl('tcExportCsv').disabled=false;tcEl('tcExportTemporal').disabled=false;tcEl('tcExportRates').disabled=false;tcEl('tcExportThresholds').disabled=!result.thresholdEvidence.thresholdsK.length
 }
 function tcDraw(result){
   const canvas=tcEl('tcPlot');if(!canvas)return;
@@ -350,8 +383,7 @@ function tcDraw(result){
   ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,width,height);
   if(!result?.rows?.length)return;
   const rows=result.rows,t0=rows[0].timeS,t1=rows.at(-1).timeS;
-  let min=Math.min(...rows.map(r=>Math.min(r.simulationK,r.experimentK))),
-      max=Math.max(...rows.map(r=>Math.max(r.simulationK,r.experimentK)));
+  let min=Infinity,max=-Infinity;for(const r of rows){min=Math.min(min,r.simulationK,r.experimentK);max=Math.max(max,r.simulationK,r.experimentK)}
   if(max===min){min-=.5;max+=.5}
   const left=50,right=15,top=24,bottom=30;
   const x=t=>left+(t-t0)/(t1-t0)*(width-left-right);
@@ -367,6 +399,19 @@ function tcDraw(result){
   ctx.fillStyle='#a8b2c4';ctx.font='11px sans-serif';ctx.fillText(t0.toPrecision(5)+' s',left,height-8);
   ctx.fillText(t1.toPrecision(5)+' s',Math.max(left,width-right-80),height-8);
   ctx.fillText('K',17,top+5)
+}
+function tcDrawRates(result){
+ const cv=tcEl('tcRatePlot'),rates=result?.temporal?.rates;if(!cv||!rates?.length)return;
+ const ctx=cv.getContext('2d');if(!ctx)return;
+ const w=Math.max(280,cv.clientWidth||700),h=220,dpr=Math.min(2,window.devicePixelRatio||1),l=57,r=15,t=24,b=30;
+ cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+ let lo=0,hi=0;for(const z of rates){lo=Math.min(lo,z.simulationCoolingKPerS,z.experimentCoolingKPerS);hi=Math.max(hi,z.simulationCoolingKPerS,z.experimentCoolingKPerS)}if(lo===hi){lo-=.5;hi+=.5}
+ const first=rates[0].fromTimeS,last=rates.at(-1).toTimeS,x=v=>l+(v-first)/(last-first)*(w-l-r),y=v=>t+(hi-v)/(hi-lo)*(h-t-b);
+ ctx.strokeStyle='#778899';ctx.beginPath();ctx.moveTo(l,t);ctx.lineTo(l,h-b);ctx.lineTo(w-r,h-b);ctx.moveTo(l,y(0));ctx.lineTo(w-r,y(0));ctx.stroke();
+ for(const [key,color] of [['simulationCoolingKPerS','#41b5e5'],['experimentCoolingKPerS','#e8aa56']]){
+  ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.beginPath();for(const z of rates){ctx.moveTo(x(z.fromTimeS),y(z[key]));ctx.lineTo(x(z.toTimeS),y(z[key]))}ctx.stroke()
+ }
+ ctx.fillStyle='#a8b2c4';ctx.font='11px sans-serif';ctx.fillText('Cooling [K/s] · positive = cooling',l,15);ctx.fillText(hi.toPrecision(4),2,t+4);ctx.fillText(lo.toPrecision(4),2,h-b);ctx.fillText(first.toPrecision(4)+' s',l,h-8);ctx.fillText(last.toPrecision(4)+' s',Math.max(l,w-80),h-8)
 }
 function tcDownload(name,content,mime){
   if(typeof downloadText==='function'){downloadText(name,content,mime);return}
@@ -384,6 +429,7 @@ function tcExport(kind){
   if(kind==='json')return tcDownload('FoamLens_thermocouple_XYZ.json',
     JSON.stringify({...tcLast,exportedAt:new Date().toISOString()},null,2),'application/json');
   if(kind==='temporal')return tcDownload('FoamLens_thermocouple_time_union.csv',tcWindowCsv(tcLast.temporal.rows,['timeS','simulationK','experimentK','simMinusExpK','simulationTimeSource','experimentTimeSource']),'text/csv');
+  if(kind==='thresholds')return tcDownload('FoamLens_thermocouple_temperature_levels.csv',tcWindowCsv(tcLast.thresholdEvidence.events,['source','thresholdK','status','direction','bracketStartS','bracketEndS','estimatedTimeS','windowStartS','windowEndS']),'text/csv');
   if(kind==='rates')return tcDownload('FoamLens_thermocouple_cooling_rates.csv',tcWindowCsv(tcLast.temporal.rates,['fromTimeS','toTimeS','durationS','simulationCoolingKPerS','experimentCoolingKPerS','simMinusExpCoolingKPerS']),'text/csv');
   const h='time_s,simulation_K,experiment_K,sim_minus_exp_K,simulation_temporal_method';
   tcDownload('FoamLens_thermocouple_XYZ.csv',[h,...tcLast.rows.map(r=>
@@ -409,21 +455,23 @@ function tcInstall(){
     '<div class="field"><label>Experiment temperature unit</label><select id="tcExperimentalUnit"><option value="K">K</option><option value="C">°C</option></select></div></div>'+
     '<div class="field"><label>Experimental time shift [s] (explicit, no automatic time fitting)</label><input id="tcTimeShift" type="number" step="any" value="0"></div>'+
     '<div class="extGrid2"><label>'+tcUi('From physical time [s] (optional)','Desde tiempo físico [s] (opcional)')+' <input id="tcWindowStart" inputmode="decimal"></label><label>'+tcUi('To physical time [s] (optional)','Hasta tiempo físico [s] (opcional)')+' <input id="tcWindowEnd" inputmode="decimal"></label></div>'+
+    '<label>'+tcUi('Optional temperature levels [K], comma-separated','Temperaturas opcionales [K], separadas por comas')+' <input id="tcThresholds" placeholder="1400, 1500"></label>'+
     '<div class="extActions"><button id="tcCalculate" type="button" class="btn primary">Verify cell and compare measured curves</button>'+
     '<button id="tcExportJson" type="button" class="btn soft" disabled>Export evidence JSON</button>'+
-    '<button id="tcExportCsv" type="button" class="btn soft" disabled>Export paired CSV</button><button id="tcExportTemporal" type="button" class="btn soft" disabled>'+tcUi('Time union CSV','CSV unión temporal')+'</button><button id="tcExportRates" type="button" class="btn soft" disabled>'+tcUi('Cooling rates CSV','CSV velocidades de enfriamiento')+'</button></div>'+
-    '<p class="smallnote" id="tcStatus" aria-live="polite"></p><canvas id="tcPlot" style="width:100%;height:220px" aria-label="Simulated and experimental Kelvin curves over common physical time"></canvas><div id="tcReport"></div>'+
+    '<button id="tcExportCsv" type="button" class="btn soft" disabled>Export paired CSV</button><button id="tcExportTemporal" type="button" class="btn soft" disabled>'+tcUi('Time union CSV','CSV unión temporal')+'</button><button id="tcExportRates" type="button" class="btn soft" disabled>'+tcUi('Cooling rates CSV','CSV velocidades de enfriamiento')+'</button><button id="tcExportThresholds" type="button" class="btn soft" disabled>'+tcUi('Temperature levels CSV','CSV temperaturas elegidas')+'</button></div>'+
+    '<p class="smallnote" id="tcStatus" aria-live="polite"></p><canvas id="tcPlot" style="width:100%;height:220px" aria-label="Simulated and experimental Kelvin curves over common physical time"></canvas><canvas id="tcRatePlot" style="width:100%;height:220px" aria-label="Interval cooling rates, positive is cooling"></canvas><div id="tcReport"></div>'+
     '<p class="smallnote">Mapping uses verified polyhedral containment from the current loaded 3D Field case/region. Absent topology or a missing source history blocks comparison. No automatic recalescence diagnosis.</p>';
   host.appendChild(box);
   tcEl('tcImport').onclick=()=>void tcImport();
   tcEl('tcRefresh').onclick=tcRefreshSources;tcEl('tcCalculate').onclick=tcRun;
-  tcEl('tcExportJson').onclick=()=>tcExport('json');tcEl('tcExportCsv').onclick=()=>tcExport('csv');tcEl('tcExportTemporal').onclick=()=>tcExport('temporal');tcEl('tcExportRates').onclick=()=>tcExport('rates');
+  tcEl('tcExportJson').onclick=()=>tcExport('json');tcEl('tcExportCsv').onclick=()=>tcExport('csv');tcEl('tcExportTemporal').onclick=()=>tcExport('temporal');tcEl('tcExportRates').onclick=()=>tcExport('rates');tcEl('tcExportThresholds').onclick=()=>tcExport('thresholds');
   for(const id of ['tcSim','tcX','tcY','tcZ','tcXYZUnit','tcTolerance','tcSensitivityRadius',
-    'tcTimeColumn','tcTempColumn','tcExperimentalUnit','tcTimeShift','tcWindowStart','tcWindowEnd']){
+    'tcTimeColumn','tcTempColumn','tcExperimentalUnit','tcTimeShift','tcWindowStart','tcWindowEnd','tcThresholds']){
     const el=tcEl(id);el.addEventListener(el.tagName==='INPUT'?'input':'change',()=>tcInvalidate('Inputs changed; verify again before exporting.'))
   }
   tcEl('tcFile').addEventListener('change',()=>{tcSequence++;tcRows=null;tcInvalidate('New experiment file chosen; import it before comparing.')});
-  box.addEventListener('toggle',()=>{if(box.open){if(tcLast)tcDraw({...tcLast,rows:tcLast.temporal.rows});else tcRefreshSources()}});
+  box.addEventListener('toggle',()=>{if(box.open){if(tcLast){tcDraw({...tcLast,rows:tcLast.temporal.rows});tcDrawRates(tcLast)}else tcRefreshSources()}});
+  window.addEventListener('resize',()=>{if(box.open&&tcLast){tcDraw({...tcLast,rows:tcLast.temporal.rows});tcDrawRates(tcLast)}});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(box)}catch{}
   tcRefreshSources()
 }
