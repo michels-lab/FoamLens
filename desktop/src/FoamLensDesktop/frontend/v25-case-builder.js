@@ -79,6 +79,97 @@ const flCaseBuilder=(()=>{
   if(typeof t!=='number'||!Number.isFinite(t)||t<table.values[0][0]||t>table.values[table.values.length-1][0])fail('Temperature outside material table range');
   const a=table.values;let i=1;while(a[i][0]<t)i++;const u=a[i-1],v=a[i],w=(t-u[0])/(v[0]-u[0]);return {T_K:t,rho_kg_m3:u[1]+w*(v[1]-u[1]),Cp_J_kg_K:u[2]+w*(v[2]-u[2]),k_W_m_K:u[3]+w*(v[3]-u[3])}
  }
+ function numerics(input,regions,fields){
+  const configs=new Map(),divs=new Map(),linear=new Map(),pimple=new Map(),relax=new Map(),residual=new Map();
+  const integer=(v,label,min,max)=>{const n=num(v,label);if(!Number.isInteger(n)||n<min||n>max)fail(label+': expected integer '+min+'–'+max);return n};
+  const choice=(v,options,label)=>{if(!options.includes(v))fail('Unsupported '+label+': '+v);return v};
+  const unit=(v,label,zero=false)=>{const n=num(v,label);if(n>1||n<0||(!zero&&n===0))fail(label+': expected '+(zero?'[0,1]':'(0,1]'));return n};
+  const positive=(v,label)=>{const n=num(v,label);if(n<=0)fail(label+': expected positive');return n};
+  const scopes=(v,label,global=false)=>{if(v==='@global'&&global&&input.mode==='multi')return v;get(regions,v,label);return v};
+  const schemes={ddt:['Euler','backward','steadyState'],grad:['Gauss linear','cellLimited Gauss linear 1'],lap:['Gauss linear corrected','Gauss linear uncorrected','Gauss linear limited 0.5'],interp:['linear'],sn:['corrected','uncorrected','limited 0.5']};
+  for(const [region,ddt,grad,lap,interp,sn] of rows(input.schemes??'',6,'Numerical schemes',16)){
+   scopes(region,'scheme region');choice(ddt,schemes.ddt,'ddt');choice(grad,schemes.grad,'gradient');choice(lap,schemes.lap,'laplacian');choice(interp,schemes.interp,'interpolation');choice(sn,schemes.sn,'snGrad');
+   add(configs,region,{region,ddt,grad,lap,interp,sn},'numerical schemes')
+  }
+  for(const [region,term,scheme] of rows(input.divSchemes??'',3,'Divergence terms',256)){
+   get(configs,region,'divergence scheme region');
+   // Exact operator keys only. No directives, whitespace, wildcards or dictionary injection.
+   if(!/^div\([A-Za-z0-9_(),*.+-]{1,160}\)$/.test(term))fail('Invalid divergence operator '+term);
+   let depth=0;for(const ch of term){if(ch==='(')depth++;if(ch===')'&&--depth<0)fail('Unbalanced divergence operator')}
+   if(depth!==0)fail('Unbalanced divergence operator');
+   if(!['Gauss upwind','Gauss linear','Gauss limitedLinear 1','Gauss limitedLinearV 1','Gauss linearUpwind grad(U)'].includes(scheme))fail('Unsupported divergence scheme '+scheme);
+   add(divs,key(region,term),{region,term,scheme},'divergence term')
+  }
+  for(const [region,equation,solver,method,tolerance,relTol,finalRelTol] of rows(input.linearSolvers??'',7,'Linear solvers',128)){
+   get(configs,region,'linear solver region');word(equation,'equation name');
+   if(equation.endsWith('Final'))fail('Use base equation name; Final entries are generated explicitly');
+   const allowed={PCG:['DIC','FDIC','diagonal'],PBiCGStab:['DILU','diagonal'],GAMG:['GaussSeidel','symGaussSeidel','DICGaussSeidel','DILUGaussSeidel'],smoothSolver:['GaussSeidel','symGaussSeidel','DICGaussSeidel','DILUGaussSeidel'],diagonal:['-']};
+   if(!Object.hasOwn(allowed,solver))fail('Unsupported linear solver '+solver);choice(method,allowed[solver],'solver method');
+   const diagonal=solver==='diagonal';
+   if(diagonal&&[tolerance,relTol,finalRelTol].some(v=>v!=='-'))fail('Diagonal solver requires - for tolerance settings');
+   const tol=diagonal?null:positive(tolerance,'tolerance'),rel=diagonal?null:unit(relTol,'relTol',true),final=diagonal?null:unit(finalRelTol,'final relTol',true);
+   add(linear,key(region,equation),{region,equation,solver,method,tolerance:tol,relTol:rel,finalRelTol:final},'linear equation')
+  }
+  for(const [region,outer,correctors,nonOrth,predictor] of rows(input.pimple??'',5,'PIMPLE',17)){
+   scopes(region,'PIMPLE region',true);const global=region==='@global',r=global?null:get(regions,region,'PIMPLE region');
+   if(!global)get(configs,region,'PIMPLE scheme region');
+   const isSolid=r?.kind==='solid';
+   if(global&&[correctors,nonOrth,predictor].some(v=>v!=='-'))fail('Global multi-region PIMPLE accepts only outer correctors');
+   if(isSolid&&(correctors!=='-'||predictor!=='-'))fail('Solid PIMPLE: pressure correctors and momentum predictor must be -');
+   if(!global&&input.mode==='multi'&&outer!=='-')fail('Multi-region outer correctors belong to @global');
+   if(!global&&input.mode==='single'&&outer==='-')fail('Single-region outer correctors required');
+   if(!global&&nonOrth==='-')fail('Regional non-orthogonal correctors required');
+   if(!global&&!isSolid&&(correctors==='-'||predictor==='-'))fail('Fluid correctors and momentum predictor required');
+   const out={region,outer:outer==='-'?null:integer(outer,'nOuterCorrectors',1,1000),correctors:correctors==='-'?null:integer(correctors,'nCorrectors',1,1000),nonOrth:nonOrth==='-'?null:integer(nonOrth,'nNonOrthogonalCorrectors',0,1000),predictor:predictor==='-'?null:choice(predictor,['yes','no'],'momentumPredictor')};
+   if(global&&out.outer===null)fail('Global outer correctors required');
+   add(pimple,region,out,'PIMPLE')
+  }
+  for(const [region,kind,equation,factor] of rows(input.relaxation??'',4,'Relaxation',256)){
+   get(configs,region,'relaxation region');choice(kind,['fields','equations'],'relaxation kind');word(equation,'relaxation equation');
+   if(!linear.has(key(region,equation).toLowerCase())&&!fields.has(key(region,equation).toLowerCase()))fail('Relaxation target must be a declared field or linear equation');
+   add(relax,key(region,kind,equation),{region,kind,equation,factor:unit(factor,'relaxation factor')},'relaxation')
+  }
+  for(const [region,equation,tolerance,relTol] of rows(input.residualControl??'',4,'Outer-corrector residual targets',128)){
+   get(linear,key(region,equation),'residual equation');const r=get(regions,region,'residual region');
+   if(r.kind==='solid')fail('Residual control template restricted to fluid regions');
+   add(residual,key(region,equation),{region,equation,tolerance:positive(tolerance,'residual tolerance'),relTol:unit(relTol,'residual relTol',true)},'residual target')
+  }
+  const active=configs.size>0||pimple.size>0;
+  if(active){
+   for(const r of items(regions)){
+    get(configs,r.name,'missing schemes');get(pimple,r.name,'missing PIMPLE');
+    if(!items(linear).some(x=>x.region===r.name))fail('Missing linear solver equations for '+r.name)
+   }
+   if(input.mode==='multi')get(pimple,'@global','missing global PIMPLE');
+  }
+  return {active,schemes:items(configs),divergence:items(divs),linear:items(linear),pimple:items(pimple),relaxation:items(relax),residual:items(residual),equationNamesExplicit:true,nativeExecutionVerified:false}
+ }
+ function numericEntries(n,mode){
+  if(!n.active)return [];
+  const entries=[],block=(name,lines)=>name+'\n{\n'+lines.map(l=>'    '+l).join('\n')+'\n}\n\n';
+  const pimpleText=p=>block('PIMPLE',[
+   p.outer===null?null:'nOuterCorrectors '+p.outer+';',
+   p.correctors===null?null:'nCorrectors '+p.correctors+';',
+   p.nonOrth===null?null:'nNonOrthogonalCorrectors '+p.nonOrth+';',
+   p.predictor===null?null:'momentumPredictor '+p.predictor+';',
+   ...(()=>{const rows=n.residual.filter(x=>x.region===p.region);return rows.length?['outerCorrectorResidualControl','{',...rows.flatMap(x=>['    '+x.equation,'    {','        tolerance '+x.tolerance+';','        relTol '+x.relTol+';','    }']),'}']:[]})()
+  ].filter(x=>x!==null));
+  if(mode==='multi')entries.push({name:'draft/system/fvSolution',data:header('dictionary','fvSolution','system')+pimpleText(n.pimple.find(p=>p.region==='@global'))});
+  for(const c of n.schemes){
+   const loc=mode==='multi'?'system/'+c.region:'system';
+   const schemes=header('dictionary','fvSchemes',loc)+block('ddtSchemes',['default '+c.ddt+';'])+block('gradSchemes',['default '+c.grad+';'])+block('divSchemes',['default none;',...n.divergence.filter(x=>x.region===c.region).map(x=>x.term+' '+x.scheme+';')])+block('laplacianSchemes',['default '+c.lap+';'])+block('interpolationSchemes',['default '+c.interp+';'])+block('snGradSchemes',['default '+c.sn+';']);
+   const solverLines=n.linear.filter(x=>x.region===c.region).flatMap(x=>{
+    const method=['GAMG','smoothSolver'].includes(x.solver)?'smoother':'preconditioner';
+    const base=['solver '+x.solver+';',...(x.tolerance===null?[]:[method+' '+x.method+';','tolerance '+x.tolerance+';','relTol '+x.relTol+';'])];
+    const final=base.map(v=>v.startsWith('relTol ')?'relTol '+x.finalRelTol+';':v);
+    return [x.equation,'{',...base.map(v=>'    '+v),'}',x.equation+'Final','{',...final.map(v=>'    '+v),'}']
+   });
+   const rr=n.relaxation.filter(x=>x.region===c.region),relaxLines=['fields','equations'].flatMap(k=>{const rows=rr.filter(x=>x.kind===k);return rows.length?[k,'{',...rows.map(x=>'    '+x.equation+' '+x.factor+';'),'}']:[]});
+   const solution=header('dictionary','fvSolution',loc)+block('solvers',solverLines)+pimpleText(n.pimple.find(p=>p.region===c.region))+(relaxLines.length?block('relaxationFactors',relaxLines):'');
+   entries.push({name:'draft/'+loc+'/fvSchemes',data:schemes},{name:'draft/'+loc+'/fvSolution',data:solution})
+  }
+  return entries
+ }
  function build(input){
   if(!input||!['13','14'].includes(input.version)||!['single','multi'].includes(input.mode))fail('Select Foundation 13/14 and case mode');
   const end=num(input.endTime,'endTime'),dt=num(input.deltaT,'deltaT'),write=num(input.writeInterval,'writeInterval');
@@ -154,11 +245,12 @@ const flCaseBuilder=(()=>{
    if(notes&&(notes.density_kg_m3!==vals[0]||notes.conductivity_W_m_K!==vals[2]))fail('Constant solid properties conflict with material reference notes');
    add(nativeSolids,region,{region,rho:vals[0],Cv:vals[1],kappa:vals[2],molWeight:vals[3],hf:vals[4],model:'heSolidThermo / pureMixture / constIsoSolid / eConst / rhoConst',nativeExecutionVerified:false},'native solid material')
   }
+  const numerical=numerics(input,regions,fields);
   const multi=input.mode==='multi',entries=[];
   const control=header('dictionary','controlDict','system')+'application '+(multi?'foamMultiRun':'foamRun')+';\n'+
     (multi?'regionSolvers\n{\n'+regionList.map(r=>'    '+r.name+' '+r.solver+';').join('\n')+'\n}\n':'solver '+regionList[0].solver+';\n')+
     'startFrom startTime;\nstartTime 0;\nstopAt endTime;\nendTime '+end+';\ndeltaT '+dt+';\nwriteControl runTime;\nwriteInterval '+write+';\nwriteFormat ascii;\nwritePrecision 10;\nwriteCompression off;\ntimeFormat general;\ntimePrecision 12;\nrunTimeModifiable false;\n';
-  entries.push({name:'draft/system/controlDict',data:control});
+  entries.push({name:'draft/system/controlDict',data:control},...numericEntries(numerical,input.mode));
   for(const f of items(fields)){
    const location=multi?'0/'+f.region:'0';
    const bc=items(patches).filter(p=>p.region===f.region).map(p=>get(conditions,key(f.region,f.name,p.patch),'boundary'));
@@ -173,7 +265,7 @@ const flCaseBuilder=(()=>{
    entries.push({name:'draft/'+loc+'/physicalProperties',data})
   }
   for(const table of tables)entries.push({name:'material-data/'+table.region+'.csv',data:table.columns.join(',')+'\n'+table.values.map(v=>v.join(',')).join('\n')+'\n'});
-  const manifest={schema,version:input.version,mode:input.mode,regions:regionList,patches:items(patches),fields:items(fields),boundaryConditions:items(conditions),materials:items(materials),materialTables:tables,nativeConstantSolidDrafts:items(nativeSolids),importedPatchInventories:items(inventories),allDeclaredPatchInventoriesMatched:inventories.size===regionList.length,thermalInterfaces:[...interfaces.values()],time:{startTime:0,endTime:end,deltaT:dt,writeControl:'runTime',writeInterval:write},materialUnits:'SI constant reference values and temperature tables only, not OpenFOAM thermo dictionaries',meshPatchInventoryVerified:false,solverModulesVerified:false,physicalModelValidated:false,solverReady:false,originalCaseModified:false,missing:['actual full mesh topology and interface geometry verification','remaining solver-specific physicalProperties and variable thermophysical models','fvSchemes and fvSolution','native thermophysical transport, contact resistance and any solver-required fields or dictionaries','native OpenFOAM parsing and execution validation']};
+  const manifest={schema,version:input.version,mode:input.mode,regions:regionList,patches:items(patches),fields:items(fields),boundaryConditions:items(conditions),materials:items(materials),materialTables:tables,numerics:numerical,nativeConstantSolidDrafts:items(nativeSolids),importedPatchInventories:items(inventories),allDeclaredPatchInventoriesMatched:inventories.size===regionList.length,thermalInterfaces:[...interfaces.values()],time:{startTime:0,endTime:end,deltaT:dt,writeControl:'runTime',writeInterval:write},materialUnits:'SI constant reference values and temperature tables only, not OpenFOAM thermo dictionaries',meshPatchInventoryVerified:false,solverModulesVerified:false,physicalModelValidated:false,solverReady:false,originalCaseModified:false,missing:['actual full mesh topology and interface geometry verification','remaining solver-specific physicalProperties and variable thermophysical models',numerical.active?'solver-required numerical equation coverage and native dictionary validation':'fvSchemes and fvSolution','native thermophysical transport, contact resistance and any solver-required fields or dictionaries','native OpenFOAM parsing and execution validation']};
   entries.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'},{name:'case-builder.json',data:JSON.stringify({schema,input},null,2)+'\n'},{name:'README.txt',data:'DRAFT ONLY. This is not a runnable or validated OpenFOAM case. No solver run or mesh geometry generated. Only explicitly selected constant solid physicalProperties drafts may be present; other material models require manual completion. Reciprocal mappedWall names and coupled temperature draft entries do not validate geometric mapping or heat balance. Compare every declared patch to original polyMesh/boundary and complete the missing files listed in manifest.json. Extract to a new folder; never overlay an existing case without review.\n'});
   return {manifest,entries}
  }
@@ -197,13 +289,21 @@ function flMountCaseBuilder(){
  area('flCbMaterials',t('Optional material notes: region | name | density kg/m³ | Cp J/kg/K | k W/m/K','Material opcional: región | nombre | densidad kg/m³ | Cp J/kg/K | k W/m/K'),'region | material | rho | Cp | k')+
  area('flCbSolidProperties',t('Optional native constant solid: region | rho [kg/m³] | Cv [J/kg/K] | k [W/m/K] | molWeight [kg/kmol] | hf [J/kg]','Sólido constante nativo opcional: región | rho [kg/m³] | Cv [J/kg/K] | k [W/m/K] | molWeight [kg/kmol] | hf [J/kg]'),'mold | rho | Cv | k | molWeight | hf')+
  '<p class="cgNotice">'+t('Constant solid template only; explicit Cv, not inferred from Cp. Mutually exclusive with a temperature-dependent table for that region. No fluid thermo or native runtime validation.','Solo plantilla de sólido constante; Cv explícito, no inferido de Cp. Excluyente con tabla dependiente de temperatura en esa región. Sin termo de fluido ni validación nativa.')+'</p>'+
+ '<details style="margin-top:12px"><summary><b>'+t('Numerical configuration · optional','Configuración numérica · opcional')+'</b></summary><p class="cgNotice">'+t('All regions require explicit schemes, linear equations and PIMPLE when enabled. No automatic choice of required equations (e, h, p_rgh, etc.). Empty sections leave numerical dictionaries ungenerated.','Todas las regiones requieren esquemas, ecuaciones lineales y PIMPLE explícitos al habilitar. No se deducen ecuaciones requeridas (e, h, p_rgh, etc.). Secciones vacías no generan diccionarios numéricos.')+'</p>'+
+ area('flCbSchemes',t('Schemes: region | ddt | grad | laplacian | interpolation | snGrad','Esquemas: región | ddt | grad | laplacian | interpolación | snGrad'),'metal | Euler | Gauss linear | Gauss linear corrected | linear | corrected')+
+ area('flCbDivSchemes',t('Divergence: region | exact div(...) key | scheme (default none)','Divergencia: región | clave div(...) exacta | esquema (default none)'),'metal | div(phi,U) | Gauss upwind')+
+ area('flCbLinearSolvers',t('Linear: region | equation | solver | smoother/preconditioner | tolerance | relTol | finalRelTol','Lineal: región | ecuación | solver | smoother/preconditioner | tolerance | relTol | finalRelTol'),'metal | p_rgh | GAMG | symGaussSeidel | 1e-7 | 0.01 | 0')+
+ area('flCbPimple',t('PIMPLE: region or @global | nOuterCorrectors | nCorrectors | nNonOrthogonalCorrectors | momentumPredictor (yes/no or -)','PIMPLE: región o @global | nOuterCorrectors | nCorrectors | nNonOrthogonalCorrectors | momentumPredictor (yes/no o -)'),'@global | 5 | - | - | -\nmetal | - | 2 | 1 | yes\nmold | - | - | 0 | -')+
+ area('flCbRelaxation',t('Relaxation: region | fields/equations | exact equation | factor','Relajación: región | fields/equations | ecuación exacta | factor'),'metal | equations | U | 0.7')+
+ area('flCbResidualControl',t('Optional fluid outerCorrectorResidualControl: region | equation | tolerance | relTol','outerCorrectorResidualControl opcional de fluido: región | ecuación | tolerance | relTol'),'metal | p_rgh | 1e-6 | 0')+
+ '<p class="cgNotice">'+t('Examples are placeholders, not defaults. Multi-region outer correctors are global; pressure and momentum controls are regional fluid only. Verify actual solver equation requirements and mesh quality.','Ejemplos como guía, no valores predeterminados. Correctores externos multirregión globales; presión y momento solo regionales de fluido. Verifica ecuaciones del solver y calidad de malla.')+'</p></details>'+
  area('flCbMaterialTables',t('Temperature table: region | T [K] | density | Cp | k (SI)','Tabla por temperatura: región | T [K] | densidad | Cp | k (SI)'),'metal | 1200 | rho | Cp | k')+
  '<div class="cgTools"><label>'+t('Preview region','Región de consulta')+' <input id="flCbTableRegion"></label><label>T [K] <input id="flCbTableT" inputmode="decimal"></label><button type="button" class="btn soft" id="flCbTablePreview">'+t('Interpolate table','Interpolar tabla')+'</button></div><pre id="flCbTableResult"></pre>'+
  '<p class="cgNotice">'+t('Mapped thermal interfaces: import both region boundary files, declare reciprocal mappedWall, set T to coupledTemperature with explicit initial patch value on both sides. Cyclic and nonconformal variants unsupported. Tables are exported as SI CSV, not native thermo models.','Interfaces térmicas: importa ambos boundary, declara mappedWall recíproco y T con coupledTemperature y valor inicial explícito en ambos lados. Variantes cíclicas y no conformes no soportadas. Las tablas se exportan en CSV SI, no como modelos termo nativos.')+'</p>'+
  '<div class="cgTools"><button type="button" class="btn primary" id="flCbValidate">'+t('Validate and preview draft','Validar y previsualizar borrador')+'</button><button type="button" class="btn soft" id="flCbExport" disabled>'+t('Export draft ZIP','Exportar borrador ZIP')+'</button><label>'+t('Reopen draft JSON','Reabrir borrador JSON')+' <input type="file" id="flCbImport" accept=".json,application/json"></label></div>'+
  '<p id="flCbStatus" class="cgNotice" aria-live="polite"></p><label>'+t('Generated file','Archivo generado')+' <select id="flCbFile" disabled></select></label><pre id="flCbPreview" style="white-space:pre-wrap;max-height:380px;overflow:auto"></pre>';
  anchor.insertAdjacentElement('afterend',panel);
- const el=id=>document.getElementById('flCb'+id),bindings={version:'Version',mode:'Mode',endTime:'End',deltaT:'Delta',writeInterval:'Write',regions:'Regions',patches:'Patches',fields:'Fields',boundaries:'Boundaries',materials:'Materials',materialTables:'MaterialTables',solidProperties:'SolidProperties'};
+ const el=id=>document.getElementById('flCb'+id),bindings={version:'Version',mode:'Mode',endTime:'End',deltaT:'Delta',writeInterval:'Write',regions:'Regions',patches:'Patches',fields:'Fields',boundaries:'Boundaries',materials:'Materials',materialTables:'MaterialTables',solidProperties:'SolidProperties',schemes:'Schemes',divSchemes:'DivSchemes',linearSolvers:'LinearSolvers',pimple:'Pimple',relaxation:'Relaxation',residualControl:'ResidualControl'};
  let plan=null,revision=0,boundarySources=[];
  const read=()=>({...Object.fromEntries(Object.entries(bindings).map(([k,id])=>[k,el(id).value])),boundarySources});
  const clear=()=>{revision++;plan=null;el('Export').disabled=true;el('File').disabled=true;el('File').replaceChildren();el('Preview').textContent='';el('TableResult').textContent='';el('Status').textContent=cgUi('Inputs changed. Validate again.','Entradas modificadas. Valida de nuevo.')};
