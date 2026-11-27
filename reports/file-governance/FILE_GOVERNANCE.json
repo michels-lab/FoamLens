@@ -28,8 +28,8 @@
     "UNKNOWN_PURPOSE": 2
   },
   "finding_total": 3,
-  "inventory_fingerprint": "99c733728c840c75db5f37010f8c7af3dd411c21f934aaed8ceb3a4063178360",
-  "evidence_fingerprint": "92fcc602191e37a10ffe50643af210a9caeb0418f23378549cd7c36f3b18642f",
+  "inventory_fingerprint": "b841b1d0239e16979ec64b70a5c904564b4ba4afe03ab066b203f2a381c86111",
+  "evidence_fingerprint": "6f10205cd234034c2cbfc6ca19f9d6f5c08af3ed80be6d7ad5e41eeaa8995134",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -1191,7 +1191,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "48adf27f117977d409177201479f998e9f50ab87"
+      "blob": "840138a3ef2e3ce6caa922917acd41b6d8bff991"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v24-solidification-front-3d.js",
@@ -1772,7 +1772,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "653e55a45d924d1acfbefbf346647b82e3d3edf7"
+      "blob": "06bd579216d6fcfbcf5ae01e3e8ebaf6151415ee"
     },
     {
       "path": "desktop/tests/mesh-quality-audit.test.cjs",
@@ -1954,7 +1954,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "c67bb960376256a9b7614fd231e45104e15374c5"
+      "blob": "07d3104a158de69c16a218640256289895d37433"
     },
     {
       "path": "desktop/tests/scientific-fast-import.test.cjs",
@@ -2290,7 +2290,7 @@
       "role": "bitacora",
       "purpose": "technical/audit change history",
       "certainty": "rule",
-      "blob": "b2b61a3917f74e788c9a1866f7412c4a237a6bf6"
+      "blob": "48e04417d98757abb98db36f6b3d0632dc0e5777"
     },
     {
       "path": "docs/GRANADA_117_REAL_CASE_BENCHMARK_2026-10-19.md",
@@ -3821,11 +3821,11 @@
   ],
   "findings": [
     {
-      "id": "e67a6aabc5dd0732",
+      "id": "200c9f06f8f02192",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "18 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/NativeCartesianMesh.cs, desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/index.html, desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js",
+      "observation": "8 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js, desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js, desktop/tests/field-probe.test.cjs, desktop/tests/isosurface.test.cjs",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     },

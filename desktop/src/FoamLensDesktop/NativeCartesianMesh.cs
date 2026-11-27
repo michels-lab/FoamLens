@@ -76,9 +76,14 @@ internal static class NativeCartesianMesh
     {
         if(exit is null)return "not-run";
         if(exit!=0)return "command-failed";
-        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^\s*Failed\s+\d+\s+mesh checks?\.\s*$"))return "checks-failed";
+        // Native reports are evidence, not certification. A standalone success
+        // marker is insufficient in truncated, concatenated or fatal output.
+        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^[ \t]*Failed[ \t]+\d+[ \t]+mesh checks?\.[ \t\r]*$"))return "checks-failed";
+        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?im)\bFOAM\s+FATAL\s+(?:IO\s+)?ERROR\b|\bFOAM\s+aborting\b|^[ \t]*(?:Floating point exception|Segmentation fault|SIGFPE|SIGSEGV)\b"))return "checks-failed";
         if(log.Contains("[truncated]",StringComparison.Ordinal))return "undetermined";
-        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^\s*Mesh OK\.\s*$"))return "mesh-ok-reported";
+        var ok=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*Mesh OK\.[ \t\r]*$");
+        var end=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*End[ \t\r]*$");
+        if(ok.Count==1&&end.Count==1&&ok[0].Index<end[0].Index&&string.IsNullOrWhiteSpace(log[(end[0].Index+end[0].Length)..]))return "mesh-ok-reported";
         return "undetermined";
     }
 
@@ -96,7 +101,13 @@ internal static class NativeCartesianMesh
         if(!WslArgs("Ubuntu 24.04","wslpath","-a","a b").SequenceEqual(new[]{"--distribution","Ubuntu 24.04","--exec","wslpath","-a","a b"}))throw new InvalidOperationException("WSL argument boundary failed.");
         foreach(var invalid in new[]{"--exec","Ubuntu\nother","Unknown"}){bool denied=false;try{ResolveDistribution(invalid,installed);}catch(NotSupportedException){denied=true;}if(!denied)throw new InvalidOperationException("Unregistered WSL selection accepted.");}
         if(!CommandPlan("gmshToFoam",true,false).Any(x=>x.StartsWith("splitMeshRegions"))||CommandPlan("blockMesh",false,false).Any(x=>x.StartsWith("snappyHexMesh")))throw new InvalidOperationException("Command preview mismatch.");
-        if(QualityStatus(0,"Failed 1 mesh checks.\n")!="checks-failed"||QualityStatus(0,"Mesh OK.\n")!="mesh-ok-reported"||QualityStatus(0,"End\n")!="undetermined"||QualityStatus(1,"Mesh OK.\n")!="command-failed"||QualityStatus(0,"Mesh OK.\n[truncated]")!="undetermined"||QualityStatus(0,"Mesh OK.\nFailed 2 mesh checks.\n")!="checks-failed")throw new InvalidOperationException("Quality receipt self-test failed.");
+        foreach(var valid in new[]{"Mesh OK.\n\nEnd\n","Mesh OK.\r\nEnd\r\n","sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).\nMesh OK.\nEnd\n"})
+            if(QualityStatus(0,valid)!="mesh-ok-reported")throw new InvalidOperationException("Complete native quality receipt rejected.");
+        foreach(var incomplete in new[]{"Mesh OK.\n","End\n","End\nMesh OK.\n","Mesh OK.\nEnd\nMesh OK.\nEnd\n","Mesh OK.\nEnd\n[truncated]","Mesh OK.\nEnd\nmore output","prefix Mesh OK.\nEnd\n"})
+            if(QualityStatus(0,incomplete)!="undetermined")throw new InvalidOperationException("Incomplete or ambiguous quality receipt accepted.");
+        foreach(var failure in new[]{"Failed 1 mesh checks.\n","Mesh OK.\nFailed 2 mesh checks.\nEnd\n","FOAM FATAL IO ERROR\nMesh OK.\nEnd\n","Mesh OK.\nFOAM aborting\nEnd\n","Floating point exception\nMesh OK.\nEnd\n"})
+            if(QualityStatus(0,failure)!="checks-failed")throw new InvalidOperationException("Negative native quality evidence accepted.");
+        if(QualityStatus(1,"Mesh OK.\nEnd\n")!="command-failed"||QualityStatus(null,"Mesh OK.\nEnd\n")!="not-run")throw new InvalidOperationException("Quality receipt command status ignored.");
         const string valid = """
             {"axes":[{"points":[0,1,2],"counts":[2,3],"grading":[1,1]},{"points":[0,1],"counts":[4],"grading":[1]},{"points":[0,1],"counts":[5],"grading":[1]}],"patches":["xMin","xMax","yMin","yMax","zMin","zMax"],"zones":[{"ijk":[0,0,0],"name":"metal"},{"ijk":[1,0,0],"name":"mold"}]}
             """;

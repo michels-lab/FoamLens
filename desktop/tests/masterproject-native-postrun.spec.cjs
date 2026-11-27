@@ -157,7 +157,7 @@ test('real panel and export preserve source identity and case invalidation',()=>
     "for(const [id,key,bytes] of [['chRuntimeFile'",
     "['chPostrunFile','postrun',4*1024*1024]",
     "postrun:chPostrun","r.postrunEvidence=chPostrun",
-    "chPostrun!==chBound.postrun",
+    "chPostrun===chBound.postrun",
     "chPostrun=null",
     "chPostrun=data?chPostRunCsv(data.text,data.file):null",
     "chPostrun.columns.filter(col=>col.name!=='time_s')",
@@ -168,3 +168,31 @@ test('real panel and export preserve source identity and case invalidation',()=>
 });
 console.log('FoamLens MasterProject-native generic postrun CSV suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+async function reportOwnershipRegression(source,assert){
+  const begin=source.indexOf('function chRenderReportStates(){'),end=source.indexOf('function chRefresh(){',begin);
+  const nodes={},caseA={id:1,discoveryModel:{}},caseB={id:2,discoveryModel:{}};
+  let currentCase=caseA,audits=0;
+  for(const id of ['chRuntimeFile','chMeshFile','chPostrunFile','chAudit','chReportStates'])nodes[id]={value:'',files:[]};
+  const state=new Function('chEl','chSelectedCase','chUi','chEsc','chInvalidate','chReadFile','chRuntime','maPureCheckMesh','chPostRunCsv','chRun','chSourceLogRows',
+    'let chLast=null,chBound=null,chMesh=null,chRuntimeLog=null,chPostrun=null,chSelectionVersion=0,chEvidenceOwner=null,chEvidenceModel=null;const chReportStates=new Map();'+source.slice(begin,end)+
+    ';return {reset:chResetReports,load:chLoadReport,current:chReportsCurrent,states:()=>Object.fromEntries(chReportStates),reports:()=>[chRuntimeLog,chMesh,chPostrun]}')(
+      id=>nodes[id],()=>currentCase,en=>en,String,()=>{},input=>input.files[0]?.read||Promise.resolve(null),(v)=>v,v=>v,v=>v,()=>{audits++},()=>[]);
+  function pick(id,name){let resolve,reject;const read=new Promise((a,b)=>{resolve=a;reject=b});nodes[id].files=[{name,read}];return {resolve:v=>resolve({file:name,text:v}),reject}}
+  state.reset();
+  let log=pick('chRuntimeFile','run.log'),csv=pick('chPostrunFile','run.csv');
+  let lp=state.load('chRuntimeFile','runtime',100),cp=state.load('chPostrunFile','postrun',100);
+  csv.resolve('CSV');await cp;assert.equal(audits,0);assert.equal(nodes.chAudit.disabled,true);
+  log.resolve('LOG');await lp;assert.deepEqual(state.reports(),['LOG',null,'CSV']);assert.equal(audits,1);
+  let old=pick('chPostrunFile','old.csv'),op=state.load('chPostrunFile','postrun',100);
+  let fresh=pick('chPostrunFile','new.csv'),np=state.load('chPostrunFile','postrun',100);
+  fresh.resolve('NEW');await np;old.resolve('OLD');await op;assert.equal(state.reports()[2],'NEW');
+  let mesh=pick('chMeshFile','mesh.log'),mp=state.load('chMeshFile','mesh',100);
+  currentCase=caseB;state.reset();mesh.resolve('STALE');await mp;assert.deepEqual(state.reports(),[null,null,null]);
+  let bad=pick('chMeshFile','bad.log'),bp=state.load('chMeshFile','mesh',100);bad.reject(Error('invalid file'));await bp;
+  assert.equal(state.states().mesh.status,'error');assert.equal(nodes.chAudit.disabled,true);
+  nodes.chMeshFile.files=[];await state.load('chMeshFile','mesh',100);assert.equal(state.states().mesh.status,'empty');assert.equal(nodes.chAudit.disabled,false);
+  currentCase.discoveryModel={};assert.equal(state.current(),false);
+}
+
+reportOwnershipRegression(source,assert).then(()=>console.log('Independent report ownership regression passed')).catch(error=>{console.error(error);process.exitCode=1});
