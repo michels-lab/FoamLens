@@ -1,3 +1,11 @@
+## 2026-11-27 — v1.8.25 urgent thesis photography release candidate
+
+Owner explicitly reprioritized HD 3D photos over further analysis. Candidate rebuilt from main 6d22350a56fcfd2a0d334ca497187f9e2b90ff8a, incorporating only six photo-related paths from #386 exact d6492b7f890a5eded0fc16d0d8eda4bf0c86ac3a; no Case Builder, WSL routing or strict mesh experiments imported. Previous version candidate 76e09898a3ec23c5dda013b28dc77a50c95faa1b retained as parent. Permanent camera shelf and direct per-view HD PNG (1920/3840/7680/custom; GPU checked; no upscaling); scene only, annotated multipanel remains separate. Integrated energy, experimental, temporal and spatial fixes retained. Exact Windows/release gates pending; strict CAD diagnostic remains rejected, no quality thresholds changed. Owner physical acceptance remains separate. No public v1.8.25 claim.
+
+## 2026-11-27 — v1.8.25 version candidate from integrated main
+
+Version metadata and accurate release notes prepared from caa4aeea7cffdd82ba82d08c668377e159ddd8b8 (#383, #390, #380 integrated). Exact #390 main Windows 46037833694 SUCCESS; #380 candidate Windows 46038282534 and 46038276202 SUCCESS; merged product run 46041407637 pending. Previous release branch reused, #386 excluded. Partial version consistency test: 42 assertions passed before V8 filesystem adapter lacked readdirSync; full Node and native CI pending. v1.8.24 remains verified stable, no tag or release. Historical 8/15 unchanged; V2 N/D; owner B14/C14 and physical acceptance pending.
+
 ## 2026-11-27 — Scientific Case Health reconciliation
 
 Existing #380 report ownership changes brought up to current main without touching #386 CI. Corrected actual native sigFpe startup false fatal in independent Scientific Case Health parser; direct source/core and asynchronous report ownership regressions passed (211 assertions). Retain actual fatal/abort signals; no solver completion certification. #372/#373 duplicate reviews closed after source and regression reconciliation; branches retained, source already present in main and #386. #380 unique corrections remain candidate, exact CI/owner acceptance pending. No release or MasterProject changes.

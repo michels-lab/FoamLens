@@ -1078,7 +1078,9 @@ function fcAddViewportToolbar(viewport,view){
     for(const item of items)group.appendChild(item);
     bar.appendChild(group)
   };
-  row('fcToolbarSource',['.fcMoveHandle','.fcQuickCase','.fcViewDiffLabel']);
+  const photo=document.createElement('button');photo.type='button';photo.className='btn soft fcPhotoHd';photo.dataset.fcPhoto=String(view);photo.textContent=fcUi('HD Photo','Foto HD');photo.title=fcUi('Export this 3D view as high-resolution PNG','Exportar esta vista 3D como PNG de alta resolución');photo.setAttribute('aria-label',photo.title+' · '+letter);
+  photo.addEventListener('click',()=>window.FoamLensMultiPanelExport?.openPhoto?.(String(view)));bar.appendChild(photo);
+  row('fcToolbarSource',['.fcMoveHandle','.fcPhotoHd','.fcQuickCase','.fcViewDiffLabel']);
   row('fcToolbarSourceDetail',['.fcViewSourceDetails','.fcViewCopyFrom']);
   row('fcToolbarTime',['.fcViewTimePicker']);
   row('fcToolbarDisplay',['.fcViewportCameraPresets','.fcViewZoom','.fcDimensionSwitch']);

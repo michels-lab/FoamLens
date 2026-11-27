@@ -1,3 +1,14 @@
+## Desktop v1.8.25 — HD 3D photography and floating Field (2026-11-27)
+
+- Permanent 3D camera tools and direct HD Photo on each view A–D/Δ; actual GPU render at requested long edge (1920, 3840, 7680 or custom), white/black/transparent backgrounds and original viewport restoration. Scene-only PNG; annotated thesis figures remain available through Multi-panel export.
+- Exact full temporal alignment and energy closure, experimental cooling-curve duration-weighted errors, scalable spatial comparisons and extrema-preserving display (#391, #392, #393, #394).
+- Floating A–D/Δ view windows, resize, stacking, persistent geometry and native monitor fullscreen with restoration; shared workspace sizing and default read-only WSL Foundation 13/14 preflight (#383).
+- Whole-entity selection, filter pipelines, exterior clip, strict spatial comparison and resampling, volume integrals, probe observations and contour validity (#390).
+- Cellwise calculator, gradients, native-time statistics, Fourier flux, phase volumes and explicitly scoped transient mass/energy/shrinkage diagnostics. Constant or tabulated Cp, k and phase densities; no extrapolation or latent-heat double counting. Material CSV/TSV, JSON and OpenFOAM table-pair fragments.
+- Discrete interface/void candidates, not certified shrinkage cavities; contextual scientific tools and HTML/JSON research report snapshots. Full raw exports remain separate. Existing configurable resource budgets and convex geometry restrictions apply.
+- Scientific Case Health (#380): independent asynchronous log/checkMesh/CSV ownership and correct nonfatal Foundation sigFpe startup; actual failures remain detectable.
+- Source candidate only until exact Windows build, strict native visual matrix, official publisher and public integrity audit succeed. Actual B14/C14 and owner interaction/scientific acceptance pending. Case Builder and selected-distro routing (#386) excluded; refined snappyHexMesh remains diagnostic-only (#148).
+
 ## Desktop v1.8.24 — GRANADA CAD and native Mesh Studio (2026-11-25)
 
 - Curved blockMesh import, arc editing, SI round-trip export, Cartesian plans, native topology and exact region/entity selection.

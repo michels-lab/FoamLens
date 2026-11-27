@@ -138,6 +138,7 @@ function flRibbonBuild(){
       flRibbonActionHtml('flRaResyncCameras','reset','Re-sync','Re-sincronizar'),
       flRibbonActionHtml('flRaVisualSync','sliders','Visual sync','Sync visual'),
       flRibbonActionHtml('flRaFitAll','fit','Fit all','Ajustar todas'),
+      flRibbonActionHtml('flRaPhotoHd','image','HD Photo','Foto HD'),
       flRibbonActionHtml('flRaResetCamera','reset','Reset','Restablecer'),
       flRibbonActionHtml('flRaCameraIso','cube','Isometric','Isométrica'),
       flRibbonActionHtml('flRaCameraFront','viewFront','Front','Frontal'),
@@ -302,6 +303,13 @@ function flRibbonCss(){
     '.flFieldContextShelf>.flRibbonGroup{display:none!important;border-right:0}',
     '.flFieldContextShelf>.flRibbonGroup.flSubbarActive{display:flex!important;align-items:center;flex:0 0 auto;padding:0;max-height:67px}',
     '.flFieldContextShelf .flRibbonGroupLabel{display:none}',
+    'body.appMode-field #flFieldContextShelf:not(.hidden){display:flex!important;flex-wrap:wrap!important;align-items:center!important;align-content:flex-start!important;overflow:visible!important;max-height:none!important;height:auto!important;gap:5px 8px;padding:5px 10px;box-sizing:border-box;min-width:0;max-width:100%}',
+    'body.appMode-field #flFieldContextShelf:not(.hidden)>.flRibbonGroup.flSubbarActive{display:flex!important;flex:1 1 100%!important;flex-wrap:wrap!important;max-height:none!important;min-width:0;max-width:100%}',
+    'body.appMode-field #flFieldContextShelf:not(.hidden)>.flRibbonGroup.flSubbarActive .flRibbonActions{display:flex!important;flex-wrap:wrap!important;min-width:0;max-width:100%;gap:4px}',
+    'body.appMode-field #flFieldContextShelf.flCameraToolsActive:not(.hidden) .flRibbonCameraTools{display:flex!important;flex:1 1 100%!important;flex-wrap:wrap!important;max-width:100%;min-width:0;gap:5px}',
+    'body.appMode-field #flFieldContextShelf.flCameraToolsActive:not(.hidden) .flRibbonCameraTools .fvToolRow{display:flex!important;flex-wrap:wrap!important;max-width:100%;gap:4px}',
+    'body.appMode-field #flFieldContextShelf:not(.hidden) [data-fl-shelf-group="camera"]{order:-2}',
+    'body.appMode-field #flFieldContextShelf:not(.hidden) .flRibbonCameraTools{order:-1}',
     '.flFieldContextShelf .flRibbonActions{gap:3px;align-items:center}',
     '.flFieldContextShelf .flRibbonAction{flex-direction:row;min-width:0;max-width:none;min-height:30px;padding:4px 8px;gap:4px}',
     '.flFieldContextShelf .flRibbonIcon{width:14px;height:14px}',
@@ -445,14 +453,21 @@ function flRibbonUpdateContextVisibility(){
   const host=document.getElementById('flRibbonContextHost');if(!host)return;
   host.classList.toggle('hidden',!flRibbonContextNeeded())
 }
+// Camera commands are permanent in Field 3D, contextual groups are independent.
+function flRibbonFieldShelfState(show3D,selected){
+  return {hidden:!show3D,camera:!!show3D,inspect:!!show3D&&selected==='inspect',compare:!!show3D&&selected==='compare'}
+}
 function flRibbonUpdateFieldScope(){
-  const state=window.FoamLensFieldWorkspace?.getState?.()||{},view=state.view||'3d',show3D=view==='3d'||view==='split';
+  const state=window.FoamLensFieldWorkspace?.getState?.()||{},view=state.view||'3d',show3D=state.layout!=='plot'&&(view==='3d'||view==='split');
   const subTabs=document.getElementById('flFieldContextTabs'),shelf=document.getElementById('flFieldContextShelf');
   subTabs?.classList.toggle('flScopeHidden',!show3D);
-  if(!show3D){shelf?.classList.add('hidden');shelf?.classList.remove('flCameraToolsActive');subTabs?.querySelectorAll('button').forEach(el=>{el.classList.remove('active');el.setAttribute('aria-expanded','false')})}
+  const selected=subTabs?.querySelector('button.active')?.dataset.flSubbar||null,scope=flRibbonFieldShelfState(show3D,selected);
+  shelf?.classList.toggle('hidden',scope.hidden);shelf?.classList.toggle('flCameraToolsActive',scope.camera);
+  if(!show3D)subTabs?.querySelectorAll('button').forEach(el=>{el.classList.remove('active');el.setAttribute('aria-expanded','false')});
+  for(const key of ['camera','inspect','compare'])shelf?.querySelector('[data-fl-shelf-group="'+key+'"]')?.classList.toggle('flSubbarActive',scope[key]);
   const ids=['flRaProbe','flRaProfileLine','flRaSlice','flRaVectors','flRaStreamlines',
     'flRaCompare3D','flRaCompareAddView','flRaCompareConfig','flRaSwapAB','flRaCopyAToB','flRaCompareDifference',
-    'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera',
+    'flRaLinkCameras','flRaResyncCameras','flRaVisualSync','flRaFitAll','flRaResetCamera','flRaPhotoHd',
     'flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom',
     'flRaQuickIso','flRaQuickFront','flRaQuickBack','flRaQuickLeft','flRaQuickRight','flRaQuickTop','flRaQuickBottom'];
   for(const id of ids)document.getElementById(id)?.classList.toggle('flScopeHidden',!show3D);
@@ -574,7 +589,7 @@ function flRibbonFieldSubbars(){
   const groups={};
   for(const [key,id] of Object.entries(targets)){
     const group=document.getElementById(id)?.closest('.flRibbonGroup');if(!group)return false;
-    groups[key]=group;shelf.appendChild(group)
+    groups[key]=group;group.dataset.flShelfGroup=key;shelf.appendChild(group)
   }
   const tabs=document.createElement('div');tabs.id='flFieldContextTabs';tabs.className='flFieldContextTabs';
   for(const [key,en,es] of [['inspect','Inspect','Inspeccionar'],['compare','Compare','Comparar'],['camera','Camera','Cámara']]){
@@ -583,10 +598,11 @@ function flRibbonFieldSubbars(){
     button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls','flFieldContextShelf');
     button.addEventListener('click',()=>{
       const enabled=!button.classList.contains('active');
-      shelf.classList.toggle('flCameraToolsActive',enabled&&key==='camera');
+      const scope=flRibbonFieldShelfState(true,enabled?key:null);
+      shelf.classList.toggle('flCameraToolsActive',scope.camera);
       tabs.querySelectorAll('button').forEach(b=>{const yes=enabled&&b===button;b.classList.toggle('active',yes);b.setAttribute('aria-expanded',String(yes))});
-      Object.entries(groups).forEach(([name,g])=>g.classList.toggle('flSubbarActive',enabled&&name===key));
-      shelf.classList.toggle('hidden',!enabled);
+      Object.entries(groups).forEach(([name,g])=>g.classList.toggle('flSubbarActive',scope[name]));
+      shelf.classList.toggle('hidden',scope.hidden);
       if(enabled&&key==='camera')flRibbonRevealCameraTools(shelf)
     });tabs.appendChild(button)
   }
@@ -607,7 +623,7 @@ function flRibbonFieldSubbars(){
     if(camera?.classList.contains('active')&&!shelf.classList.contains('hidden'))
       flRibbonRevealCameraTools(shelf)
   });
-  return true
+  flRibbonUpdateFieldScope();return true
 }
 function flRibbonInstallChromeMeasurement(){
   // One immutable full-window command surface: sidebar resizing changes only
@@ -679,6 +695,7 @@ function flRibbonInstall(){
   flRibbonBind('flRaLinkCameras',()=>flRibbonField(()=>flRibbonToggleCheck('fcLinkCameras'),'field'));
   flRibbonBind('flRaResyncCameras',()=>flRibbonField(()=>flRibbonClick('fcResyncCameras'),'field'));
   flRibbonBind('flRaVisualSync',()=>flRibbonField(()=>flRibbonToggleCheck('fcSyncVisuals'),'field'));
+  flRibbonBind('flRaPhotoHd',()=>window.FoamLensMultiPanelExport?.openPhoto?.('A'));
   flRibbonBind('flRaFitAll',()=>flRibbonField(()=>flRibbonClick('fcFitAll'),'field'));
   flRibbonBind('flRaResetCamera',()=>flRibbonField(()=>flRibbonClick('fvResetCamera'),'field'));
   for(const [id,preset] of [['flRaQuickIso','iso'],['flRaQuickFront','front'],['flRaQuickBack','back'],['flRaQuickLeft','left'],['flRaQuickRight','right'],['flRaQuickTop','top'],['flRaQuickBottom','bottom']])flRibbonBind(id,()=>flRibbonField(()=>document.querySelector('[data-fv-view="'+preset+'"]')?.click(),'field'));
