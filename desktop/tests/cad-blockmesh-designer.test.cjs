@@ -160,3 +160,19 @@ assert.throws(()=>bands(unitInput,bounds,.125,.25,-1));
 assert(bands(unitInput,bounds,.125,.25,.125).plan.cellCount>216);
 console.log('Conformal CAD bands: shared planes, editable resolution, original plan untouched PASS');
 }
+
+{
+const bandFn=new Function(src.slice(a,b)+';return cmbConformalBands')();
+const original={axes:['0\n1 8 1','0\n1 8 1','0\n1 8 1'],patches:input.patches,zones:''};
+const geom=[{min:[.25,.25,.25],max:[.75,.75,.75]}];
+const protectedPlan=bandFn(original,geom,.0625,.25,0,true);
+assert.deepEqual(protectedPlan.plan.axes.map(q=>q.counts),Array(3).fill([2,8,2]));
+assert.equal(protectedPlan.plan.cellCount,1728);assert.equal(protectedPlan.clearanceAdjustments.length,6);
+assert.equal(bandFn(original,geom,.0625,.25,0,false).plan.cellCount,1000);
+const already=bandFn(original,geom,.0625,.125,0,true);
+assert.equal(already.clearanceAdjustments.length,0);assert.equal(already.plan.cellCount,1728);
+const padded=bandFn(original,geom,.0625,.25,.125,true);
+assert.equal(padded.clearanceAdjustments.length,0);
+assert.throws(()=>bandFn(original,geom,.0625,.25,0,'yes'));
+console.log('Conformal CAD exterior clearance protection and explicit opt-out PASS');
+}

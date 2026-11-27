@@ -302,6 +302,17 @@ if(suite!="core")await Scenario("snappy-conformal-bands",async()=>{
  CheckLog(dir,"checkMesh.log");
  return new{cells,backgroundCells=216,localRefinement=0,snap=false,quality="mesh-ok-reported",qualityCertified=false};
 });
+// Keep the earlier 216-cell strict fixture unchanged. This new case
+// separates the two boundary faces by at least two cells and uses finer CAD bands.
+if(suite!="core")await Scenario("snappy-conformal-protected-clearance",async()=>{
+ var bandAxes=Enumerable.Range(0,3).Select(_=>Axis(new[]{0.0,.25,.75,1.0},new[]{2,8,2})).ToArray();
+ var cfg=JsonSerializer.SerializeToElement(new{axes=bandAxes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=0,maxLevel=0,maxCells=20000,snapEnabled=false,stlBase64=Convert.ToBase64String(stream.ToArray())}});
+ if(NativeCartesianMesh.Build(cfg).Cells!=1728)throw new InvalidOperationException("Protected conformal count mismatch");
+ var dir=await Run("snappy-conformal-protected-clearance","snappyHexMesh",false,cfg);
+ int cells=Cells(dir);if(cells!=1216)throw new InvalidOperationException("Expected 1728 background minus 512 interior cells, got "+cells);
+ CheckLog(dir,"checkMesh.log");
+ return new{cells,backgroundCells=1728,uniformFineReferenceCells=4096,localRefinement=0,snap=false,quality="mesh-ok-reported",qualityCertified=false};
+});
 if(suite!="core")await Scenario("snappy-multi",async()=>{
 var multi=await Run("snappy-multi","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.125f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}}));
 var multiCells=Cells(multi);if(multiCells<=0||multiCells==512)throw new InvalidOperationException("Multi-surface snappy did not produce a different mesh");
