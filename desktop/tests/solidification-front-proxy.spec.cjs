@@ -118,3 +118,33 @@ for(const t of ["pfGeomCache=new WeakMap()","pfRuntimeMeshIdentity(mesh)","pfEl(
 }
 for(const t of ['QuickCup','B14','C14','metalTop','estimatedNucleation'])assert(!source.includes(t),'Thesis-specific fixture leaked '+t);
 console.log('Granada #153 PASS: cube volumes, unequal cell weighting, exact internal-face area, thresholds, invalid topology/alpha and safe front displacement.');
+
+// Two parallel interfaces separated by a cell are distinct edge components.
+const m4=cubeMesh([0,1,2,3,4]),g4=api.geometry(m4);
+const two=api.snapshot(m4,g4,[0,1,1,0],setup(0,{meshIdentity:9}));
+assert(two.ok);assert.equal(two.front.connectivity.count,2);
+assert.equal(two.front.connectivity.components[0].faceCount,1);
+near(two.front.connectivity.components[0].axisMinM,1);
+near(two.front.connectivity.components[1].axisMaxM,3);
+near(two.front.connectivity.components.reduce((sum,g)=>sum+g.areaProxyM2,0),two.front.areaProxyM2);
+assert.equal(two.front.connectivity.temporalIdentityVerified,false);
+const one=api.snapshot(m4,g4,[0,0,1,1],setup(2,{meshIdentity:9}));
+const change=api.evolution([two,one],[0,2]);
+assert.equal(change.rows[1].frontConnectivityChange,'component-count-changed');
+assert.equal(change.rows[1].singleConnectedCentroidContext,false);
+near(change.rows[1].phaseVolumeRateM3PerS.solid,0);
+const changedIso=api.snapshot(m4,g4,[0,0,1,1],setup(2,{meshIdentity:9,iso:0.7}));
+assert.equal(api.evolution([two,changedIso],[0,2]).rows[1].phaseVolumeRateM3PerS,null);
+assert.equal(api.evolution([two,changedIso],[0,2]).rows[1].frontCentroidVelocityProxyMPerS,null);
+assert.equal(api.evolution([two,one],[0,1,2]).rows[1].phaseVolumeRateM3PerS,null);
+assert.equal(b1.front.connectivity.count,0);
+const components=new Function(source.slice(first,last)+';return pfConnectedCrossingFaces')();
+const edgeMesh={faceOffsets:[0,4,8,12],facePoints:[0,1,2,3,1,4,5,2,5,6,7,8],points:[0,0,0,1,0,0,1,1,0,0,1,0,2,0,0,2,1,0,3,1,0,3,2,0,2,2,0]};
+const edgeGeo={faceAreas:[1,1,1],faceCentroids:[.5,.5,0,1.5,.5,0,2.5,1.5,0]};
+const grouped=components(edgeMesh,edgeGeo,[0,1,2],0);
+assert.equal(grouped.count,2,'vertex-only touch is not a shared edge');
+assert.equal(grouped.components[0].faceCount,2);near(grouped.components[0].areaProxyM2,2);near(grouped.components[0].centroidM[0],1);
+assert.equal(components(edgeMesh,edgeGeo,new Array(100001).fill(0),0).status,'unavailable-limit');
+assert(source.includes("'pfExport','pfExportCsv','pfExportComponents','pfCancel'"));
+assert(source.includes("pfExport('components')"));
+console.log('Granada #153 edge connectivity and phase category volume-rate regression PASS');
