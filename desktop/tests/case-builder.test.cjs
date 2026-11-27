@@ -232,3 +232,26 @@ if(typeof process!=='undefined'&&process.platform==='linux'){
   fs.rmSync(tmp,{recursive:true,force:true})
  }
 }
+
+const fluid={...phase,materials:'',fluidProperties:'metal|6800|700|0.006|0.2|55|0'};
+for(const version of ['13','14']){
+ const z=api.build({...fluid,version}),d=file(z,'draft/constant/physicalProperties');
+ assert.match(d,/type heRhoThermo;/);assert.match(d,/thermo hConst;/);assert.match(d,/energy sensibleEnthalpy;/);
+ assert.match(d,/mu 0.006; Pr 0.2;/);assert.match(file(z,'draft/constant/momentumTransport'),/simulationType laminar;/);
+ assert(Math.abs(z.manifest.nativeConstantFluidDrafts[0].impliedK_W_m_K-21)<1e-10);
+ assert(z.manifest.execution.requiredFiles.includes('constant/momentumTransport'));assert.strictEqual(z.manifest.solverReady,false)
+}
+for(const bad of [{fluidProperties:'metal|6800|700|0|0.2|55|0'},{fluidProperties:'metal|6800|700|0.006|0|55|0'},{regions:'metal|fluid|incompressibleFluid'},{materials:'metal|alloy|6800|700|50'},{materialTables:'metal|1000|6800|700|21\nmetal|1500|6700|750|22'}])assert.throws(()=>api.build({...fluid,...bad}));
+const residual=(t,region,v)=>'Time = '+t+'\n'+(region?'Solving for fluid region '+region+'\n':'')+'GAMG: Solving for p_rgh, Initial residual = '+v+', Final residual = 0.001, No Iterations 4\n';
+const aa=api.inspectRunLog(residual(1,'metal',0.8)+residual(1,'metal',0.5)+residual(2,'metal',0.2)+residual(3,null,0.7));
+const bb=api.inspectRunLog(residual(1,'metal',0.4)+residual(3,'metal',0.1));
+const cmp=api.compareRunLogs(aa,bb,{region:'metal',field:'p_rgh',metric:'initial'});
+assert.strictEqual(cmp.matched,1);assert.strictEqual(cmp.onlyA,1);assert.strictEqual(cmp.onlyB,1);
+assert.strictEqual(cmp.duplicateTimesA,1);assert.strictEqual(cmp.rows[0].A,0.5);assert.strictEqual(cmp.rows[0].B,0.4);
+assert.strictEqual(cmp.rows[1].B,null);assert.strictEqual(cmp.rows[2].A,null);assert.strictEqual(cmp.rows[2].delta_B_minus_A,null);
+assert.strictEqual(cmp.physicalEquivalenceVerified,false);assert.match(api.comparisonCsv(cmp),/2,0.2,,\n3,,0.1,/);
+assert.strictEqual(api.residualSelections(aa,bb).length,2);
+assert.throws(()=>api.compareRunLogs(api.inspectRunLog(residual(2,'metal',0.5)+residual(1,'metal',0.1)),bb,{region:'metal',field:'p_rgh',metric:'initial'}));
+assert.throws(()=>api.compareRunLogs({...aa,truncated:true},bb,{region:'metal',field:'p_rgh',metric:'initial'}));
+assert.throws(()=>api.compareRunLogs(aa,bb,{region:'metal',field:'p_rgh',metric:'unknown'}));
+console.log('Constant fluid native draft and A/B source-preserving comparison PASS');
