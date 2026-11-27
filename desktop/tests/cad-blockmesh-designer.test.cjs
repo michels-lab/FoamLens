@@ -255,3 +255,26 @@ assert.deepEqual(qapi.compare(a,{...b,version:'13'}).metricDeltas,{});
 assert.deepEqual(qapi.compare(a,{...b,qualitySummary:null}).metricDeltas,{});
 console.log('Native quality summary preserves real zeros, incomplete data and comparable metric deltas PASS');
 }
+
+{
+const core=src.slice(a,b),extra=src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbMount()'));
+const ex=new Function(core+'\n'+extra+';return {import:cmbImportExperiment,config:cmbExperimentConfig,rows:cmbExperimentRows,changes:cmbExperimentChanges,csv:cmbExperimentCsv}')();
+const axis={points:[0,.25,.75,1],counts:[2,8,2],grading:[1,1,1]},settings={inside:[.11,.11,.11],minLevel:0,maxLevel:0,maxCells:20000,boxes:[],surfaceSettings:[],layerSettings:{expansionRatio:1.2,finalLayerThickness:.3,minThickness:.1},snapEnabled:false,transitionLayers:2,explicitFeatures:false,uniformBackground:false};
+const e={schema:'foamlens/snappy-experiment/1',version:'14',distribution:'Ubuntu',domain:Array(3).fill([0,1]),patches:input.patches,axes:Array(3).fill(axis),settings,source:[{path:'constant/geometry/surface_001.stl',bytes:684,sha256:'a'.repeat(64)}],plannedCells:1728,finalCells:1216,quality:'mesh-ok-reported',generationExit:0,checkMeshExit:0,concaveCells:0,qualitySummary:{concaveCells:0,maxSkewness:0},layers:null,qualityCertified:false,diagnosticOnly:true};
+const imp=ex.import(JSON.parse(JSON.stringify(e)));
+assert.equal(imp.importedRecord,true);assert.equal(imp.concaveCells,0);assert.equal(ex.config(imp).plan.cellCount,1728);
+assert.deepEqual(ex.config(imp).plan.axes[0],axis);
+assert.equal(ex.import({...e,source:null}).source,null);
+for(const bad of [{...e,qualityCertified:true},{...e,plannedCells:1},{...e,domain:[[1,2],[0,1],[0,1]]},{...e,concaveCells:1217},{...e,qualitySummary:{concaveCells:1}},{...e,settings:{...settings,inside:[2,0,0]}},{...e,settings:{...settings,unknown:true}},{...e,source:[{...e.source[0],sha256:'bad'}]},{...e,axes:[axis]},{...e,patches:['a','a','b','c','d','e']}])assert.throws(()=>ex.import(bad));
+const next={...imp,finalCells:1000,concaveCells:10,qualitySummary:{concaveCells:10,maxSkewness:.25,underdeterminedCells:5},settings:{...imp.settings,transitionLayers:3}};
+const rows=ex.rows(imp,next);
+assert.equal(rows.find(v=>v.metric==='concaveFraction').delta,.01);
+assert.equal(rows.find(v=>v.metric==='underdeterminedFraction').A,null);
+assert.equal(rows.find(v=>v.metric==='underdeterminedFraction').B,.005);
+assert.equal(rows.find(v=>v.metric==='underdeterminedFraction').delta,null);
+assert.equal(ex.rows(imp,{...next,source:null}).find(v=>v.metric==='maxSkewness').delta,null);
+assert.deepEqual(ex.changes(imp,next).map(v=>v.parameter),['transitionLayers']);
+assert(ex.csv(rows).includes('"concaveFraction","1",0,0.01,0.01'));
+assert(ex.csv(rows).includes('"underdeterminedFraction","1",,0.005,'));
+console.log('Experiment workflow: portable validated import, exact plan restore, change detection, normalized metrics and CSV PASS');
+}
