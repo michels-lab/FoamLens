@@ -381,6 +381,76 @@ function fesResample(a,b,rawLimit=250000){
  const n=coverage.matched,metrics=n&&[abs,sq,bias].every(Number.isFinite)?{mae:abs/n,rmse:Math.sqrt(sq/n),bias:bias/n}:null;
  return {valid:true,schema:'foamlens/mesh-resample/1',target:a.source,source:b.source,coverage,metrics,rows,cellBudgetPerMesh:limit,method:'B cell-constant values at A cell centres; strict convex planar cells; no extrapolation, no boundary tie-breaking, no conservative transfer. Metrics unweighted over matched points only.'}
 }
+function fesSameMesh(a,b){return !!(a&&b&&a.caseId===b.caseId&&a.region===b.region&&a.association===b.association&&typeof a.meshId==='string'&&a.meshId.length&&a.meshId===b.meshId)}
+function fesCalcDimensions(a,b,op){
+ const x=fesDimensions(a),y=fesDimensions(b);if(!x||!y)return null;
+ if(op==='add'||op==='subtract')return x.every((v,i)=>v===y[i])?x:null;
+ if(op==='multiply'||op==='divide'){const z=x.map((v,i)=>v+(op==='multiply'?y[i]:-y[i]));return z.every(Number.isFinite)?z:null}return null
+}
+function fesCalcValue(a,b,op){
+ if(!Number.isFinite(a)||!Number.isFinite(b)||(op==='divide'&&b===0))return NaN;
+ const v=op==='add'?a+b:op==='subtract'?a-b:op==='multiply'?a*b:op==='divide'?a/b:NaN;return Number.isFinite(v)?v:NaN
+}
+function fesDerivedInput(a){return !!(a?.source?.association==='volume'&&fesDimensions(a.source.dimensions)&&Number.isSafeInteger(a.mesh?.cellCount)&&a.mesh.cellCount>0&&a.values?.length===a.mesh.cellCount)}
+function* fesCalculate(a,b,op){
+ if(!fesDerivedInput(a)||!fesDerivedInput(b)||!fesSameMesh(a.source,b.source)||a.source.time_s!==b.source.time_s||a.values.length!==b.values.length)return {valid:false,reason:'calculator-source-mismatch'};
+ const dimensions=fesCalcDimensions(a.source.dimensions,b.source.dimensions,op);if(!dimensions)return {valid:false,reason:'calculator-dimension-mismatch'};
+ const n=a.values.length,values=new Float64Array(n);let valid=0;
+ for(let i=0;i<n;i++){const v=fesCalcValue(a.values[i],b.values[i],op);values[i]=v;if(Number.isFinite(v))valid++;if((i+1)%16384===0)yield {done:i+1,total:n}}
+ return {valid:true,schema:'foamlens/derived-field/1',kind:'calculator',sources:[a.source,b.source],dimensions,columns:[{name:op,values}],coverage:{total:n,valid,missing:n-valid},method:'Cellwise original components, same mesh and exact physical time. Invalid operands and zero divisors remain missing.'}
+}
+function fesAdjacency(mesh){
+ const n=mesh.cellCount,o=mesh.owners,q=mesh.neighbours;if(!o||!q||q.length>o.length||q.length>0x7fffffff)return null;
+ const offsets=new Uint32Array(n+1);
+ for(let f=0;f<q.length;f++){const a=o[f],b=q[f];if(!Number.isSafeInteger(a)||!Number.isSafeInteger(b)||a<0||b<0||a>=n||b>=n||a===b)return null;offsets[a+1]++;offsets[b+1]++}
+ for(let i=1;i<=n;i++)offsets[i]+=offsets[i-1];
+ const cursor=offsets.slice(0,n),ids=new Uint32Array(offsets[n]);for(let f=0;f<q.length;f++){ids[cursor[o[f]]++]=q[f];ids[cursor[q[f]]++]=o[f]}return {offsets,ids}
+}
+function fesSolve(matrix,rhs){
+ const n=rhs.length,a=matrix.map((row,i)=>[...row,rhs[i]]),scale=Math.max(...matrix.flat().map(Math.abs));if(!(scale>0))return null;
+ for(let j=0;j<n;j++){let p=j;for(let i=j+1;i<n;i++)if(Math.abs(a[i][j])>Math.abs(a[p][j]))p=i;if(!(Math.abs(a[p][j])>scale*1e-10))return null;[a[j],a[p]]=[a[p],a[j]];const d=a[j][j];for(let k=j;k<=n;k++)a[j][k]/=d;for(let i=0;i<n;i++)if(i!==j){const z=a[i][j];for(let k=j;k<=n;k++)a[i][k]-=z*a[j][k]}}
+ const v=a.map(row=>row[n]);return v.every(Number.isFinite)?v:null
+}
+function* fesGradient(a,plane='xyz'){
+ const axes={xyz:[0,1,2],xy:[0,1],xz:[0,2],yz:[1,2]}[plane];
+ if(!axes||!fesDerivedInput(a)||a.mesh.decomposed||a.source.decomposed)return{valid:false,reason:'gradient-reconstructed-volume-required'};
+ const n=a.values.length,adj=fesAdjacency(a.mesh);if(!adj)return{valid:false,reason:'invalid-neighbour-topology'};
+ const cols=axes.map(k=>({name:'d'+a.source.field+'/d'+'xyz'[k],values:new Float64Array(n).fill(NaN)})),mag=new Float64Array(n).fill(NaN);let valid=0;
+ for(let i=0;i<n;i++){
+  const p=fesXYZ(a.mesh.cellCenters,i),v=a.values[i],d=axes.length,M=Array.from({length:d},()=>Array(d).fill(0)),rhs=Array(d).fill(0);
+  if(p&&Number.isFinite(v)){for(let k=adj.offsets[i];k<adj.offsets[i+1];k++){const j=adj.ids[k],q=fesXYZ(a.mesh.cellCenters,j),w=a.values[j];if(!q||!Number.isFinite(w))continue;
+    const delta=axes.map(k=>q[k]-p[k]),length=Math.hypot(...delta);if(!(length>0)||!Number.isFinite(length))continue;
+    const u=delta.map(x=>x/length),dv=(w-v)/length;if(!Number.isFinite(dv))continue;for(let m=0;m<d;m++){rhs[m]+=u[m]*dv;for(let l=0;l<d;l++)M[m][l]+=u[m]*u[l]}
+   }const g=fesSolve(M,rhs);if(g&&Number.isFinite(Math.hypot(...g))){g.forEach((x,j)=>cols[j].values[i]=x);mag[i]=Math.hypot(...g);valid++}}
+  if((i+1)%4096===0)yield {done:i+1,total:n}
+ }
+ const dimensions=fesDimensions(a.source.dimensions);dimensions[1]-=1;cols.push({name:'gradient_magnitude_'+plane,values:mag});
+ return{valid:true,schema:'foamlens/derived-field/1',kind:'gradient',sources:[a.source],dimensions,columns:cols,coverage:{total:n,valid,missing:n-valid},method:'Inverse-distance weighted local least squares using internal face neighbours; selected axes '+plane+' only; no invented boundary values or rank-deficient gradients.'}
+}
+function fesTemporalStart(a){
+ if(!fesDerivedInput(a)||!Number.isFinite(a.source.time_s)||!a.source.meshId)return null;
+ const n=a.values.length,mean=new Float64Array(n),m2=new Float64Array(n),min=new Float64Array(n),max=new Float64Array(n),ok=new Uint8Array(n);
+ for(let i=0;i<n;i++){const v=a.values[i];ok[i]=Number.isFinite(v)?1:0;min[i]=max[i]=v}
+ return {first:a.source,previous:a.source,prev:a.values,mean,m2,min,max,ok,duration:0,frames:[a.source]}
+}
+function* fesTemporalStep(state,a){
+ if(!state||!fesDerivedInput(a)||!fesSameMesh(state.first,a.source)||state.first.field!==a.source.field||state.first.component!==a.source.component||!fesCalcDimensions(state.first.dimensions,a.source.dimensions,'add')||a.values.length!==state.prev.length)return false;
+ const dt=a.source.time_s-state.previous.time_s,total=state.duration+dt;if(!Number.isFinite(dt)||!(dt>0)||!Number.isFinite(total))return false;
+ const n=a.values.length;
+ for(let i=0;i<n;i++){const x=state.prev[i],y=a.values[i];if(!state.ok[i]||!Number.isFinite(x)||!Number.isFinite(y)){state.ok[i]=0;if((i+1)%16384===0)yield {done:i+1,total:n};continue}
+  const mu=x/2+y/2,delta=y-x,w=dt/total,d=mu-state.mean[i],mean=state.duration?state.mean[i]+d*w:mu;
+  const variance=delta*delta/12,v=(state.duration?state.m2[i]*(state.duration/total)+d*d*w*(state.duration/total):0)+variance*w;
+  if(!Number.isFinite(mean)||!Number.isFinite(v)||v<0){state.ok[i]=0;if((i+1)%16384===0)yield {done:i+1,total:n};continue}
+  state.mean[i]=mean;state.m2[i]=v;state.min[i]=Math.min(state.min[i],y);state.max[i]=Math.max(state.max[i],y);
+  if((i+1)%16384===0)yield {done:i+1,total:n}
+ }
+ state.duration=total;state.previous=a.source;state.prev=a.values;state.frames.push(a.source);return true
+}
+function* fesTemporalFinish(state){
+ if(!state||!(state.duration>0)||state.frames.length<2)return{valid:false,reason:'two-or-more-native-times-required'};
+ let valid=0;const n=state.mean.length;for(let i=0;i<n;i++){if(!state.ok[i])state.mean[i]=state.m2[i]=state.min[i]=state.max[i]=NaN;else{state.m2[i]=Math.sqrt(state.m2[i]);valid++}if((i+1)%16384===0)yield{done:i+1,total:n}}
+ return{valid:true,schema:'foamlens/derived-field/1',kind:'temporal-statistics',sources:state.frames,dimensions:fesDimensions(state.first.dimensions),columns:[{name:'time_weighted_mean',values:state.mean},{name:'time_weighted_std',values:state.m2},{name:'min_native',values:state.min},{name:'max_native',values:state.max}],coverage:{total:n,valid,missing:n-valid},duration_s:state.duration,method:'Time-weighted moments under piecewise-linear interpolation between consecutive native times, no resampling or omitted intervals; exact static mesh identity, complete per-cell history required.'}
+}
 /* FOAMLENS_ENTITY_SELECTION_CORE_END */
 let fesResult=null,fesPage=0,fesSelected=null,fesStages=[],fesStageSource=null,fesClipResult=null;
 const fesE=id=>document.getElementById(id);
@@ -505,6 +575,52 @@ function fesMountPhysical(box){
  const el=document.createElement('details');el.className='analysisExt';el.innerHTML='<summary><strong data-fl-en="Volume integration / mesh resample" data-fl-es="Integración volumétrica / remuestreo">Volume integration / mesh resample</strong></summary><p class="smallnote" data-fl-en="Cell-centred fields, verified closed convex planar cells. Configurable cell budgets; larger settings can consume substantial memory. Resample B onto A at identical physical time and region; no extrapolation." data-fl-es="Campos centrados en celdas, celdas convexas cerradas y planas verificadas. Límites configurables; los mayores pueden consumir mucha memoria. Remuestreo B sobre A a igual tiempo físico y región; sin extrapolación.">Cell-centred fields, verified closed convex planar cells. Configurable cell budgets; larger settings can consume substantial memory. Resample B onto A at identical physical time and region; no extrapolation.</p><div class="field"><label data-fl-en="Integration scope" data-fl-es="Alcance de integración">Integration scope</label><select id="fesPhysicalScope"><option value="all" data-fl-en="Entire Field A" data-fl-es="Todo Field A">Entire Field A</option><option value="selection" data-fl-en="Current extracted entities" data-fl-es="Entidades extraídas actuales">Current extracted entities</option></select></div><div class="field"><label data-fl-en="Integration cell budget" data-fl-es="Límite de celdas para integración">Integration cell budget</label><select id="fesIntegralBudget"><option value="100000">100,000</option><option value="250000" selected>250,000</option><option value="500000">500,000</option><option value="1000000">1,000,000</option></select></div><button class="btn primary" type="button" id="fesPhysicalIntegral" data-fl-en="Integrate variables" data-fl-es="Integrar variables">Integrate variables</button><div class="field"><label data-fl-en="Source case B" data-fl-es="Caso fuente B">Source case B</label><select id="fesPhysicalCase"></select></div><div class="field"><label data-fl-en="Resample cell budget per mesh" data-fl-es="Límite de remuestreo por malla">Resample cell budget per mesh</label><select id="fesResampleBudget"><option value="100000">100,000</option><option value="250000" selected>250,000</option><option value="500000">500,000</option></select></div><div class="extActions"><button class="btn soft" type="button" id="fesPhysicalRefresh" data-fl-en="Refresh cases" data-fl-es="Actualizar casos">Refresh cases</button><button class="btn primary" type="button" id="fesPhysicalResample" data-fl-en="Resample B → A" data-fl-es="Remuestrear B → A">Resample B → A</button><button class="btn soft" type="button" id="fesPhysicalExport">JSON</button></div><p class="smallnote" id="fesPhysicalStatus" aria-live="polite"></p>';
  box.querySelector('.extSectionBody').append(el);el.addEventListener('toggle',()=>{if(el.open)fesPhysicalCases()});fesE('fesPhysicalRefresh').onclick=fesPhysicalCases;fesE('fesPhysicalCase').onchange=fesPhysicalClear;fesE('fesPhysicalScope').onchange=fesPhysicalClear;fesE('fesIntegralBudget').onchange=fesPhysicalClear;fesE('fesResampleBudget').onchange=fesPhysicalClear;fesE('fesPhysicalIntegral').onclick=fesPhysicalIntegrate;fesE('fesPhysicalResample').onclick=fesPhysicalResample;fesE('fesPhysicalExport').onclick=fesPhysicalExport;fesPhysicalClear()
 }
+let fesDerivedSeq=0,fesDerivedResult=null;
+function fesDerivedReset(){fesDerivedSeq++;fesDerivedResult=null;fesE('fesDerivedStatus').textContent='';fesE('fesDerivedCsv').disabled=true;fesE('fesDerivedMeta').disabled=true}
+function fesDerivedGroups(){
+ const a=fesSource(),c=typeof fvCase==='function'?fvCase():null,sel=fesE('fesDerivedOther'),old=sel.value;sel.replaceChildren();if(!a||!c)return;
+ for(const g of fvFieldGroups(c,a.source.region,null,'volume')){if(!g.times.some(t=>fesNum(t)===a.source.time_s))continue;for(const comp of fvFieldComponents(g)){const o=document.createElement('option');o.value=JSON.stringify([g.name,g.kind,comp.v]);o.textContent=g.name+' · '+comp.t;sel.append(o)}}
+ if([...sel.options].some(o=>o.value===old))sel.value=old
+}
+function fesDerivedData(c,g,region,time,component,data){
+ const dimensions=data.parsed?.dimensions,paths=fesLayoutPaths(data.layout);if(!paths.length)throw Error('source-path-unavailable');
+ return{mesh:data.mesh,values:data.fieldValues,source:{caseId:String(c.id),caseName:String(c.name||c.id),region,field:g.name,association:data.storage,component,time_s:time,dimensions,unit:dimensions&&typeof pmUnitFromDimensions==='function'?pmUnitFromDimensions(dimensions):'',paths,meshId:data.meshInfo.key,decomposed:!!data.mesh.decomposed}}
+}
+async function fesDerivedConsume(generator,seq,prefix){
+ for(;;){if(seq!==fesDerivedSeq)throw Error('cancelled');const next=generator.next();if(next.done)return next.value;fesE('fesDerivedStatus').textContent=prefix+' · '+next.value.done+'/'+next.value.total;await new Promise(r=>setTimeout(r,0))}
+}
+function fesDerivedShow(r){if(!r?.valid){fesE('fesDerivedStatus').textContent=r?.reason||'invalid-result';return}fesDerivedResult=r;fesE('fesDerivedCsv').disabled=false;fesE('fesDerivedMeta').disabled=false;fesE('fesDerivedStatus').textContent=r.kind+' · '+r.coverage.valid+'/'+r.coverage.total+' '+fesUi('valid cells','celdas válidas')+' · ['+r.dimensions.join(' ')+']'+(r.duration_s?' · '+r.duration_s+' s':'')}
+async function fesDerivedRun(kind){
+ fesDerivedReset();const seq=fesDerivedSeq,a=fesSource(),c=typeof fvCase==='function'?fvCase():null,g=typeof fvCurrentFieldGroup==='function'?fvCurrentFieldGroup():null;
+ if(!fesDerivedInput(a)||!c||!g){fesDerivedShow({valid:false,reason:'load-volume-field-with-dimensions'});return}
+ const region=a.source.region,comp=a.source.component,status=fesE('fesDerivedStatus'),current=()=>{const x=fesSource();return x&&x.mesh===a.mesh&&x.values===a.values&&JSON.stringify(x.source)===JSON.stringify(a.source)};
+ try{let result;
+ if(kind==='calculator'){const [name,type,component]=JSON.parse(fesE('fesDerivedOther').value),op=fesE('fesDerivedOp').value,groups=fvFieldGroups(c,region,null,'volume').filter(x=>x.name===name&&x.kind===type&&x.times.some(t=>fesNum(t)===a.source.time_s));if(groups.length!==1)throw Error('ambiguous-or-missing-second-field');status.textContent=fesUi('Loading second field…','Cargando segundo campo…');const b=fesDerivedData(c,groups[0],region,a.source.time_s,component,await fvLoadFrameData(c,groups[0],region,a.source.time_s,component,{includeBoundary:false}));if(!current())throw Error('source-changed');result=await fesDerivedConsume(fesCalculate(a,b,op),seq,'Calculator')}
+ else if(kind==='gradient'){result=await fesDerivedConsume(fesGradient(a,fesE('fesDerivedPlane').value),seq,'Gradient')}
+ else {
+  const lo=fesNum(fesE('fesDerivedStart').value),hi=fesNum(fesE('fesDerivedEnd').value),times=g.times.map(fesNum).filter(t=>Number.isFinite(t)&&t>=lo&&t<=hi).sort((a,b)=>a-b);
+  if(!Number.isFinite(lo)||!Number.isFinite(hi)||times.length<2||new Set(times).size!==times.length||times[0]!==lo||times.at(-1)!==hi)throw Error('select-two-exact-native-times');
+  let state=null;
+  for(let i=0;i<times.length;i++){if(seq!==fesDerivedSeq||!current())throw Error('source-changed-or-cancelled');status.textContent=fesUi('Loading native time','Cargando tiempo nativo')+' '+(i+1)+'/'+times.length;const frame=fesDerivedData(c,g,region,times[i],comp,await fvLoadFrameData(c,g,region,times[i],comp,{includeBoundary:false}));if(seq!==fesDerivedSeq)throw Error('cancelled');
+   if(!state){state=fesTemporalStart(frame);if(!state)throw Error('invalid-first-frame')}else if(!await fesDerivedConsume(fesTemporalStep(state,frame),seq,'t='+times[i]+' s'))throw Error('mesh-dimensions-or-time-changed');
+  }result=await fesDerivedConsume(fesTemporalFinish(state),seq,'Temporal statistics')
+ }
+ if(seq===fesDerivedSeq){if(!current())throw Error('source-changed');fesDerivedShow(result)}
+ }catch(e){if(seq===fesDerivedSeq)fesDerivedShow({valid:false,reason:String(e?.message||e)})}
+}
+function fesDerivedTimes(){const g=typeof fvCurrentFieldGroup==='function'?fvCurrentFieldGroup():null,t=(g?.times||[]).map(fesNum).filter(Number.isFinite).sort((a,b)=>a-b);for(const [id,def] of [['fesDerivedStart',0],['fesDerivedEnd',t.length-1]]){const sel=fesE(id);sel.replaceChildren();for(const x of t){const o=document.createElement('option');o.value=String(x);o.textContent=x+' s';sel.append(o)}if(t.length)sel.selectedIndex=def}}
+async function fesDerivedExport(csv){
+ const r=fesDerivedResult;if(!r)return;const seq=fesDerivedSeq,name='FoamLens_'+r.kind;const metadata={...r,columns:r.columns.map(c=>({name:c.name}))};
+ if(!csv){downloadText(name+'.json',JSON.stringify(metadata,null,2),'application/json');return}
+ const quote=x=>'"'+String(x).replace(/"/g,'""')+'"',parts=[['cell_id',...r.columns.map(c=>quote(/^[=+@-]/.test(c.name)?"'"+c.name:c.name))].join(',')+'\n'];let block=[];
+ for(let i=0;i<r.coverage.total;i++){if(seq!==fesDerivedSeq)return;block.push([i,...r.columns.map(c=>Number.isFinite(c.values[i])?c.values[i]:'')].join(',')+'\n');if(block.length>=16384){parts.push(block.join(''));block=[];await new Promise(resolve=>setTimeout(resolve,0))}}
+ if(block.length)parts.push(block.join(''));if(seq!==fesDerivedSeq)return;const blob=new Blob(parts,{type:'text/csv'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
+}
+function fesMountDerived(box){
+ const el=document.createElement('details');el.className='analysisExt';el.innerHTML='<summary><strong data-fl-en="Derived fields &amp; temporal statistics" data-fl-es="Campos derivados y estadísticas temporales">Derived fields &amp; temporal statistics</strong></summary><p class="smallnote" data-fl-en="Read-only Field A calculations. Full output CSV with separate provenance JSON. Missing values remain blank." data-fl-es="Cálculos de solo lectura de Field A. CSV completo y JSON de procedencia separado. Los datos ausentes quedan vacíos.">Read-only Field A calculations. Full output CSV with separate provenance JSON. Missing values remain blank.</p><button class="btn soft" type="button" id="fesDerivedRefresh" data-fl-en="Refresh source fields and times" data-fl-es="Actualizar campos y tiempos">Refresh source fields and times</button><div class="field"><label data-fl-en="Second field / component" data-fl-es="Segundo campo / componente">Second field / component</label><select id="fesDerivedOther"></select></div><div class="field"><label data-fl-en="Operation A, B" data-fl-es="Operación A, B">Operation A, B</label><select id="fesDerivedOp"><option value="add">A + B</option><option value="subtract">A − B</option><option value="multiply">A × B</option><option value="divide">A / B</option></select></div><button class="btn primary" type="button" id="fesCalcRun">Calculator</button><div class="field"><label data-fl-en="Gradient axes" data-fl-es="Ejes del gradiente">Gradient axes</label><select id="fesDerivedPlane"><option value="xyz">XYZ (3D)</option><option value="xy">XY (2D)</option><option value="xz">XZ (2D)</option><option value="yz">YZ (2D)</option></select></div><button class="btn primary" type="button" id="fesGradRun">Gradient</button><div class="row2"><div class="field"><label data-fl-en="From time" data-fl-es="Desde tiempo">From time</label><select id="fesDerivedStart"></select></div><div class="field"><label data-fl-en="To time" data-fl-es="Hasta tiempo">To time</label><select id="fesDerivedEnd"></select></div></div><button class="btn primary" type="button" id="fesTemporalRun" data-fl-en="Temporal statistics" data-fl-es="Estadísticas temporales">Temporal statistics</button><div class="extActions"><button class="btn soft" type="button" id="fesDerivedCancel" data-fl-en="Cancel / clear" data-fl-es="Cancelar / limpiar">Cancel / clear</button><button class="btn soft" type="button" id="fesDerivedCsv">CSV</button><button class="btn soft" type="button" id="fesDerivedMeta">JSON</button></div><p class="smallnote" id="fesDerivedStatus" aria-live="polite"></p>';
+ box.querySelector('.extSectionBody').append(el);const refresh=()=>{fesDerivedReset();fesDerivedGroups();fesDerivedTimes()};el.addEventListener('toggle',()=>{if(el.open)refresh()});fesE('fesDerivedRefresh').onclick=refresh;for(const id of ['fesDerivedOther','fesDerivedOp','fesDerivedPlane','fesDerivedStart','fesDerivedEnd'])fesE(id).onchange=fesDerivedReset;
+ fesE('fesCalcRun').onclick=()=>fesDerivedRun('calculator');fesE('fesGradRun').onclick=()=>fesDerivedRun('gradient');fesE('fesTemporalRun').onclick=()=>fesDerivedRun('temporal');fesE('fesDerivedCancel').onclick=()=>{fesDerivedReset();fesE('fesDerivedStatus').textContent=fesUi('Cancelled / cleared','Cancelado / limpiado')};fesE('fesDerivedCsv').onclick=()=>fesDerivedExport(true);fesE('fesDerivedMeta').onclick=()=>fesDerivedExport(false);fesDerivedReset()
+}
 function fesMount(){
  if(fesE('fesPanel'))return true;const host=fesE('fieldViewControls');if(!host)return false;
  const box=document.createElement('details');box.className='analysisExt';box.id='fesPanel';
@@ -520,7 +636,7 @@ function fesMount(){
  '<div class="field"><label data-fl-en="Projection" data-fl-es="Proyección">Projection</label><select id="fesProjection"><option value="xy">XY</option><option value="xz">XZ</option><option value="yz">YZ</option></select></div><div id="fesPlot"></div><div class="extActions"><button class="btn tiny" id="fesPrev" type="button">←</button><span id="fesPageText"></span><button class="btn tiny" id="fesNext" type="button">→</button></div><div id="fesRows" style="display:grid;gap:4px;max-height:320px;overflow:auto"></div></div>';
  host.append(box);for(const el of box.querySelectorAll('input,textarea,select'))if(el.id!=='fesProjection')el.addEventListener('input',()=>{fesControls();fesClear(fesUi('Filter changed; extract again.','Cambió el filtro; extrae otra vez.'))});
  fesE('fesDefaults').onclick=fesDefaults;fesE('fesRun').onclick=fesRun;fesE('fesJson').onclick=()=>fesExport('json');fesE('fesCsv').onclick=()=>fesExport('csv');fesE('fesProjection').onchange=fesDraw;fesE('fesPrev').onclick=()=>{fesPage--;fesDraw()};fesE('fesNext').onclick=()=>{fesPage++;fesDraw()};
- fesMountExtra(box);fesMountPhysical(box);try{flApplyBilingualText(box)}catch{}fesControls();fesClear();return true
+ fesMountExtra(box);fesMountPhysical(box);fesMountDerived(box);try{flApplyBilingualText(box)}catch{}fesControls();fesClear();return true
 }
 function fesInstall(){if(fesMount())return;const watch=new MutationObserver(()=>{if(fesMount())watch.disconnect()});watch.observe(document.body,{childList:true,subtree:true})}
 fesInstall();

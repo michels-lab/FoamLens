@@ -110,7 +110,7 @@ for(const name of passed)console.log('  ✓ '+name);
 
 const fesStart=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_START */'),fesEnd=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_END */');
 assert(fesStart>=0&&fesEnd>fesStart);
-const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget};')();
+const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish};')();
 const source={caseId:'a',region:'metal',field:'T',association:'volume',component:'value',unit:'K',time_s:0,paths:['0/metal/T'],dimensions:[0,0,0,1,0,0,0],meshId:'mesh-A'};
 const mesh={cellCount:4,cellCenters:[0,0,0,1,0,0,2,1,0,3,1,0]};
 const input={mesh,source,values:[0,100,200,null]};
@@ -188,4 +188,21 @@ test('larger physical budgets are explicit and compact traversal does not retain
  const input={mesh:cube(),values:[10],source};const a=fes.fesIntegrate(input,null,1000000);assert(a.valid);assert.strictEqual(a.cellBudget,1000000);assert.strictEqual(a.integral,10);assert(!fes.fesIntegrate(input,null,0).valid);
  const b=fes.fesResample(input,input,500000);assert(b.valid);assert.strictEqual(b.cellBudgetPerMesh,500000);assert.strictEqual(b.rows[0].difference,0);assert(!fes.fesResample(input,input,1000000).valid);
  assert(surfaces.includes('new Int32Array(starts[n])'));assert(surfaces.includes('retain:false,onCell:c=>rowFor(c.id,c)'));
+});
+
+function finishGenerator(g){let q=g.next();while(!q.done)q=g.next();return q.value}
+test('calculator checks dimensional arithmetic and same exact mesh, preserves missing',()=>{
+ const a={mesh:{cellCount:3},values:[10,0,20],source},b={...a,values:[2,0,null],source:{...source,field:'Q'}};
+ const q=finishGenerator(fes.fesCalculate(a,b,'divide'));assert(q.valid);assert.strictEqual(q.columns[0].values[0],5);assert(Number.isNaN(q.columns[0].values[1]));assert(Number.isNaN(q.columns[0].values[2]));assert.deepStrictEqual(q.dimensions,[0,0,0,0,0,0,0]);
+ assert(!finishGenerator(fes.fesCalculate(a,{...b,source:{...b.source,meshId:'other'}},'multiply')).valid);assert(!finishGenerator(fes.fesCalculate(a,{...b,source:{...b.source,dimensions:[0,1,0,0,0,0,0]}},'add')).valid);
+});
+test('gradient recovers linear field on physical coordinates, rank deficiency stays missing',()=>{
+ const a={mesh:{cellCount:4,cellCenters:[0,0,0,.001,0,0,0,.001,0,0,0,.001],owners:[0,0,0],neighbours:[1,2,3]},values:[10,12,13,14],source};
+ const q=finishGenerator(fes.fesGradient(a));assert(q.valid);assert.strictEqual(q.coverage.valid,1);assert(Math.abs(q.columns[0].values[0]-2000)<1e-8);assert(Math.abs(q.columns[1].values[0]-3000)<1e-8);assert(Math.abs(q.columns[2].values[0]-4000)<1e-8);assert(Number.isNaN(q.columns[0].values[1]));assert.deepStrictEqual(q.dimensions,[0,-1,0,1,0,0,0]);
+ assert(!finishGenerator(fes.fesGradient({...a,mesh:{...a.mesh,decomposed:true}})).valid);
+});
+test('temporal statistics uses irregular physical intervals and linear moments, not frame average',()=>{
+ const frame=(time,v)=>({mesh:{cellCount:2},values:v,source:{...source,time_s:time}});
+ const st=fes.fesTemporalStart(frame(0,[0,10]));assert(finishGenerator(fes.fesTemporalStep(st,frame(1,[2,null]))));assert(finishGenerator(fes.fesTemporalStep(st,frame(3,[6,20]))));const q=finishGenerator(fes.fesTemporalFinish(st));assert(q.valid);assert.strictEqual(q.duration_s,3);assert(Math.abs(q.columns[0].values[0]-3)<1e-10);assert(Math.abs(q.columns[1].values[0]-Math.sqrt(3))<1e-10);assert.strictEqual(q.columns[2].values[0],0);assert.strictEqual(q.columns[3].values[0],6);assert(Number.isNaN(q.columns[0].values[1]));assert.strictEqual(q.coverage.valid,1);
+ const wrong=fes.fesTemporalStart(frame(0,[0,1]));assert(!finishGenerator(fes.fesTemporalStep(wrong,{...frame(1,[1,2]),source:{...source,time_s:1,meshId:'moved'}})));
 });
