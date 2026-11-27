@@ -273,3 +273,22 @@ assert.strictEqual(badNumeric.lastDeltaT,null);
 assert.strictEqual(badNumeric.nonfiniteMarkers,3);
 assert.strictEqual(badNumeric.fatalMarkers,1);
 console.log('Strict preflight source contract and real log-header/nonfinite regression PASS');
+
+{
+ const p=api.createRunLogParser(),raw='Time = 1\r\nSolving for fluid region metal\r\nGAMG: Solving for p_rgh, Initial residual = 0.1, Final residual = 0.001, No Iterations 4\r\nEnd';
+ for(let i=0;i<raw.length;i+=7)p.push(raw.slice(i,i+7));
+ assert.deepStrictEqual(p.finish(),api.inspectRunLog(raw));assert.throws(()=>p.finish());assert.throws(()=>p.push('x'));
+ const long=api.createRunLogParser(),line='GAMG: Solving for p_rgh, Initial residual = 0.1, Final residual = 0.001, No Iterations 4\n';
+ long.push('Time = 1\n');for(let i=0;i<60001;i++)long.push(line);for(let i=0;i<90;i++)long.push('x'.repeat(100000)+'\n');
+ const result=long.finish();assert.strictEqual(result.residualRows.length,60001);assert.strictEqual(result.truncated,false);assert.strictEqual(result.lineCount,60092);
+ const rows=[{time:0,delta_B_minus_A:-1},{time:2,delta_B_minus_A:1},{time:3,delta_B_minus_A:null},{time:4,delta_B_minus_A:3}];
+ const metric=api.logTemporalMetrics(rows);assert.strictEqual(metric.matchedDuration_s,2);assert.strictEqual(metric.timeWeightedBias,0);assert.strictEqual(metric.timeWeightedMAE,.5);assert(Math.abs(metric.timeWeightedRMSE-Math.sqrt(1/3))<1e-12);assert.strictEqual(metric.maxAbsTime_s,4);
+ assert.strictEqual(api.logTemporalMetrics([{time:0,delta_B_minus_A:null}]).timeWeightedRMSE,null);
+ assert.strictEqual(api.logTemporalMetrics([{time:0,delta_B_minus_A:0},{time:1,delta_B_minus_A:0}]).timeWeightedMAE,0);
+ const restart=api.inspectRunLog('Time = 4\nTime = 1\n'+residual(2,'metal',.1));assert.strictEqual(restart.restartMarkers,1);assert.throws(()=>api.compareRunLogs(restart,bb,{region:'metal',field:'p_rgh',metric:'initial'}));
+ const invalid=api.inspectRunLog('Time = 1\ndeltaT = -1\nCourant Number mean: 2 max: 1\nGAMG: Solving for p_rgh, Initial residual = -1, Final residual = 0.1, No Iterations 2\nSIGSEGV\n');
+ assert.strictEqual(invalid.invalidNumericRows,3);assert.strictEqual(invalid.fatalMarkers,1);assert.strictEqual(invalid.lastDeltaT,null);
+ assert.strictEqual(invalid.residualRows.length,0);assert.strictEqual(invalid.courantRows.length,0);
+ const entries=api.logEvidenceEntries(api.inspectRunLog(raw));assert.deepStrictEqual(entries.map(x=>x.name),['solver-log-summary.json','residuals.csv','courant.csv','time-steps.csv']);assert.match(entries[1].data,/1,"metal","p_rgh",0.1,0.001,4/);
+ console.log('Incremental complete log, 60001 rows, >8 MiB input, temporal error, restart and CSV PASS');
+}
