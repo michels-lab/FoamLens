@@ -127,3 +127,12 @@ for(const token of ["chEl('chExport').disabled=false","chSourceLogRows(c)","maPu
     "function chExport()","window.FoamLensScientificCaseHealth"])
  assert(source.includes(token),'Missing scientific UI/evidence guarantee '+token);
 console.log('Granada #155 scientific case-health PASS: full/partial/fatal, no false certainty, contextual Courant, mesh, PIMPLE, dimensions, region and source provenance.');
+
+const startup='sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).\nCreate time\nTime = 1\nEnd\n';
+assert.equal(api.runtime(startup).fatal,false);
+assert.equal(api.runtime(startup).completion,'explicit-end-reported');
+for(const error of ['Floating point exception (core dumped)','Segmentation fault','FOAM FATAL IO ERROR','FOAM aborting','SIGFPE','Caught signal SIGSEGV']){
+ const result=api.runtime('Time = 1\n'+error+'\nEnd\n');
+ assert.equal(result.fatal,true,error);assert.equal(result.completion,'failed',error);
+}
+console.log('Real Foundation sigFpe startup is not fatal; actual exception/abort markers retained PASS');
