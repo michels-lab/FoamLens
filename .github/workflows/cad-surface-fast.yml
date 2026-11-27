@@ -20,6 +20,8 @@ on:
       - 'desktop/tests/cad-openfoam-staging.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v24-z-cad-blockmesh-designer.js'
       - 'desktop/tests/cad-blockmesh-designer.test.cjs'
+      - 'desktop/src/FoamLensDesktop/frontend/v25-case-builder.js'
+      - 'desktop/tests/case-builder.test.cjs'
       - 'desktop/tests/cad-mesh-studio.test.cjs'
       - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
@@ -42,6 +44,8 @@ on:
       - 'desktop/tests/cad-openfoam-staging.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v24-z-cad-blockmesh-designer.js'
       - 'desktop/tests/cad-blockmesh-designer.test.cjs'
+      - 'desktop/src/FoamLensDesktop/frontend/v25-case-builder.js'
+      - 'desktop/tests/case-builder.test.cjs'
       - 'desktop/tests/cad-mesh-studio.test.cjs'
       - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
@@ -64,6 +68,8 @@ jobs:
         run: node desktop/tests/cad-openfoam-staging.test.cjs
       - name: Cartesian blockMesh topology plan and reject paths
         run: node desktop/tests/cad-blockmesh-designer.test.cjs
+      - name: Case Builder Foundation draft and boundary integrity
+        run: node desktop/tests/case-builder.test.cjs
       - name: Curved geometry, native topology, quality and Gmsh HEX8
         run: node desktop/tests/cad-mesh-studio.test.cjs
       - name: CAD OpenFOAM staging UI with edition gate and explicit per-part role mapping
