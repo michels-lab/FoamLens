@@ -82,6 +82,35 @@ function pfMeshGeometry(mesh,limits={}){
     geometryGuarantee:'numerically closed, consistently oriented cell shells under 1e-7 closure and 0.98 signed-volume tests',
     caveat:'Irregular/nonconvex/overlapping mesh cells and dynamic remeshing require independent native mesh-quality verification'}
 }
+function pfConnectedCrossingFaces(mesh,geometry,crossed,axis){
+  // Edge connectivity on the original mesh, not proximity, and not temporal tracking.
+  const limit=100000,edgeLimit=800000;
+  if(crossed.length>limit)return{status:'unavailable-limit',count:null,components:[],reason:'Crossing-face component limit exceeded; no decimation'};
+  const offsets=mesh.faceOffsets,ids=mesh.facePoints,pts=mesh.points,parents=Int32Array.from(crossed,(_,i)=>i),ranks=new Uint8Array(crossed.length),edges=new Map();
+  const find=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
+  const union=(a,b)=>{a=find(a);b=find(b);if(a===b)return;if(ranks[a]<ranks[b])[a,b]=[b,a];parents[b]=a;if(ranks[a]===ranks[b])ranks[a]++};
+  let nonManifoldEdges=0,edgeVisits=0;
+  for(let i=0;i<crossed.length;i++){
+    const fi=crossed[i],start=offsets[fi],end=offsets[fi+1];
+    for(let j=start;j<end;j++){
+      if(++edgeVisits>edgeLimit)return{status:'unavailable-limit',count:null,components:[],reason:'Crossing edge incidence limit exceeded; no sampling'};
+      const a=ids[j],b=ids[j+1===end?start:j+1],key=a<b?a+':'+b:b+':'+a;
+      const prior=edges.get(key);if(prior){union(i,prior.i);if(++prior.count===3)nonManifoldEdges++}else edges.set(key,{i,count:1})
+    }
+  }
+  const groups=new Map();
+  for(let i=0;i<crossed.length;i++){
+    const fi=crossed[i],root=find(i),a=geometry.faceAreas[fi];
+    let g=groups.get(root);if(!g){g={firstFace:fi,faceCount:0,areaProxyM2:0,weighted:[0,0,0],boundsMin:[Infinity,Infinity,Infinity],boundsMax:[-Infinity,-Infinity,-Infinity]};groups.set(root,g)}
+    g.faceCount++;g.areaProxyM2+=a;
+    for(let k=0;k<3;k++)g.weighted[k]+=a*geometry.faceCentroids[3*fi+k];
+    for(let j=offsets[fi];j<offsets[fi+1];j++)for(let k=0;k<3;k++){const v=pts[3*ids[j]+k];g.boundsMin[k]=Math.min(g.boundsMin[k],v);g.boundsMax[k]=Math.max(g.boundsMax[k],v)}
+  }
+  const components=[...groups.values()].sort((a,b)=>b.areaProxyM2-a.areaProxyM2||a.firstFace-b.firstFace).map((g,i)=>({
+    frameComponent:i+1,firstSourceFace:g.firstFace,faceCount:g.faceCount,areaProxyM2:g.areaProxyM2,centroidM:g.weighted.map(v=>v/g.areaProxyM2),boundsMinM:g.boundsMin,boundsMaxM:g.boundsMax,axisMinM:g.boundsMin[axis],axisMaxM:g.boundsMax[axis]
+  }));
+  return{status:'available',count:components.length,components,nonManifoldEdges,method:'original crossing faces connected by shared source mesh edge; identifiers local to each snapshot',temporalIdentityVerified:false}
+}
 function pfSnapshot(mesh,geometry,alpha,config={}){
   const fail=reason=>({ok:false,reason});
   if(!geometry?.ok)return fail('Physical polyMesh cell volumes unavailable: '+(geometry?.reason||'unknown'));
@@ -134,6 +163,7 @@ function pfSnapshot(mesh,geometry,alpha,config={}){
     ambiguousThresholdFaces:ambiguousFaces
   }:{areaProxyM2:0,crossedInternalFaces:0,areaWeightedFaceCentroidM:null,
     coordinateProxyM:null,ambiguousThresholdFaces:ambiguousFaces};
+  front.connectivity=pfConnectedCrossingFaces(mesh,geometry,crossed,axis);
   const fractions={};for(const key of Object.keys(volumes))fractions[key]=volumes[key]/total;
   return{ok:true,timeS:t,region:String(config.region||''),meshCells:geometry.cells,
     totalVolumeM3:geometry.totalVolumeM3,volumesM3:volumes,fractions,cellCounts:counts,
@@ -157,14 +187,18 @@ function pfEvolution(frames,expectedTimes=[]){
     const current=valid[i],prev=i?valid[i-1]:null,dt=prev?current.timeS-prev.timeS:null;
     if(prev&&!(dt>0))return{ok:false,reason:'Duplicate or decreasing source physical time',rows:[]};
     const same=prev&&current.region===prev.region&&current.axis===prev.axis&&
-      current.sourceRole===prev.sourceRole&&
+      current.sourceRole===prev.sourceRole&&current.frontIso===prev.frontIso&&
+      current.phaseThresholds.solidMushy===prev.phaseThresholds.solidMushy&&current.phaseThresholds.mushyLiquid===prev.phaseThresholds.mushyLiquid&&
       current.meshIdentity!=null&&current.meshIdentity===prev.meshIdentity&&
       current.meshCells===prev.meshCells&&
       Math.abs(current.totalVolumeM3-prev.totalVolumeM3)<=1e-8*Math.max(current.totalVolumeM3,prev.totalVolumeM3);
     const missingIntermediate=!!prev&&expectedTimes.some(t=>t>prev.timeS&&t<current.timeS&&!valid.some(f=>f.timeS===t));
     const f0=prev?.front?.coordinateProxyM,f1=current.front?.coordinateProxyM;
     const measuredDifference=same&&!missingIntermediate&&f0!==null&&f1!==null&&Number.isFinite(f0)&&Number.isFinite(f1);
-    rows.push({...current,frontCentroidVelocityProxyMPerS:measuredDifference?(f1-f0)/dt:null,
+    const ca=prev?.front?.connectivity,cb=current.front?.connectivity;
+    const single=ca?.status==='available'&&cb?.status==='available'&&ca.count===1&&cb.count===1&&ca.nonManifoldEdges===0&&cb.nonManifoldEdges===0;
+    const rates=same&&!missingIntermediate?Object.fromEntries(['solid','mushy','liquid'].map(k=>[k,(current.volumesM3[k]-prev.volumesM3[k])/dt])):null;
+    rows.push({...current,phaseVolumeRateM3PerS:rates,frontConnectivityChange:!prev?'first-sample':!same||missingIntermediate?'not-comparable':ca?.status!=='available'||cb?.status!=='available'?'unavailable':ca.count!==cb.count?'component-count-changed':'same-count-not-tracked',singleConnectedCentroidContext:!!(single&&measuredDifference),frontCentroidVelocityProxyMPerS:measuredDifference?(f1-f0)/dt:null,
       timeGapS:dt,velocityStatus:!prev?'first-sample':!same?'not-comparable-geometry-or-region':
         missingIntermediate?'missing-original-snapshot-between':
         !measuredDifference?'no-front-in-one-or-both-times':'apparent-centroid-displacement',
@@ -329,6 +363,7 @@ async function pfRun(){
       'Each phase volume comes from verified geometric polyMesh signed cell volumes, not percentages of equally-sized cells.',
       'Front area and coordinate are a FACE-CROSSING PROXY, not a genuine interpolated isosurface or independently measured solidification front.',
       'The reported apparent centroid velocity is not local front speed, especially during front splitting, topology changes or dynamic meshing.',
+      'Crossing-face components share original mesh edges. IDs are snapshot-local; component counts cannot establish split/merge events or temporal identity. Phase category volume rates are finite differences, not metallurgical transformation kinetics.',
       'Only selected original output times were analyzed. Omitted/missing times are disclosed, never imputed.',
       'Solid-phase fraction alphaS is normalized to alphaL=1-alphaS only after source-role confirmation; the physical model is not independently certified.'
     ]};
@@ -337,20 +372,21 @@ async function pfRun(){
     low:lo,high:hi,iso:cut,axis};
   const fmt=n=>n===null||!Number.isFinite(n)?'not available':n.toLocaleString(undefined,{maximumSignificantDigits:6});
   pfEl('pfResult').innerHTML='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
-    ['Time [s]','Solid [m³]','Mushy [m³]','Liquid [m³]','Volume-weighted αL','Front face area [m²]','Centroid ['+axis+', m]','Apparent centroid speed [m/s]']
+    ['Time [s]','Solid [m³]','Mushy [m³]','Liquid [m³]','Volume-weighted αL','Front face area [m²]','Connected proxies','Centroid ['+axis+', m]','Apparent centroid speed [m/s]','Solid-category volume rate [m³/s]']
       .map(x=>'<th>'+pfEsc(x)+'</th>').join('')+'</tr></thead><tbody>'+
     evolution.rows.map(r=>'<tr>'+[
       r.timeS,r.volumesM3.solid,r.volumesM3.mushy,r.volumesM3.liquid,
-      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.coordinateProxyM,r.frontCentroidVelocityProxyMPerS
+      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.connectivity.count,r.front.coordinateProxyM,r.frontCentroidVelocityProxyMPerS,r.phaseVolumeRateM3PerS?.solid??null
     ].map(x=>'<td>'+pfEsc(fmt(x))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+
     '<p class="smallnote">Front = face-crossing proxy, NOT true continuous isosurface or local propagation speed. '+pfEsc(pfLast.caveats.join(' '))+'</p>'+
+    '<details><summary>'+pfUi('Spatial front components by snapshot','Componentes espaciales del frente por instante')+'</summary>'+evolution.rows.map(r=>{const q=r.front.connectivity;return '<details><summary>t = '+pfEsc(r.timeS)+' s · '+pfEsc(q.count??q.status)+'</summary><p class="smallnote">'+pfEsc(q.method??q.reason??'')+' · '+pfEsc(r.frontConnectivityChange)+'</p>'+(q.components.length?'<div class="extTableWrap"><table class="extTable"><thead><tr>'+['ID (frame only)','Faces','Area proxy [m²]','Axis min [m]','Axis max [m]','Centroid [m]'].map(h=>'<th>'+pfEsc(h)+'</th>').join('')+'</tr></thead><tbody>'+q.components.slice(0,100).map(g=>'<tr>'+[g.frameComponent,g.faceCount,fmt(g.areaProxyM2),fmt(g.axisMinM),fmt(g.axisMaxM),g.centroidM.map(fmt).join(', ')].map(v=>'<td>'+pfEsc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'')+(q.components.length>100?'<p class="smallnote">First 100 shown; full component evidence in JSON/CSV.</p>':'')+'</details>'}).join('')+'</details>'+
     (excluded.length?'<p class="smallnote">Excluded exact source times: '+pfEsc(excluded.map(x=>x.timeS+': '+x.reason).join(' | '))+'</p>':'');
   status.textContent=frames.length+' selected original-time frames, '+excluded.length+
     ' unavailable in selection, '+timeWindow.explicitlyExcludedTimes+
     ' source times outside selection. Declared role: '+role+
     '. Centroid rate is NOT a measured local front velocity.';
   pfPlot(pfLast);if(cancel)cancel.disabled=true;
-  pfEl('pfExport').disabled=false;pfEl('pfExportCsv').disabled=false
+  pfEl('pfExport').disabled=false;pfEl('pfExportCsv').disabled=false;pfEl('pfExportComponents').disabled=false
 }
 function pfDownload(name,content,type){
   if(typeof downloadText==='function'){downloadText(name,content,type);return}
@@ -370,10 +406,14 @@ function pfExport(kind){
   }
   if(kind==='json')pfDownload('FoamLens_solidification_front_proxy.json',
     JSON.stringify({...pfLast,exportedAt:new Date().toISOString()},null,2),'application/json');
-  else{
-    const h='time_s,solid_m3,mushy_m3,liquid_m3,mean_alpha_volume_weighted,front_proxy_area_m2,front_centroid_axis_m,apparent_centroid_velocity_m_per_s';
+  else if(kind==='components'){
+    const h='time_s,frame_component,first_source_face,face_count,area_proxy_m2,centroid_x_m,centroid_y_m,centroid_z_m,axis_min_m,axis_max_m';
+    const rows=pfLast.evolution.rows.flatMap(r=>r.front.connectivity.components.map(g=>[r.timeS,g.frameComponent,g.firstSourceFace,g.faceCount,g.areaProxyM2,...g.centroidM,g.axisMinM,g.axisMaxM].join(',')));
+    pfDownload('FoamLens_front_components.csv',[h,...rows].join('\n')+'\n','text/csv')
+  }else{
+    const h='time_s,solid_m3,mushy_m3,liquid_m3,mean_alpha_volume_weighted,front_proxy_area_m2,front_centroid_axis_m,apparent_centroid_velocity_m_per_s,connected_face_components,solid_category_rate_m3_per_s,mushy_category_rate_m3_per_s,liquid_category_rate_m3_per_s';
     const rows=pfLast.evolution.rows.map(r=>[r.timeS,r.volumesM3.solid,r.volumesM3.mushy,r.volumesM3.liquid,
-      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.coordinateProxyM??'',r.frontCentroidVelocityProxyMPerS??''].join(','));
+      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.coordinateProxyM??'',r.frontCentroidVelocityProxyMPerS??'',r.front.connectivity.count??'',r.phaseVolumeRateM3PerS?.solid??'',r.phaseVolumeRateM3PerS?.mushy??'',r.phaseVolumeRateM3PerS?.liquid??''].join(','));
     pfDownload('FoamLens_solidification_front_proxy.csv',[h,...rows].join('\n')+'\n','text/csv')
   }
 }
@@ -399,14 +439,14 @@ function pfInstall(){
   '<button id="pfRun" class="btn primary" type="button">Measure source phases and front proxy</button>'+
   '<button id="pfCancel" class="btn soft" type="button" disabled>Cancel source analysis</button>'+
   '<button id="pfExport" class="btn soft" type="button" disabled>Export JSON</button>'+
-  '<button id="pfExportCsv" class="btn soft" type="button" disabled>Export CSV</button></div>'+
+  '<button id="pfExportCsv" class="btn soft" type="button" disabled>Export CSV</button><button id="pfExportComponents" class="btn soft" type="button" disabled>'+pfUi('Components CSV','CSV componentes')+'</button></div>'+
   '<p id="pfStatus" class="smallnote" aria-live="polite"></p>'+
   '<canvas id="pfPlot" style="width:100%;height:230px" aria-label="Measured source phase volume fractions at original OpenFOAM physical times"></canvas>'+
   '<div id="pfResult"></div>';
   host.appendChild(el);
   pfEl('pfRefresh').onclick=()=>pfRefresh('cases');pfEl('pfRun').onclick=()=>void pfRun();
   pfEl('pfCancel').onclick=()=>pfInvalidate('Source analysis cancelled. No partial evidence exported.');
-  pfEl('pfExport').onclick=()=>pfExport('json');pfEl('pfExportCsv').onclick=()=>pfExport('csv');
+  pfEl('pfExport').onclick=()=>pfExport('json');pfEl('pfExportCsv').onclick=()=>pfExport('csv');pfEl('pfExportComponents').onclick=()=>pfExport('components');
   for(const [id,scope] of [['pfCase','cases'],['pfRegion','field'],['pfAlpha','field']])
     pfEl(id).addEventListener('change',()=>pfRefresh(scope));
   pfEl('pfRole').addEventListener('change',()=>{
