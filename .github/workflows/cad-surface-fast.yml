@@ -22,6 +22,7 @@ on:
       - 'desktop/tests/cad-blockmesh-designer.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v25-case-builder.js'
       - 'desktop/tests/case-builder.test.cjs'
+      - 'tools/case_builder_native_smoke.cjs'
       - 'desktop/tests/cad-mesh-studio.test.cjs'
       - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
@@ -46,6 +47,7 @@ on:
       - 'desktop/tests/cad-blockmesh-designer.test.cjs'
       - 'desktop/src/FoamLensDesktop/frontend/v25-case-builder.js'
       - 'desktop/tests/case-builder.test.cjs'
+      - 'tools/case_builder_native_smoke.cjs'
       - 'desktop/tests/cad-mesh-studio.test.cjs'
       - 'desktop/tests/cad-openfoam-staging-ui.test.cjs'
       - '.github/workflows/cad-surface-fast.yml'
@@ -121,6 +123,36 @@ jobs:
           echo 'deb [arch=amd64] http://dl.openfoam.org/ubuntu noble main' | sudo tee /etc/apt/sources.list.d/foamlens-openfoam.list
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends "openfoam$FOAM_VERSION"
+      - name: Execute actual Case Builder generated solid fixture (not owner data)
+        if: matrix.suite == 'core'
+        shell: bash
+        env:
+          FOAM_VERSION: ${{ matrix.version }}
+        run: |
+          set -eo pipefail
+          source "/opt/openfoam$FOAM_VERSION/etc/bashrc"
+          work="$(mktemp -d)"
+          mkdir -p "$GITHUB_WORKSPACE/case-builder-native-evidence"
+          evidence="$GITHUB_WORKSPACE/case-builder-native-evidence"
+          node tools/case_builder_native_smoke.cjs "$FOAM_VERSION" "$work/case"
+          blockMesh -case "$work/case" 2>&1 | tee "$evidence/blockMesh.log"
+          before="$(sha256sum "$work/case/0/T")"
+          bash "$work/case/execution/prepare-run.sh" "$work/case" --run 2>&1 | tee "$evidence/helper.log"
+          isolated="$(sed -n 's/^Isolated case: //p' "$evidence/helper.log" | head -1)"
+          [[ "$isolated" == /tmp/foamlens-run.*/case ]]
+          cp -a "$(dirname "$isolated")/logs/." "$evidence/"
+          grep -q '^End$' "$evidence/solver.log"
+          test -s "$isolated/0.02/T"
+          test ! -e "$work/case/0.02"
+          [[ "$(sha256sum "$work/case/0/T")" == "$before" ]]
+          printf 'Generated solid case reached 0.02 s; original initial field unchanged.\n' | tee "$evidence/result.txt"
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.suite == 'core'
+        with:
+          name: Case-Builder-native-Foundation-${{ matrix.version }}
+          path: case-builder-native-evidence/
+          if-no-files-found: warn
+          retention-days: 7
       - name: Execute actual native meshing, splitting and quality checks
         shell: bash
         env:
