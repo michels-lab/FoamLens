@@ -1,10 +1,14 @@
 # FoamLens Desktop v1.8.25
 
-**FoamLens Desktop v1.8.25 with frontend v51** is release source pending official publication. Floating A–D/Δ Field views, eight-direction resize, persistent geometry, native monitor fullscreen and restoration, common workspace sizing and default WSL Foundation 13/14 preflight. Owner native interaction/physical acceptance remains pending. Refined snappy is diagnostic-only.
+**FoamLens Desktop v1.8.25 with frontend v51** is a source candidate, not yet published. Includes floating Field/native fullscreen, scientific filters and integration, material tables, transient diagnostics, research reports and Case Health. Refined snappy is diagnostic-only; #386 excluded. Owner physical acceptance pending.
 
-## Previous published stable: v1.8.24
+## Current verified published stable: v1.8.24
 
-[v1.8.24](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.24) was independently verified by run 45738655721 and remains stable until v1.8.25 publication.
+[v1.8.24](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.24) remains the verified stable until the official release workflow publishes v1.8.25. [Publisher](https://github.com/michels-lab/FoamLens/actions/runs/45737560786) and [public binary audit](https://github.com/michels-lab/FoamLens/actions/runs/45738655721) passed.
+
+## Previous published stable: v1.8.23
+
+[v1.8.23](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.23) is a historical stable release.
 
 ## Previous published stable: v1.8.22
 

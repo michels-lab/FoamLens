@@ -1,10 +1,11 @@
-## Desktop v1.8.25 — Floating Field and WSL preflight (2026-11-25)
+## Desktop v1.8.25 — GRANADA floating Field, scientific analysis and case health (2026-11-27)
 
-- Opt-in freely positioned Field view windows, eight-direction resize, stacking, minimize/restore, persistent geometry and return to docked layout.
-- Separate native monitor fullscreen and central maximize, with restoration of prior WinForms window geometry.
-- Shared workspace sizing and removal of implicit empty Field columns; preserve intentional scientific scrolling.
-- Read-only default WSL Foundation 13/14 tool preflight. No solver run or source case modification.
-- Exact #383 Windows, QuickCup and Field/core Foundation passed; owner visual and physical acceptance pending. Refined snappy remains diagnostic-only (#148). Selected distro routing remains in the separate G-C candidate. Publication pending.
+- Floating A–D/Δ view windows, resize, stacking, persistent geometry and native monitor fullscreen with restoration; shared workspace sizing and default read-only WSL Foundation 13/14 preflight (#383).
+- Whole-entity selection, filter pipelines, exterior clip, strict spatial comparison and resampling, volume integrals, probe observations and contour validity (#390).
+- Cellwise calculator, gradients, native-time statistics, Fourier flux, phase volumes and explicitly scoped transient mass/energy/shrinkage diagnostics. Constant or tabulated Cp, k and phase densities; no extrapolation or latent-heat double counting. Material CSV/TSV, JSON and OpenFOAM table-pair fragments.
+- Discrete interface/void candidates, not certified shrinkage cavities; contextual scientific tools and HTML/JSON research report snapshots. Full raw exports remain separate. Existing configurable resource budgets and convex geometry restrictions apply.
+- Scientific Case Health (#380): independent asynchronous log/checkMesh/CSV ownership and correct nonfatal Foundation sigFpe startup; actual failures remain detectable.
+- Source candidate only until exact Windows build, strict native visual matrix, official publisher and public integrity audit succeed. Actual B14/C14 and owner interaction/scientific acceptance pending. Case Builder and selected-distro routing (#386) excluded; refined snappyHexMesh remains diagnostic-only (#148).
 
 ## Desktop v1.8.24 — GRANADA CAD and native Mesh Studio (2026-11-25)
 

@@ -27,47 +27,51 @@ function fvIsoOrderPolygon(hits,tol){
     return Math.atan2(da[0]*v[0]+da[1]*v[1]+da[2]*v[2],da[0]*u[0]+da[1]*u[1]+da[2]*u[2])-Math.atan2(db[0]*v[0]+db[1]*v[1]+db[2]*v[2],db[0]*u[0]+db[1]*u[1]+db[2]*u[2])
   })
 }
+function fvIsoNumber(v){if(typeof v==='number')return Number.isFinite(v)?v:NaN;if(typeof v!=='string'||!v.trim()||!(/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/).test(v.trim()))return NaN;return Number.isFinite(Number(v))?Number(v):NaN}
 function fvIsoTetra(vertices,values,isoValue,tol=1e-12){
-  const iso=Number(isoValue);if(!Number.isFinite(iso)||vertices?.length!==4||values?.length!==4)return[];
+  const iso=fvIsoNumber(isoValue);if(!Number.isFinite(iso)||vertices?.length!==4||values?.length!==4||!Number.isFinite(tol)||tol<=0||!vertices.every(p=>p?.length===3&&Array.from(p).every(Number.isFinite)))return[];
+  const scalars=Array.from(values,fvIsoNumber);if(!scalars.every(Number.isFinite)||scalars.every(v=>v===iso))return[];
   const edges=[[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]],hits=[];
   for(const [ia,ib] of edges){
-    const a=vertices[ia],b=vertices[ib],va=Number(values[ia]),vb=Number(values[ib]);if(!Number.isFinite(va)||!Number.isFinite(vb))continue;
-    const da=va-iso,db=vb-iso,za=Math.abs(da)<=tol,zb=Math.abs(db)<=tol;
+    const a=vertices[ia],b=vertices[ib],va=scalars[ia],vb=scalars[ib];
+    const za=va===iso,zb=vb===iso;
     if(za)fvIsoUniquePoint(hits,a,tol);if(zb)fvIsoUniquePoint(hits,b,tol);
-    if(!za&&!zb&&da*db<0){const f=(iso-va)/(vb-va),p=[a[0]+f*(b[0]-a[0]),a[1]+f*(b[1]-a[1]),a[2]+f*(b[2]-a[2])];fvIsoUniquePoint(hits,p,tol)}
+    if(!za&&!zb&&((va<iso&&vb>iso)||(vb<iso&&va>iso))){const scale=Math.max(Math.abs(va),Math.abs(vb),Math.abs(iso),Number.MIN_VALUE),f=(iso/scale-va/scale)/(vb/scale-va/scale),p=a.map((v,i)=>v*(1-f)+b[i]*f);if(!p.every(Number.isFinite))continue;fvIsoUniquePoint(hits,p,tol)}
   }
   if(hits.length<3)return[];const ordered=fvIsoOrderPolygon(hits,tol),out=[];
   for(let i=1;i<ordered.length-1;i++){const tri=[ordered[0].p,ordered[i].p,ordered[i+1].p];if(fvIsoTriangleArea(...tri)>tol*tol)out.push(tri)}
   return out
 }
 function fvBuildPointIsoSurfaceGeometry(mesh,pointValues,isoValue){
-  const iso=Number(isoValue),min=mesh?.boundsMin||[0,0,0],max=mesh?.boundsMax||[1,1,1],diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,tol=diag*1e-9;
+  const iso=fvIsoNumber(isoValue),min=mesh?.boundsMin||[0,0,0],max=mesh?.boundsMax||[1,1,1],diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,tol=diag*1e-9;
   if(!Number.isFinite(iso))return{isoValue:iso,positions:new Float32Array(),triangleCount:0,interpolation:'invalid iso value'};
-  const centerValues=fvPointFieldCellValues(mesh,pointValues),cellFaces=fvCellFaces(mesh),pts=mesh?.points||[],centers=mesh?.cellCenters||[],positions=[],seen=new Set();
+  const centerValues=fvPointFieldCellValues(mesh,pointValues),cellFaces=fvCellFaces(mesh),pts=mesh?.points||[],centers=mesh?.cellCenters||[],positions=[],seen=new Set();let skippedTetra=0,plateauTetra=0,examinedTetra=0,skippedCells=0;
   for(let c=0;c<cellFaces.length;c++){
-    const cv=Number(centerValues[c]),center=[Number(centers[3*c]),Number(centers[3*c+1]),Number(centers[3*c+2])];if(!Number.isFinite(cv)||!center.every(Number.isFinite))continue;
+    const cv=fvIsoNumber(centerValues[c]),center=[Number(centers[3*c]),Number(centers[3*c+1]),Number(centers[3*c+2])];if(!Number.isFinite(cv)||!center.every(Number.isFinite)){skippedCells++;continue}
     for(const fi of cellFaces[c]){
       const face=fvMeshFacePoints(mesh,fi);if(face.length<3)continue;const p0=face[0];
       for(let j=1;j<face.length-1;j++){
-        const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],vals=[cv,...ids.map(pi=>Number(pointValues?.[pi]))];
+        const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],vals=[cv,...ids.map(pi=>fvIsoNumber(pointValues?.[pi]))];
+        examinedTetra++;if(!vals.every(Number.isFinite)||!vertices.every(p=>p.every(Number.isFinite))){skippedTetra++;continue}if(vals.every(v=>v===iso)){plateauTetra++;continue}
         for(const tri of fvIsoTetra(vertices,vals,iso,tol)){
           const key=tri.map(p=>fvIsoPointKey(p,tol)).sort().join('|');if(seen.has(key))continue;seen.add(key);positions.push(...tri[0],...tri[1],...tri[2])
         }
       }
     }
   }
-  return{isoValue:iso,positions:new Float32Array(positions),triangleCount:positions.length/9,interpolation:'point-field vertices + affine cell-centre reconstruction + marching tetrahedra'}
+  return{isoValue:iso,positions:new Float32Array(positions),triangleCount:positions.length/9,coverage:{examinedTetra,skippedTetra,plateauTetra,skippedCells},interpolation:'point-field vertices + affine cell-centre reconstruction + marching tetrahedra'}
 }
 function fvBuildIsoSurfaceGeometry(mesh,cellValues,isoValue){
-  const iso=Number(isoValue),min=mesh?.boundsMin||[0,0,0],max=mesh?.boundsMax||[1,1,1],diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,tol=diag*1e-9;
+  const iso=fvIsoNumber(isoValue),min=mesh?.boundsMin||[0,0,0],max=mesh?.boundsMax||[1,1,1],diag=Math.hypot(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,tol=diag*1e-9;
   if(!Number.isFinite(iso))return{isoValue:iso,positions:new Float32Array(),triangleCount:0,interpolation:'invalid iso value'};
-  const pointValues=fvPointValuesFromCells(mesh,cellValues),cellFaces=fvCellFaces(mesh),pts=mesh?.points||[],centers=mesh?.cellCenters||[],positions=[],seen=new Set();
+  const pointValues=fvPointValuesFromCells(mesh,cellValues),cellFaces=fvCellFaces(mesh),pts=mesh?.points||[],centers=mesh?.cellCenters||[],positions=[],seen=new Set();let skippedTetra=0,plateauTetra=0,examinedTetra=0,skippedCells=0;
   for(let c=0;c<cellFaces.length;c++){
-    const cv=Number(cellValues?.[c]),center=[Number(centers[3*c]),Number(centers[3*c+1]),Number(centers[3*c+2])];if(!Number.isFinite(cv)||!center.every(Number.isFinite))continue;
+    const cv=fvIsoNumber(cellValues?.[c]),center=[Number(centers[3*c]),Number(centers[3*c+1]),Number(centers[3*c+2])];if(!Number.isFinite(cv)||!center.every(Number.isFinite)){skippedCells++;continue}
     for(const fi of cellFaces[c]){
       const face=fvMeshFacePoints(mesh,fi);if(face.length<3)continue;const p0=face[0];
       for(let j=1;j<face.length-1;j++){
-        const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],vals=[cv,...ids.map(pi=>Number(pointValues[pi]))];
+        const ids=[p0,face[j],face[j+1]],vertices=[center,...ids.map(pi=>[Number(pts[3*pi]),Number(pts[3*pi+1]),Number(pts[3*pi+2])])],vals=[cv,...ids.map(pi=>fvIsoNumber(pointValues[pi]))];
+        examinedTetra++;if(!vals.every(Number.isFinite)||!vertices.every(p=>p.every(Number.isFinite))){skippedTetra++;continue}if(vals.every(v=>v===iso)){plateauTetra++;continue}
         for(const tri of fvIsoTetra(vertices,vals,iso,tol)){
           const key=tri.map(p=>fvIsoPointKey(p,tol)).sort().join('|');if(seen.has(key))continue;seen.add(key);
           positions.push(...tri[0],...tri[1],...tri[2])
@@ -75,7 +79,7 @@ function fvBuildIsoSurfaceGeometry(mesh,cellValues,isoValue){
       }
     }
   }
-  return{isoValue:iso,positions:new Float32Array(positions),triangleCount:positions.length/9,interpolation:'cell-to-point inverse-distance + cell-centre tetrahedralization + marching tetrahedra'}
+  return{isoValue:iso,positions:new Float32Array(positions),triangleCount:positions.length/9,coverage:{examinedTetra,skippedTetra,plateauTetra,skippedCells},interpolation:'cell-to-point inverse-distance + cell-centre tetrahedralization + marching tetrahedra'}
 }
 /* FOAMLENS_ISOSURFACE_CORE_END */
 
@@ -90,12 +94,14 @@ function fvUpdateIso(range=null){
   if(!r||!mesh)return;
   if(String(fvState.fieldStorage||'volume')==='surface'){r.isoCount=0;fvState.isoGeometry=null;flSetIssue(meta,'iso-surface-association-incompatible',{analysis:'Iso-surface',field:fvState.fieldName||'',association:'surface',expected:'volume or point scalar field'});fvRender();return}
   if(!enabled||!fvState.fieldValues){r.isoCount=0;fvState.isoGeometry=null;if(meta)meta.textContent=fvIsoUi('Enable the iso-surface to reconstruct a constant-value surface inside the mesh.','Activa la iso-superficie para reconstruir una superficie de valor constante dentro de la malla.');fvRender();return}
-  const iso=Number(document.getElementById('fvIsoValue')?.value),displayRange=range||(typeof fvDisplayRange==='function'?fvDisplayRange(fvFiniteRange(fvState.fieldValues)):fvFiniteRange(fvState.fieldValues)),palette=document.getElementById('fvPalette')?.value||'viridis';
-  if(!Number.isFinite(iso)){r.isoCount=0;flSetIssue(meta,'iso-value-invalid',{analysis:'Iso-surface',field:fvState.fieldName||''});fvRender();return}
-  if(displayRange?.valid&&(iso<displayRange.min||iso>displayRange.max)){r.isoCount=0;fvState.isoGeometry=null;flSetIssue(meta,'iso-value-out-of-range',{analysis:'Iso-surface',field:fvState.fieldName||'',expected:fvIsoFmt(displayRange.min)+' – '+fvIsoFmt(displayRange.max)});fvRender();return}
+  const iso=fvIsoNumber(document.getElementById('fvIsoValue')?.value),displayRange=range||(typeof fvDisplayRange==='function'?fvDisplayRange(fvFiniteRange(fvState.fieldValues)):fvFiniteRange(fvState.fieldValues)),palette=document.getElementById('fvPalette')?.value||'viridis';
+  if(!Number.isFinite(iso)){r.isoCount=0;fvState.isoGeometry=null;flSetIssue(meta,'iso-value-invalid',{analysis:'Iso-surface',field:fvState.fieldName||''});fvRender();return}
+  const sourceRange=fvFiniteRange(fvState.fieldValues);
+  if(sourceRange?.valid&&(iso<sourceRange.min||iso>sourceRange.max)){r.isoCount=0;fvState.isoGeometry=null;flSetIssue(meta,'iso-value-out-of-range',{analysis:'Iso-surface',field:fvState.fieldName||'',expected:fvIsoFmt(sourceRange.min)+' – '+fvIsoFmt(sourceRange.max)});fvRender();return}
   const pointAssoc=String(fvState.fieldStorage||'volume')==='point',geom=pointAssoc?fvBuildPointIsoSurfaceGeometry(mesh,fvState.fieldValues,iso):fvBuildIsoSurfaceGeometry(mesh,fvState.fieldValues,iso);fvState.isoGeometry=geom;fvUploadBuffer(r,'isoPos',geom.positions,r.gl.DYNAMIC_DRAW);fvUploadBuffer(r,'isoColor',fvIsoColors(geom.positions.length/3,iso,displayRange,palette),r.gl.DYNAMIC_DRAW);r.isoCount=geom.positions.length/3;
   flClearIssue(meta);
   if(meta)meta.textContent='φ = '+fvIsoFmt(iso)+' · '+geom.triangleCount.toLocaleString()+' '+fvIsoUi('triangles','triángulos')+' · '+(pointAssoc?fvIsoUi('marching tetrahedra on point-field reconstruction','marching tetrahedra sobre reconstrucción de campo de puntos'):fvIsoUi('marching tetrahedra on reconstructed cell-centred data','marching tetrahedra sobre datos reconstruidos desde centros de celda'));
+  if(meta&&geom.coverage){const q=geom.coverage;meta.textContent+=' · '+fvIsoUi('Skipped cells / tetrahedra','Celdas / tetraedros omitidos')+': '+q.skippedCells+' / '+q.skippedTetra+' · '+fvIsoUi('Constant-level tetrahedra excluded','Tetraedros de nivel constante excluidos')+': '+q.plateauTetra}
   fvRender()
 }
 function fvIsoSetMidrange(){

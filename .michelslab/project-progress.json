@@ -3,15 +3,15 @@
   "project": "FoamLens",
   "repository": "michels-lab/FoamLens",
   "role": "application",
-  "as_of": "2026-11-25",
+  "as_of": "2026-11-27",
   "scope": "Ruta integral de aceptación y publicación final estable FoamLens: ciencia OpenFOAM, Field A-D, perfiles, CAD, experiencia transversal y Windows; rendimiento 3008 archivos excluido por decisión del propietario",
   "estimate_method": "equal_weight_verified_milestones",
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "Floating Field/native fullscreen and WSL preflight merged; v1.8.25 release intent; G-C distro selection branch separately validated in core",
-  "source_pr": "https://github.com/michels-lab/FoamLens/pull/383",
-  "source_head_sha": "900eabb118bcaccd1946dfbcae989d2e26540e2c",
+  "phase": "G-D–G-G #390 and Case Health #380 merged; v1.8.25 version candidate, #386 excluded",
+  "source_pr": "https://github.com/michels-lab/FoamLens/pull/384",
+  "source_head_sha": "caa4aeea7cffdd82ba82d08c668377e159ddd8b8",
   "latest_verified_stable": "v1.8.24",
   "release_hold": false,
   "owner_physical_acceptance": false,
@@ -151,23 +151,24 @@
       ]
     }
   ],
-  "next_step": "Official v1.8.25 exact-source Windows publication and checksum verification; reconcile G-C branch, validate selected WSL transport, strict snappy #148; owner native interaction.",
-  "limitations": "Historical 8/15; V2 N/D. Exact #383 Windows/Field/Foundation core passed; refined snappy strict quality failed. Real owner interaction and WSL transport not accepted.",
+  "next_step": "Exact v1.8.25 candidate Windows validation, strict visual matrix, protected publication and public checksum audit; owner real cases and #386 strict snappy unresolved.",
+  "limitations": "Historical 8/15, V2 N/D. v1.8.24 official verified; physical acceptance pending; preflight candidate not published, strict snappy remains diagnostic-only.",
   "last_granada": {
     "as_of": "2026-11-25",
     "progress_before": 53,
     "progress_after": 53,
     "verified_milestones": 8,
     "total_milestones": 15,
-    "source_code_sha": "900eabb118bcaccd1946dfbcae989d2e26540e2c",
-    "scope": "Merge #383 and version v1.8.25 release intent",
+    "source_code_sha": "b88df9f67f260053848c960856df862b1525f267",
+    "scope": "Official stable v1.8.24 verified; start G-C 4.1 WSL preflight",
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/commit/900eabb118bcaccd1946dfbcae989d2e26540e2c",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45746518335",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45746518646",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45747255345"
+      "https://github.com/michels-lab/FoamLens/commit/fb1aea5478588267a4d4eb914abfe1c4ee747686",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45586465969",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45586465447",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45737560786",
+      "https://github.com/michels-lab/FoamLens/actions/runs/45738655721"
     ],
-    "pending": "Official v1.8.25 exact-source Windows publication and checksum verification; reconcile G-C branch, validate selected WSL transport, strict snappy #148; owner native interaction."
+    "pending": "Validate exact native/Windows CI for #383; add explicit distribution selection and staging evidence; resolve strict snappy 4.3; owner acceptance."
   },
   "roadmap_v2": {
     "document": "docs/IMPLEMENTATION_ROADMAP_V2_2026-11-24.md",

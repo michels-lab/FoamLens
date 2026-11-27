@@ -1,6 +1,14 @@
-## 2026-11-25 — Floating Field and WSL preflight integration; v1.8.25 release intent
+## 2026-11-27 — v1.8.25 version candidate from integrated main
 
-Merged #383 at 900eabb118bcaccd1946dfbcae989d2e26540e2c from 7022c0a; 14/15 workflows passed, including actual Windows Setup/Portable and QuickCup (45746518335), Field Linux/Windows (45746518646), Foundation 13/14 core (45746518220). Strict refined snappy remains diagnostic-only, rejected #148. Native pointer/full-monitor owner acceptance pending. Next G-C branch feat/wsl-distribution-staging-20261125 at 19b632b passed CAD frontend/host and Foundation 13/14 core (45747255345); not integrated into this release. Version 1.8.25 release source pending official publisher; verified stable remains v1.8.24. Historical 8/15=53%, V2 N/D.
+Version metadata and accurate release notes prepared from caa4aeea7cffdd82ba82d08c668377e159ddd8b8 (#383, #390, #380 integrated). Exact #390 main Windows 46037833694 SUCCESS; #380 candidate Windows 46038282534 and 46038276202 SUCCESS; merged product run 46041407637 pending. Previous release branch reused, #386 excluded. Partial version consistency test: 42 assertions passed before V8 filesystem adapter lacked readdirSync; full Node and native CI pending. v1.8.24 remains verified stable, no tag or release. Historical 8/15 unchanged; V2 N/D; owner B14/C14 and physical acceptance pending.
+
+## 2026-11-27 — Scientific Case Health reconciliation
+
+Existing #380 report ownership changes brought up to current main without touching #386 CI. Corrected actual native sigFpe startup false fatal in independent Scientific Case Health parser; direct source/core and asynchronous report ownership regressions passed (211 assertions). Retain actual fatal/abort signals; no solver completion certification. #372/#373 duplicate reviews closed after source and regression reconciliation; branches retained, source already present in main and #386. #380 unique corrections remain candidate, exact CI/owner acceptance pending. No release or MasterProject changes.
+
+## 2026-11-24 — Scientific Case Health source ownership and concurrent report intake
+
+v1.8.23 exact-main Windows release succeeded, tag d21f1680; new work isolated from Field. Existing native CSV charts already in main (do not merge stale PR #373 over them). Fix independent async report ownership so log/checkMesh/CSV reads do not cancel each other, replacement and case/model changes cannot commit stale evidence, failed/reading states prevent audit, visible source cards expose filenames/errors, re-opening unchanged panel preserves results, and chart/CSV/JSON export share binding checks. Direct executable async regression passed. Native package CI remains pending. G37 auxiliary six-cycle test failed on obsolete hardcoded version 1.8.10, not a measured playback failure; unchanged here.
 
 ## 2026-11-25 — v1.8.24 published; G-C preflight candidate
 
