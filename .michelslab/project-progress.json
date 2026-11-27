@@ -9,9 +9,9 @@
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "G-A/G-C protected conformal native controls verified Foundation 13/14; reproducible experiment workflow in #386; v1.8.25 candidate #384 remains blocked on original strict snappy",
+  "phase": "Case Builder scalable incremental solver logs, full evidence export and physical-window A/B in #386; strict original snappy and latest Windows validation remain open",
   "source_pr": "https://github.com/michels-lab/FoamLens/pull/386",
-  "source_head_sha": "9e34144433c5fa9a9b5cb84c7ad32439a0265ea4",
+  "source_head_sha": "d20f2cae8d14156f781ec107d42e050ae8ac1702",
   "latest_verified_stable": "v1.8.24",
   "release_hold": true,
   "owner_physical_acceptance": false,
@@ -151,27 +151,25 @@
       ]
     }
   ],
-  "next_step": "Verify latest #386 exact native/Windows; resolve strict original snappy or document alternative as separate, no gate bypass; reconcile historic native QA PRs by diff; owner physical acceptance.",
-  "limitations": "8/15 verified, V2 36-deliverable baseline still N/D. Protected conformal fixtures only; local octree and actual layer extrusion unresolved, physical B14/C14 and owner acceptance pending. Authenticode optional for direct GitHub per #238; not an independent blocker. Imported experimental evidence unverified; no CFD run.",
+  "next_step": "Verify current #386 native/Windows, complete actual owner log/Case Builder use; reconcile strict snappy and release #384; historical QA branches retain unique code and tests until reconciled.",
+  "limitations": "8/15 verified; V2 N/D. Incremental log reader avoids earlier file/row ceilings but retains parsed rows and export in memory; no disk-spill or large-scale benchmark. 1 MiB malformed line safeguard. Physical cases, layers, strict octree and installed acceptance pending. Authenticode optional for GitHub direct.",
   "last_granada": {
     "as_of": "2026-11-27",
     "progress_before": 53,
     "progress_after": 53,
     "verified_milestones": 8,
     "total_milestones": 15,
-    "source_code_sha": "9e34144433c5fa9a9b5cb84c7ad32439a0265ea4",
-    "scope": "Reproducible mesh experiments: import/export, restore background, normalized metrics, changed parameters; source head for final follow-up is the commit containing this report",
+    "source_code_sha": "d20f2cae8d14156f781ec107d42e050ae8ac1702",
+    "scope": "Case Builder complete solver log workflow: incremental reading, cancellation, explicit time evidence, global restart rejection, temporal A/B window and metrics, extrema preview and full CSV",
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/commit/9e34144433c5fa9a9b5cb84c7ad32439a0265ea4",
-      "https://github.com/michels-lab/FoamLens/actions/runs/46047469531",
-      "https://github.com/michels-lab/FoamLens/actions/runs/46047201515",
-      "https://github.com/michels-lab/FoamLens/actions/runs/46048509689",
+      "https://github.com/michels-lab/FoamLens/commit/d20f2cae8d14156f781ec107d42e050ae8ac1702",
       "https://github.com/michels-lab/FoamLens/actions/runs/46048793212",
+      "https://github.com/michels-lab/FoamLens/actions/runs/46047469531",
       "https://github.com/michels-lab/FoamLens/actions/runs/46042148761",
       "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.24",
       "https://github.com/michels-lab/FoamLens/pull/386"
     ],
-    "pending": "Verify latest #386 exact native/Windows; resolve strict original snappy or document alternative as separate, no gate bypass; reconcile historic native QA PRs by diff; owner physical acceptance.",
+    "pending": "Verify current #386 native/Windows, complete actual owner log/Case Builder use; reconcile strict snappy and release #384; historical QA branches retain unique code and tests until reconciled.",
     "backlog_before": {
       "issues": 18,
       "pull_requests": 8,
@@ -193,14 +191,12 @@
     "progress_percent": null,
     "verified_deliverables": null,
     "status": "baseline inventory pending; protected controls verified but strict snappy, native WSL and physical acceptance pending; historical 8/15 unchanged",
-    "active_operation": "G-A/G-C",
+    "active_operation": "G-F / G-C",
     "active_deliverables": [
-      "3.1",
-      "3.3",
-      "3.4",
       "4.1",
       "4.2",
       "4.3",
+      "4.4",
       "8.3"
     ],
     "deferred": [

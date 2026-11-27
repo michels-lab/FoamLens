@@ -290,7 +290,7 @@ const flCaseBuilder=(()=>{
    if((m=timeRx.exec(line))){
     time=Number(m[1]);region=null;
     if(!Number.isFinite(time)){time=null;nonfinite++}
-    else{if(firstTime===null)firstTime=time;if(lastTime!==null&&time<lastTime)restarts++;lastTime=time;steps++;timeStepRows.push({time,deltaT:dt})}
+    else{if(firstTime===null)firstTime=time;if(lastTime!==null&&time<lastTime)restarts++;lastTime=time;steps++;timeStepRows.push({time,lastReportedDeltaT_s:dt})}
    }
    else if((m=/^\s*Solving for (?:fluid|solid) region\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(line)))region=m[1];
    else if((m=dtRx.exec(line))){dt=Number(m[1]);if(!Number.isFinite(dt)){dt=null;nonfinite++}else if(dt<=0){dt=null;invalid++}}
@@ -312,7 +312,7 @@ const flCaseBuilder=(()=>{
   };
   const finish=()=>{
    if(finished)fail('Log parser already completed');finished=true;if(tail.length)read(tail);tail='';
-   return {firstTime,lastTime,lastDeltaT:dt,timeSteps:steps,timeStepRows,normalEndMarkers:ends,fatalMarkers:fatal,nonfiniteMarkers:nonfinite,invalidNumericRows:invalid,restartMarkers:restarts,lineCount,residualRows:rows,courantRows:courant,truncated:false,runSuccessVerified:false}
+   return {firstTime,lastTime,lastDeltaT:dt,timeSteps:steps,timeStepRows,deltaTAssociation:'last explicitly reported deltaT at Time header; not reconstructed step duration',normalEndMarkers:ends,fatalMarkers:fatal,nonfiniteMarkers:nonfinite,invalidNumericRows:invalid,restartMarkers:restarts,lineCount,residualRows:rows,courantRows:courant,truncated:false,runSuccessVerified:false}
   };
   return {push,finish}
  }
@@ -342,13 +342,30 @@ const flCaseBuilder=(()=>{
   const finite=v=>Number.isFinite(v)?v:null;
   return {matchedDuration_s:finite(duration),matchedIntervals:intervals,timeWeightedBias:duration>0?finite(bias/duration):null,timeWeightedMAE:duration>0?finite(absolute/duration):null,timeWeightedRMSE:duration>0?finite(Math.sqrt(square/duration)):null,maxAbsDifference:finite(maxAbs),maxAbsTime_s:finite(maxTime),method:'piecewise linear between consecutive matched union times only; gaps excluded; no interpolated samples'}
  }
+ // Keep extrema and gap boundaries in a bounded rendering preview.
+ // Full data and all numerical metrics remain independent of this selection.
+ function logPreviewIndices(rows,key,maxBuckets=750){
+  if(!['A','B'].includes(key)||!Number.isSafeInteger(maxBuckets)||maxBuckets<1)fail('Invalid preview selection');
+  const step=Math.max(1,Math.ceil(rows.length/maxBuckets)),segments=[];let segment=[],bucket=-1,first=-1,last=-1,min=-1,max=-1;
+  const flush=()=>{if(first<0)return;for(const n of [...new Set([first,min,max,last])].sort((a,b)=>a-b))segment.push(n);first=last=min=max=-1};
+  const gap=()=>{flush();if(segment.length)segments.push(segment);segment=[];bucket=-1};
+  for(let i=0;i<rows.length;i++){
+   const v=rows[i][key];if(!Number.isFinite(v)){gap();continue}
+   const b=Math.floor(i/step);if(b!==bucket){flush();bucket=b}
+   if(first<0){first=last=min=max=i}else{last=i;if(v<rows[min][key])min=i;if(v>rows[max][key])max=i}
+  }
+  gap();return segments
+ }
  function logEvidenceEntries(log){
   const csv=(header,rows)=>[header.join(','),...rows.map(r=>header.map(k=>r[k]==null?'':typeof r[k]==='string'?'"'+r[k].replaceAll('"','""')+'"':String(r[k])).join(','))].join('\n')+'\n';
   const {residualRows,courantRows,timeStepRows,...summary}=log;
-  return [{name:'solver-log-summary.json',data:JSON.stringify({...summary,residualSamples:residualRows.length,courantSamples:courantRows.length,timeStepSamples:timeStepRows.length},null,2)},{name:'residuals.csv',data:csv(['time','region','field','initial','final','iterations'],residualRows)},{name:'courant.csv',data:csv(['time','mean','max'],courantRows)},{name:'time-steps.csv',data:csv(['time','deltaT'],timeStepRows)}]
+  return [{name:'solver-log-summary.json',data:JSON.stringify({...summary,residualSamples:residualRows.length,courantSamples:courantRows.length,timeStepSamples:timeStepRows.length},null,2)},{name:'residuals.csv',data:csv(['time','region','field','initial','final','iterations'],residualRows)},{name:'courant.csv',data:csv(['time','mean','max'],courantRows)},{name:'time-steps.csv',data:csv(['time','lastReportedDeltaT_s'],timeStepRows)}]
  }
  function compareRunLogs(a,b,selection){
   if(!a||!b||!selection||!['initial','final','iterations'].includes(selection.metric)||typeof selection.field!=='string'||!selection.field||!(selection.region===null||typeof selection.region==='string'))fail('Select exact residual field, region and metric');
+  const start=selection.startTime??null,end=selection.endTime??null;
+  if(start!==null&&!Number.isFinite(start)||end!==null&&!Number.isFinite(end)||start!==null&&end!==null&&start>end)fail('Invalid comparison time window');
+  const inside=t=>(start===null||t>=start)&&(end===null||t<=end);
   const extract=log=>{
    const byTime=new Map(),duplicates=new Set();let missingTime=0,invalid=0,previous=null,restart=false;
    for(const row of log.residualRows){
@@ -365,10 +382,10 @@ const flCaseBuilder=(()=>{
   const aa=extract(a),bb=extract(b);
   if(aa.restart||bb.restart||a.restartMarkers>0||b.restartMarkers>0)fail('Non-monotonic time history: split restarted logs before comparison');
   if(a.truncated||b.truncated)fail('Truncated log evidence: comparison would be incomplete');
-  const times=[...new Set([...aa.byTime.keys(),...bb.byTime.keys()])].sort((x,y)=>x-y);
+  const allTimes=[...new Set([...aa.byTime.keys(),...bb.byTime.keys()])].sort((x,y)=>x-y),times=allTimes.filter(inside);
   const rows=times.map(time=>{const A=aa.byTime.get(time)??null,B=bb.byTime.get(time)??null;return {time,A,B,delta_B_minus_A:A===null||B===null?null:B-A}});
   const pairs=rows.filter(r=>r.A!==null&&r.B!==null);
-  return {selection:{...selection},alignment:'exact physical time, no interpolation; last recorded solve per selected field/region/time',rows,matched:pairs.length,onlyA:rows.filter(r=>r.A!==null&&r.B===null).length,onlyB:rows.filter(r=>r.A===null&&r.B!==null).length,duplicateTimesA:aa.duplicates,duplicateTimesB:bb.duplicates,missingTimeA:aa.missingTime,missingTimeB:bb.missingTime,invalidA:aa.invalid,invalidB:bb.invalid,sourceFatalMarkers:[a.fatalMarkers,b.fatalMarkers],sourceNonfiniteMarkers:[a.nonfiniteMarkers,b.nonfiniteMarkers],meanAbsoluteDifference:pairs.length?pairs.reduce((avg,r,i)=>avg+(Math.abs(r.delta_B_minus_A)-avg)/(i+1),0):null,temporalMetrics:logTemporalMetrics(rows),sourceNames:[a.sourceName??null,b.sourceName??null],sourceBytes:[a.sourceBytes??null,b.sourceBytes??null],runSuccessVerified:false,physicalEquivalenceVerified:false}
+  return {selection:{...selection,startTime:start,endTime:end},sourceUnionTimes:allTimes.length,excludedOutsideWindow:allTimes.length-times.length,alignment:'exact physical time, no interpolation; last recorded solve per selected field/region/time',rows,matched:pairs.length,onlyA:rows.filter(r=>r.A!==null&&r.B===null).length,onlyB:rows.filter(r=>r.A===null&&r.B!==null).length,duplicateTimesA:aa.duplicates,duplicateTimesB:bb.duplicates,missingTimeA:aa.missingTime,missingTimeB:bb.missingTime,invalidA:aa.invalid,invalidB:bb.invalid,sourceFatalMarkers:[a.fatalMarkers,b.fatalMarkers],sourceNonfiniteMarkers:[a.nonfiniteMarkers,b.nonfiniteMarkers],meanAbsoluteDifference:pairs.length?pairs.reduce((avg,r,i)=>avg+(Math.abs(r.delta_B_minus_A)-avg)/(i+1),0):null,temporalMetrics:logTemporalMetrics(rows),sourceNames:[a.sourceName??null,b.sourceName??null],sourceBytes:[a.sourceBytes??null,b.sourceBytes??null],runSuccessVerified:false,physicalEquivalenceVerified:false}
  }
  function comparisonCsv(report){
   return 'time_s,A,B,delta_B_minus_A\n'+report.rows.map(r=>[r.time,r.A??'',r.B??'',r.delta_B_minus_A??''].join(',')).join('\n')+'\n'
@@ -509,7 +526,7 @@ const flCaseBuilder=(()=>{
   entries.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'},{name:'case-builder.json',data:JSON.stringify({schema,input},null,2)+'\n'},{name:'README.txt',data:'DRAFT ONLY. This is not a runnable or validated OpenFOAM case. No solver run or mesh geometry generated. Only explicitly selected constant solid/fluid physicalProperties drafts may be present; other material models require manual completion. Reciprocal mappedWall names and coupled temperature draft entries do not validate geometric mapping or heat balance. Compare every declared patch to original polyMesh/boundary and complete the missing files listed in manifest.json. Extract to a new folder; never overlay an existing case without review.\n'});
   return {manifest,entries}
  }
- return Object.freeze({build,schema,parseBoundary,materialAt,phasePreview,inspectRunLog,createRunLogParser,readRunLogFile,logTemporalMetrics,logEvidenceEntries,compareRunLogs,comparisonCsv,residualSelections})
+ return Object.freeze({build,schema,parseBoundary,materialAt,phasePreview,inspectRunLog,createRunLogParser,readRunLogFile,logTemporalMetrics,logPreviewIndices,logEvidenceEntries,compareRunLogs,comparisonCsv,residualSelections})
 })();
 /* FOAMLENS_CASE_BUILDER_CORE_END */
 function flMountCaseBuilder(){
@@ -550,7 +567,7 @@ function flMountCaseBuilder(){
  '<div class="cgTools"><label>'+t('Preview region','Región de consulta')+' <input id="flCbTableRegion"></label><label>T [K] <input id="flCbTableT" inputmode="decimal"></label><button type="button" class="btn soft" id="flCbTablePreview">'+t('Interpolate table','Interpolar tabla')+'</button></div><pre id="flCbTableResult"></pre>'+
  '<p class="cgNotice">'+t('Mapped thermal interfaces: import both region boundary files, declare reciprocal mappedWall, set T to coupledTemperature with explicit initial patch value on both sides. Cyclic and nonconformal variants unsupported. Tables are exported as SI CSV, not native thermo models.','Interfaces térmicas: importa ambos boundary, declara mappedWall recíproco y T con coupledTemperature y valor inicial explícito en ambos lados. Variantes cíclicas y no conformes no soportadas. Las tablas se exportan en CSV SI, no como modelos termo nativos.')+'</p>'+
  '<details style="margin-top:12px"><summary><b>'+t('Execution preparation and log review','Preparación de ejecución y revisión de logs')+'</b></summary><p class="cgNotice">'+t('ZIP includes an optional Bash script for trusted completed cases. Run in WSL with --check or explicitly --run; it copies the initial case into a new /tmp directory. No launch from FoamLens yet.','ZIP incluye un script Bash opcional para casos completos de confianza. Ejecuta en WSL con --check o explícitamente --run; copia el caso inicial a un directorio nuevo en /tmp. Aún sin lanzamiento desde FoamLens.')+'</p><label>'+t('Read solver log locally in chunks','Leer log local por bloques')+' <input type="file" id="flCbLogFile"></label><button type="button" class="btn soft" id="flCbLogCancel">'+t('Cancel / clear log','Cancelar / limpiar log')+'</button><button type="button" class="btn soft" id="flCbLogExport" disabled>'+t('Export parsed evidence ZIP','Exportar evidencia de log ZIP')+'</button><pre id="flCbLogStatus" style="white-space:pre-wrap;max-height:300px;overflow:auto"></pre></details>'+
- '<details style="margin-top:12px"><summary><b>'+t('Compare solver logs A/B','Comparar logs de solver A/B')+'</b></summary><p class="cgNotice">'+t('Exact time alignment; last solve per field/region/time. No interpolation or convergence certification. Unknown region stays unknown.','Alineación temporal exacta; última resolución por campo/región/tiempo. Sin interpolación ni certificación de convergencia. Región desconocida permanece desconocida.')+'</p><div class="cgTools"><label>Log A <input type="file" id="flCbCompareA"></label><label>Log B <input type="file" id="flCbCompareB"></label></div><div class="cgTools"><label>'+t('Region / field','Región / campo')+' <select id="flCbCompareField" disabled></select></label><label>'+t('Metric','Métrica')+' <select id="flCbCompareMetric"><option value="initial">'+t('Initial residual','Residual inicial')+'</option><option value="final">'+t('Final residual','Residual final')+'</option><option value="iterations">'+t('Iterations','Iteraciones')+'</option></select></label><button type="button" class="btn soft" id="flCbCompareClear">'+t('Cancel / clear A/B','Cancelar / limpiar A/B')+'</button><button type="button" class="btn soft" id="flCbCompareExport" disabled>ZIP</button></div><div id="flCbComparePlot" style="width:100%;min-height:40px"></div><pre id="flCbCompareStatus" style="white-space:pre-wrap;max-height:300px;overflow:auto"></pre></details>'+
+ '<details style="margin-top:12px"><summary><b>'+t('Compare solver logs A/B','Comparar logs de solver A/B')+'</b></summary><p class="cgNotice">'+t('Exact time alignment; last solve per field/region/time. No interpolation or convergence certification. Unknown region stays unknown.','Alineación temporal exacta; última resolución por campo/región/tiempo. Sin interpolación ni certificación de convergencia. Región desconocida permanece desconocida.')+'</p><div class="cgTools"><label>Log A <input type="file" id="flCbCompareA"></label><label>Log B <input type="file" id="flCbCompareB"></label></div><div class="cgTools"><label>'+t('Region / field','Región / campo')+' <select id="flCbCompareField" disabled></select></label><label>'+t('Metric','Métrica')+' <select id="flCbCompareMetric"><option value="initial">'+t('Initial residual','Residual inicial')+'</option><option value="final">'+t('Final residual','Residual final')+'</option><option value="iterations">'+t('Iterations','Iteraciones')+'</option></select></label><label>'+t('From time [s] (optional)','Desde tiempo [s] (opcional)')+' <input id="flCbCompareStart" inputmode="decimal"></label><label>'+t('To time [s] (optional)','Hasta tiempo [s] (opcional)')+' <input id="flCbCompareEnd" inputmode="decimal"></label><button type="button" class="btn soft" id="flCbCompareClear">'+t('Cancel / clear A/B','Cancelar / limpiar A/B')+'</button><button type="button" class="btn soft" id="flCbCompareExport" disabled>ZIP</button></div><div id="flCbComparePlot" style="width:100%;min-height:40px"></div><pre id="flCbCompareStatus" style="white-space:pre-wrap;max-height:300px;overflow:auto"></pre></details>'+
  '<div class="cgTools"><button type="button" class="btn primary" id="flCbValidate">'+t('Validate and preview draft','Validar y previsualizar borrador')+'</button><button type="button" class="btn soft" id="flCbExport" disabled>'+t('Export draft ZIP','Exportar borrador ZIP')+'</button><label>'+t('Reopen draft JSON','Reabrir borrador JSON')+' <input type="file" id="flCbImport" accept=".json,application/json"></label></div>'+
  '<p id="flCbStatus" class="cgNotice" aria-live="polite"></p><label>'+t('Generated file','Archivo generado')+' <select id="flCbFile" disabled></select></label><pre id="flCbPreview" style="white-space:pre-wrap;max-height:380px;overflow:auto"></pre>';
  anchor.insertAdjacentElement('afterend',panel);
@@ -585,23 +602,25 @@ function flMountCaseBuilder(){
   let lo=Infinity,hi=-Infinity;for(const v of all){const z=transform(v);lo=Math.min(lo,z);hi=Math.max(hi,z)}if(lo===hi){lo-=1;hi+=1}
   const t0=report.rows[0].time,t1=report.rows.at(-1).time,x=t=>58+560*(t1===t0?0.5:(t-t0)/(t1-t0)),y=v=>196-168*(transform(v)-lo)/(hi-lo);
   for(let i=0;i<=4;i++){const yy=28+42*i;svg.append(make('line',{x1:58,x2:618,y1:yy,y2:yy,stroke:'currentColor','stroke-opacity':'.18'}));const tx=make('text',{x:52,y:yy+4,'text-anchor':'end',fill:'currentColor','font-size':10});tx.textContent=(log?10**(hi-(hi-lo)*i/4):hi-(hi-lo)*i/4).toExponential(1);svg.append(tx)}
-  const step=Math.max(1,Math.ceil(report.rows.length/1500)); // rendering preview only, CSV and metrics use every row
+  let sampled=false;
   for(const [k,color] of [['A','#38bdf8'],['B','#f59e0b']]){
-   let d='',started=false;for(let i=0;i<report.rows.length;i++){const r=report.rows[i];if(r[k]===null){started=false;continue}if(i%step&&i!==report.rows.length-1)continue;const xx=x(r.time),yy=y(r[k]);d+=(started?' L':' M')+xx+' '+yy;started=true;if(step===1&&report.rows.length<100)svg.append(make('circle',{cx:xx,cy:yy,r:2,fill:color}))}
+   const segments=flCaseBuilder.logPreviewIndices(report.rows,k);let d='',shown=0;
+   for(const segment of segments){for(let j=0;j<segment.length;j++){const r=report.rows[segment[j]],xx=x(r.time),yy=y(r[k]);d+=(j?' L':' M')+xx+' '+yy;shown++;if(segment.length===1||report.rows.length<100)svg.append(make('circle',{cx:xx,cy:yy,r:2,fill:color}))}}
+   sampled=sampled||shown<report.rows.reduce((n,r)=>n+(Number.isFinite(r[k])?1:0),0);
    svg.append(make('path',{d,fill:'none',stroke:color,'stroke-width':1.7}))
   }
   const label=(x,y,str,color='currentColor')=>{const n=make('text',{x,y,fill:color,'font-size':11});n.textContent=str;svg.append(n)};
-  label(58,214,String(t0));label(560,214,String(t1));label(265,230,'Time [s]');label(58,15,(log?'log scale':'linear scale')+(step>1?' · sampled preview':''));label(510,15,'A','#38bdf8');label(555,15,'B','#f59e0b');host.append(svg)
+  label(58,214,String(t0));label(560,214,String(t1));label(265,230,'Time [s]');label(58,15,(log?'log scale':'linear scale')+(sampled?' · extrema preview':''));label(510,15,'A','#38bdf8');label(555,15,'B','#f59e0b');host.append(svg)
  };
  const refreshComparison=()=>{
   compareReport=null;el('CompareExport').disabled=true;el('ComparePlot').replaceChildren();el('CompareStatus').textContent='';
   if(!compareLogs.A||!compareLogs.B)return;
-  try{const [region,field]=JSON.parse(el('CompareField').value);compareReport=flCaseBuilder.compareRunLogs(compareLogs.A,compareLogs.B,{region,field,metric:el('CompareMetric').value});drawComparison(compareReport);const {rows,...summary}=compareReport;el('CompareStatus').textContent=JSON.stringify(summary,null,2);el('CompareExport').disabled=false}catch(e){el('CompareStatus').textContent=e.message}
+  try{const [region,field]=JSON.parse(el('CompareField').value),parseTime=id=>{const v=el(id).value.trim();if(!v)return null;if(!/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(v)||!Number.isFinite(Number(v)))throw Error('Enter a finite decimal time');return Number(v)};compareReport=flCaseBuilder.compareRunLogs(compareLogs.A,compareLogs.B,{region,field,metric:el('CompareMetric').value,startTime:parseTime('CompareStart'),endTime:parseTime('CompareEnd')});drawComparison(compareReport);const {rows,...summary}=compareReport;el('CompareStatus').textContent=JSON.stringify(summary,null,2);el('CompareExport').disabled=false}catch(e){el('CompareStatus').textContent=e.message}
  };
  const refreshFields=()=>{const select=el('CompareField'),old=select.value;select.replaceChildren();for(const s of flCaseBuilder.residualSelections(compareLogs.A,compareLogs.B)){const o=document.createElement('option');o.value=JSON.stringify([s.region,s.field]);o.textContent=(s.region??cgUi('unknown region','región desconocida'))+' / '+s.field;select.append(o)}if([...select.options].some(o=>o.value===old))select.value=old;select.disabled=!select.options.length;refreshComparison()};
  for(const k of ['A','B'])el('Compare'+k).onchange=async()=>{const file=el('Compare'+k).files[0];if(!file)return;const epoch=++compareEpoch[k];compareLogs[k]=null;refreshFields();try{const log=await flCaseBuilder.readRunLogFile(file,{cancelled:()=>epoch!==compareEpoch[k],progress:(n,total)=>{if(epoch===compareEpoch[k])el('CompareStatus').textContent=k+' · '+n.toLocaleString()+' / '+total.toLocaleString()+' bytes'}});if(epoch!==compareEpoch[k])return;compareLogs[k]=log;refreshFields()}catch(e){if(epoch===compareEpoch[k])el('CompareStatus').textContent=e.message}};
- el('CompareClear').onclick=()=>{for(const k of ['A','B']){compareEpoch[k]++;compareLogs[k]=null;el('Compare'+k).value=''}refreshFields()};
- el('CompareField').onchange=refreshComparison;el('CompareMetric').onchange=refreshComparison;
+ el('CompareClear').onclick=()=>{for(const k of ['A','B']){compareEpoch[k]++;compareLogs[k]=null;el('Compare'+k).value=''}el('CompareStart').value=el('CompareEnd').value='';refreshFields()};
+ el('CompareField').onchange=refreshComparison;el('CompareMetric').onchange=refreshComparison;el('CompareStart').onchange=refreshComparison;el('CompareEnd').onchange=refreshComparison;
  el('CompareExport').onclick=()=>{if(!compareReport)return;const {rows,...summary}=compareReport;cgDownloadZip('FoamLens-log-comparison.zip',cgStoreZip([{name:'comparison.csv',data:flCaseBuilder.comparisonCsv(compareReport)},{name:'comparison-manifest.json',data:JSON.stringify(summary,null,2)}]))};
  const preview=()=>{el('Preview').textContent=plan?.entries.find(e=>e.name===el('File').value)?.data||''};
  el('File').onchange=preview;

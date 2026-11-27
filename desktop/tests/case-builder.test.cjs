@@ -292,3 +292,28 @@ console.log('Strict preflight source contract and real log-header/nonfinite regr
  const entries=api.logEvidenceEntries(api.inspectRunLog(raw));assert.deepStrictEqual(entries.map(x=>x.name),['solver-log-summary.json','residuals.csv','courant.csv','time-steps.csv']);assert.match(entries[1].data,/1,"metal","p_rgh",0.1,0.001,4/);
  console.log('Incremental complete log, 60001 rows, >8 MiB input, temporal error, restart and CSV PASS');
 }
+
+{
+ const range=api.compareRunLogs(aa,bb,{region:'metal',field:'p_rgh',metric:'initial',startTime:2,endTime:3});
+ assert.strictEqual(range.rows.length,2);assert.strictEqual(range.excludedOutsideWindow,1);assert.strictEqual(range.matched,0);assert.strictEqual(range.temporalMetrics.timeWeightedMAE,null);
+ assert.throws(()=>api.compareRunLogs(aa,bb,{region:'metal',field:'p_rgh',metric:'initial',startTime:3,endTime:2}));
+ assert.throws(()=>api.compareRunLogs(aa,bb,{region:'metal',field:'p_rgh',metric:'initial',startTime:NaN}));
+ const p=Array.from({length:100},(_,i)=>({A:i===50?null:i===8?100:i===12?-10:1}));
+ const preview=api.logPreviewIndices(p,'A',4);assert.strictEqual(preview.length,2);assert(preview[0].includes(8));assert(preview[0].includes(12));assert(!preview.flat().includes(50));assert(preview[1].includes(99));
+ const q=api.inspectRunLog('deltaT = 0.01\nTime = 1\ndeltaT = 0.02\nTime = 1.1\n');
+ assert.strictEqual(q.timeStepRows[0].lastReportedDeltaT_s,.01);assert.strictEqual(q.timeStepRows[1].lastReportedDeltaT_s,.02);
+ assert.match(api.logEvidenceEntries(q)[3].data,/time,lastReportedDeltaT_s/);
+ console.log('Physical window, preview extrema/gaps and explicit deltaT association PASS');
+}
+if(typeof Blob!=='undefined'&&typeof TextDecoder!=='undefined'){
+ (async()=>{
+  const body='Time = 1\r\n'+('x'.repeat(90000)+'\n').repeat(5)+'Solving for fluid region metal\nGAMG: Solving for p_rgh, Initial residual = 0.1, Final residual = 0.01, No Iterations 2\nEnd';
+  const f=new Blob([body]);let last=0,calls=0;
+  const parsed=await api.readRunLogFile(f,{progress:(n,total)=>{assert(n>last);assert.strictEqual(total,f.size);last=n;calls++}});
+  assert.strictEqual(parsed.residualRows.length,1);assert.strictEqual(parsed.sourceBytes,f.size);assert(calls>1);
+  let canceled=false;try{await api.readRunLogFile(f,{cancelled:()=>last===-1,progress:()=>{last=-1}})}catch(e){canceled=/cancelled/.test(e.message)}
+  assert(canceled);
+  let malformed=false;try{await api.readRunLogFile(new Blob([new Uint8Array([0xff])]))}catch(e){malformed=true}assert(malformed);
+  console.log('Real Blob slicing, byte progress, strict UTF8 and cancel PASS')
+ })().catch(e=>{console.error(e);process.exitCode=1});
+}
