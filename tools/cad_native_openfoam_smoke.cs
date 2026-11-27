@@ -215,6 +215,26 @@ byte[] SmallCube(float offset)
     }
     return data;
 }
+// Separate experimental alternatives with actual snapping on non-aligned geometry.
+ // The original strict local refinement scenarios remain mandatory and unchanged.
+ // Non-aligned surfaces use the same fixture shape at a shifted scale.
+foreach(bool explicitFeatures in new[]{false,true}){
+ if(suite=="core")break;
+ string scenario=explicitFeatures?"snappy-uniform-unaligned-explicit":"snappy-uniform-unaligned-implicit";
+ await Scenario(scenario,async()=>{
+  var shifted=SmallCube(.143f);
+  var cfg=JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,uniformBackground=true,snapEnabled=true,explicitFeatures,transitionLayers=3,stlBase64=Convert.ToBase64String(shifted)}});
+  var prepared=NativeCartesianMesh.PrepareSnappyBackground(cfg);
+  if(prepared.UniformLevel!=1||prepared.OriginalCells!=512||NativeCartesianMesh.Build(prepared.Input).Cells!=4096)throw new InvalidOperationException("Uniform snapped background accounting failed");
+  var dir=await Run(scenario,"snappyHexMesh",false,cfg);int cells=Cells(dir);
+  if(cells<=0||cells>=4096)throw new InvalidOperationException("Expected retained subset of uniform background");
+  string log=File.ReadAllText(Path.Combine(dir,"checkMesh.log"));string quality=NativeCartesianMesh.QualityStatus(0,log);
+  if(quality is not ("mesh-ok-reported" or "checks-failed"))throw new InvalidOperationException("Missing native quality evidence");
+  if(explicitFeatures&&File.ReadAllText(Path.Combine(dir,"surfaceFeatures.exit")).Trim()!="0")throw new InvalidOperationException("Explicit feature extraction failed");
+  Console.WriteLine(scenario+" quality: "+quality);
+  return new{cells,quality,snap=true,explicitFeatures,backgroundCells=4096,originalBackgroundCells=512,localRefinement=0,qualityCertified=false};
+ });
+}
 if(suite!="core")await Scenario("snappy-multi",async()=>{
 var multi=await Run("snappy-multi","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.125f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}}));
 var multiCells=Cells(multi);if(multiCells<=0||multiCells==512)throw new InvalidOperationException("Multi-surface snappy did not produce a different mesh");

@@ -81,3 +81,13 @@ assert.throws(()=>uniform({...ub,cellCount:25001},ucfg,empty));
 assert.throws(()=>uniform(p,ucfg,empty));
 assert(src.includes('uniformBackground,surfaces:'));
 console.log('Uniform background alternative and strict limits PASS');
+
+const receipt=new Function(src.slice(src.indexOf('function cmbUniformBackgroundPreview('),src.indexOf('function cmbSnappySettings('))+';return cmbNativePlanReceipt')();
+const request={snappy:{...ucfg,...empty,uniformBackground:true}};
+const nativeReceipt={schema:'foamlens/native-snappy-mesh/1',originalCaseModified:false,stagingIsolated:true,plannedCells:1920,originalBackgroundCells:240,uniformBackgroundLevel:1,snappyDiagnosticOnly:true};
+assert.equal(receipt(ub,request,nativeReceipt),true);
+for(const mismatch of [{plannedCells:240},{originalBackgroundCells:239},{uniformBackgroundLevel:2},{snappyDiagnosticOnly:false},{stagingIsolated:false},{originalCaseModified:true}])assert.equal(receipt(ub,request,{...nativeReceipt,...mismatch}),false);
+assert.equal(receipt(ub,{snappy:{...request.snappy,uniformBackground:false}},{...nativeReceipt,plannedCells:240,originalBackgroundCells:null,uniformBackgroundLevel:null}),true);
+assert.equal(receipt(ub,{}, {schema:'foamlens/native-cartesian-mesh/1',originalCaseModified:false,stagingIsolated:true,plannedCells:240}),true);
+assert.equal(receipt(ub,{},{...nativeReceipt,plannedCells:240}),false);
+console.log('Uniform background receipt binds expanded count and original plan without certifying mesh quality PASS');
