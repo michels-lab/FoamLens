@@ -124,3 +124,13 @@ assert.deepEqual(recovery.defects({...reject,nativeConcaveCells:null}),{concaveC
 assert.deepEqual(recovery.defects({...reject,nativeConcaveCells:-1}),{concaveCells:null});
 assert.deepEqual(recovery.defects({...reject,checkMeshLog:reject.checkMeshLog+'[truncated]'}),{concaveCells:null});
 console.log('Full native defect evidence and exact requested layer receipt PASS');
+
+const finalLayerSummary=new Function(src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbLayerReceiptMatches('))+';return cmbFinalLayerSummary')();
+const zeroLayer={faces:96,averageLayers:0,thicknessM:0,thicknessPercent:0};
+const layerEvidence={requestedSurfaceLayers:{flSurface_001:1},finalSurfaceLayerEvidence:{flSurface_001:zeroLayer}};
+assert.deepEqual(finalLayerSummary(layerEvidence),[{name:'flSurface_001',target:1,...zeroLayer}]);
+assert.equal(finalLayerSummary({...layerEvidence,finalSurfaceLayerEvidence:null}),null);
+for(const bad of [{...zeroLayer,faces:0},{...zeroLayer,averageLayers:2},{...zeroLayer,thicknessM:NaN},{...zeroLayer,thicknessPercent:-1}])assert.equal(finalLayerSummary({...layerEvidence,finalSurfaceLayerEvidence:{flSurface_001:bad}}),null);
+assert.equal(finalLayerSummary({...layerEvidence,finalSurfaceLayerEvidence:{flSurface_002:zeroLayer}}),null);
+assert.equal(finalLayerSummary({}),null);
+console.log('Final native layer metrics: zero layers distinct from missing evidence, thickness not face coverage PASS');

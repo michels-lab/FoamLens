@@ -254,7 +254,12 @@ foreach(bool withLayers in new[]{false,true}){
   var quality=NativeCartesianMesh.QualityStatus(0,File.ReadAllText(Path.Combine(dir,"checkMesh.log")));
   if(quality is not ("mesh-ok-reported" or "checks-failed"))throw new InvalidOperationException("Missing native quality evidence");
   Console.WriteLine(scenario+" quality: "+quality);
-  return new{cells,quality,surfaces=2,withLayers,layerCoverageCertified=false,qualityCertified=false};
+  var finalLayers=withLayers?NativeCartesianMesh.FinalLayerEvidence(0,File.ReadAllText(Path.Combine(dir,"generation.log")),NativeCartesianMesh.RequestedSurfaceLayers(prepared.Input)):null;
+  if(withLayers){
+   if(finalLayers is null)throw new InvalidOperationException("Final native layer table missing or ambiguous");
+   Console.WriteLine(scenario+" final native layers: "+JsonSerializer.Serialize(finalLayers));
+  }
+  return new{cells,quality,surfaces=2,withLayers,finalLayers,layerCoverageCertified=false,qualityCertified=false};
  });
 }
 if(suite!="core")await Scenario("snappy-multi",async()=>{

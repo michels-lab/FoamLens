@@ -176,6 +176,17 @@ function cmbSnappyDefects(r){
  const count=matches.length===1?Number(matches[0][1]):null;
  return {concaveCells:Number.isSafeInteger(count)&&count>0?count:null}
 }
+function cmbFinalLayerSummary(r){
+ const requested=r?.requestedSurfaceLayers||{},actual=r?.finalSurfaceLayerEvidence;
+ if(!Object.keys(requested).length)return null;
+ if(!actual||typeof actual!=='object'||Array.isArray(actual)||Object.keys(actual).length!==Object.keys(requested).length)return null;
+ const rows=[];
+ for(const [name,target] of Object.entries(requested)){
+  const a=actual[name];if(!a||!Number.isSafeInteger(a.faces)||a.faces<=0||!Number.isFinite(a.averageLayers)||a.averageLayers<0||a.averageLayers>target||!Number.isFinite(a.thicknessM)||a.thicknessM<0||!Number.isFinite(a.thicknessPercent)||a.thicknessPercent<0)return null;
+  rows.push({name,target,...a})
+ }
+ return rows
+}
 function cmbLayerReceiptMatches(payload,r){
  const expected=Object.fromEntries((payload.snappy?.surfaceSettings||[]).filter(v=>v.layers>0).map(v=>['flSurface_'+String(v.id).padStart(3,'0'),v.layers]));
  const actual=r.requestedSurfaceLayers;
@@ -262,6 +273,7 @@ function cmbMount(){
    nativeReport=r;nativeSurface=surface;const count=Object.keys(r.files||{}).length;el('cmbNativeStatus').textContent='Foundation '+(r.version||'—')+' · '+r.generationUtility+' exit '+(r.generationExit??'—')+' · checkMesh exit '+(r.checkMeshExit??'—')+' ('+(r.qualityStatus||'undetermined')+') · '+count+' mesh files'+flRegionStatus(r)+' · '+(r.exportError||cgUi('Review logs; no quality certification.','Revisa logs; sin certificación de calidad.'));
    if(r.uniformBackgroundLevel!=null)el('cmbNativeStatus').textContent+=' · '+tr('Uniform background','Fondo uniforme')+' L'+r.uniformBackgroundLevel+' · '+r.originalBackgroundCells+' → '+r.plannedCells+' '+tr('planned cells','celdas planificadas');if(r.generationUtility==='snappyHexMesh')el('cmbNativeStatus').textContent+=' · '+tr('DIAGNOSTIC ONLY','SOLO DIAGNÓSTICO');if(r.qualityStatus==='checks-failed')el('cmbNativeStatus').textContent+=' · '+tr('Not solver-ready. Inspect defect sets before changing refinement or snapping.','No apta para solver. Inspecciona conjuntos de defectos antes de cambiar refinamiento o snap.');
    const requestedLayers=Object.entries(r.requestedSurfaceLayers||{});if(requestedLayers.length)el('cmbNativeStatus').textContent+=' · '+cgUi('Requested layers (coverage unverified): ','Capas solicitadas (cobertura sin verificar): ')+requestedLayers.map(([name,n])=>name+': '+n).join(' | ');
+   const finalLayers=cmbFinalLayerSummary(r);if(requestedLayers.length){el('cmbNativeStatus').textContent+=' · '+(finalLayers?cgUi('Final native mean layers: ','Capas medias finales nativas: ')+finalLayers.map(v=>v.name+': '+v.averageLayers+' / '+v.target+' · '+v.faces+' '+cgUi('faces','caras')+' · '+v.thicknessM+' m · '+v.thicknessPercent+'% '+cgUi('thickness','espesor')).join(' | ')+'. '+cgUi('Thickness percentage is not face coverage.','El porcentaje de espesor no es cobertura de caras.'):cgUi('Final layer table unavailable; extrusion unverified.','Tabla final de capas no disponible; extrusión sin verificar.'))}
    const defects=cmbSnappyDefects(r);if(defects?.concaveCells!=null)el('cmbNativeStatus').textContent+=' · '+cgUi('Native concave cells: ','Celdas cóncavas nativas: ')+defects.concaveCells.toLocaleString()+' · '+cgUi('For a separate comparison, consider uniform background + explicit sharp-edge snap if eligible; preserve this failed result first.','Para una comparación separada, considera fondo uniforme + ajuste explícito de aristas si es compatible; conserva primero este resultado fallido.');
    el('cmbNativeLogs').textContent=[r.stderr,r.stdout,r.blockMeshLog,r.surfaceCheckLog,r.snappyLog,r.checkMeshLog,r.splitLog].filter(Boolean).join('\n\n');
   }catch(e){if(token===undefined||token===revision)el('cmbNativeStatus').textContent=e.message}finally{nativeTask=null;buttons()}};
