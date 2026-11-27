@@ -213,7 +213,7 @@ const flCaseBuilder=(()=>{
  function phaseEntries(physics,mode){
   return physics.phaseModels.map(m=>{
    const loc=mode==='multi'?'constant/'+m.region:'constant';
-   const data=header('dictionary','fvModels',loc)+m.name+'\n{\n    type solidificationMelting;\n'+(m.zone?'    cellZone '+m.zone+';\n':'')+
+   const data=header('dictionary','fvModels',loc)+m.name+'\n{\n    type solidificationMelting;\n'+'    cellZone '+(m.zone||'all')+';\n'+
     ['Tsol','Tliq','alpha1e','L','rhoRef','beta','Cu','q','relax','thermoMode'].map(k=>'    '+k+' '+m[k]+';\n').join('')+
     (m.CpRef===null?'':'    Cp CpRef;\n    CpRef '+m.CpRef+';\n')+'    g ('+m.g.join(' ')+');\n}\n';
    return {name:'draft/'+loc+'/fvModels',data}
@@ -231,6 +231,66 @@ const flCaseBuilder=(()=>{
   if(temperature===m.Tsol)return {T_K:temperature,alphaLiquid:null,range:[0,m.Tliq===m.Tsol?1:m.alpha1e],note:'isothermal plateau; fraction depends on enthalpy/history'};
   const liquid=temperature<m.Tsol?0:temperature>=m.Tliq?1:m.alpha1e+(1-m.alpha1e)*(temperature-m.Tsol)/(m.Tliq-m.Tsol);
   return {T_K:temperature,alphaLiquid:liquid,alphaSolid:1-liquid,latentEnthalpy_J_kg:liquid*m.L,note:'equilibrium preview only; not transient CFD'}
+ }
+ function executionPlan(input,regionList,fields,physics,numerical){
+  const multi=input.mode==='multi',app=multi?'foamMultiRun':'foamRun',required=['system/controlDict','system/fvSolution'];
+  for(const r of regionList){
+   const system=multi?'system/'+r.name:'system',constant=multi?'constant/'+r.name:'constant',zero=multi?'0/'+r.name:'0';
+   if(multi)required.push(system+'/fvSolution');required.push(system+'/fvSchemes');
+   for(const file of ['points','faces','owner','neighbour','boundary'])required.push(constant+'/polyMesh/'+file);
+   for(const field of items(fields).filter(f=>f.region===r.name))required.push(zero+'/'+field.name);
+   if(physics.phaseModels.some(m=>m.region===r.name))required.push(constant+'/fvModels');
+   if(physics.phaseModels.some(m=>m.region===r.name&&m.zone&&m.zone!=='all'))required.push(constant+'/polyMesh/cellZones');
+   if(r.kind==='solid'||r.solver==='fluid')required.push(constant+'/physicalProperties')
+  }
+  return {version:input.version,application:app,requiredFiles:[...new Set(required)],regionalMeshChecks:multi?regionList.map(r=>r.name):[],dictionaryDraftsGenerated:numerical.active,executionMode:'manual trusted candidate, isolated copy, serial only',runtimeVerified:false,solverReady:false}
+ }
+ function executionScript(plan){
+  const required=plan.requiredFiles.map(v=>"'"+v+"'").join(' '),regions=plan.regionalMeshChecks.map(v=>"'"+v+"'").join(' ');
+  return [
+   '#!/usr/bin/env bash','set -eo pipefail','umask 077',
+   'fail(){ printf "FoamLens: %s\\n" "$*" >&2; exit 1; }',
+   '[[ $# -eq 2 ]] || fail "Usage: bash prepare-run.sh /path/to/trusted-complete-case --check|--run"',
+   '[[ "$2" == --check || "$2" == --run ]] || fail "Choose --check or --run explicitly"',
+   '[[ "$WM_PROJECT_VERSION" == '+plan.version+' ]] || fail "Source the matching Foundation environment first"',
+   'for tool in foamDictionary checkMesh '+plan.application+' realpath mktemp cp find tee grep; do command -v "$tool" >/dev/null || fail "Missing tool $tool"; done',
+   'src="$(realpath -e -- "$1")" || fail "Case does not exist"',
+   '[[ -d "$src" ]] || fail "Case directory required"',
+   'for dir in 0 constant system; do [[ -d "$src/$dir" && ! -L "$src/$dir" ]] || fail "Missing regular directory $dir"; done',
+   'bad="$(find "$src/0" "$src/constant" "$src/system" ! -type d ! -type f -print -quit)"',
+   '[[ -z "$bad" ]] || fail "Special file or symlink rejected: $bad"',
+   'for file in '+required+'; do [[ -f "$src/$file" && -s "$src/$file" ]] || fail "Missing required uncompressed file: $file"; done',
+   'work="$(mktemp -d /tmp/foamlens-run.XXXXXXXX)"','caseDir="$work/case"','mkdir -- "$caseDir" "$work/logs"',
+   'printf "Isolated case: %s\\n" "$caseDir"','cp -a -- "$src/0" "$src/constant" "$src/system" "$caseDir/"',
+   'cd -- "$caseDir"','printf "%s\\n" "$WM_PROJECT_VERSION" > "$work/logs/foundation-version.txt"',
+   'app="$(foamDictionary system/controlDict -entry application -value)"',
+   '[[ "$app" == '+plan.application+' ]] || fail "Unexpected application: $app"',
+   'for file in '+required+'; do case "$file" in system/*|*/physicalProperties|*/fvModels) foamDictionary "$file" > /dev/null || fail "Dictionary rejected: $file";; esac; done',
+   'run_mesh(){ local label="$1"; shift; checkMesh -case "$caseDir" "$@" -noFunctionObjects 2>&1 | tee "$work/logs/checkMesh-$label.log"; grep -q "Mesh OK\\." "$work/logs/checkMesh-$label.log" || fail "Mesh OK marker absent for $label"; }',
+   ...(regions?['for region in '+regions+'; do run_mesh "$region" -region "$region"; done']:['run_mesh default']),
+   'printf "Basic mesh checks completed. This does not certify physics or solver compatibility.\\n"',
+   '[[ "$2" == --run ]] || { printf "Check-only; no solver launched. Logs: %s\\n" "$work/logs"; exit 0; }',
+   'printf "Launching serial solver in isolated copy only. Stop with Ctrl+C.\\n"',
+   'set +e',plan.application+' -case "$caseDir" -noFunctionObjects 2>&1 | tee "$work/logs/solver.log"',
+   'status=$?','set -e','printf "%s\\n" "$status" > "$work/logs/pipeline-exit-code.txt"',
+   'printf "Solver/log pipeline exit code %s; logs: %s\\n" "$status" "$work/logs"','exit "$status"',''
+  ].join('\n')
+ }
+ function inspectRunLog(raw){
+  if(typeof raw!=='string'||raw.length>8*1024*1024)fail('Log text exceeds 8 MiB');
+  const number='[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][-+]?\\d+)?',timeRx=new RegExp('^\\s*Time\\s*=\\s*('+number+')\\s*(?:s)?\\s*$'),dtRx=new RegExp('^\\s*deltaT\\s*=\\s*('+number+')'),resRx=new RegExp('Solving for\\s+([^,]+),\\s*Initial residual\\s*=\\s*('+number+'),\\s*Final residual\\s*=\\s*('+number+'),\\s*No Iterations\\s+(\\d+)'),coRx=new RegExp('Courant Number mean:\\s*('+number+')\\s+max:\\s*('+number+')');
+  let time=null,dt=null,region=null,lastTime=null,steps=0,ends=0,fatal=0,nonfinite=0,rows=[],courant=[];
+  for(const line of raw.split(/\r?\n/)){
+   let m;if((m=timeRx.exec(line))){time=Number(m[1]);if(!Number.isFinite(time)){time=null;nonfinite++;continue}lastTime=time;steps++;region=null}
+   else if((m=/^\s*Solving for (?:fluid|solid) region\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(line)))region=m[1];
+   else if((m=dtRx.exec(line)))dt=Number(m[1]);
+   else if((m=resRx.exec(line))){const a=[Number(m[2]),Number(m[3]),Number(m[4])];if(a.every(Number.isFinite)&&rows.length<50000)rows.push({time,region,field:m[1].trim(),initial:a[0],final:a[1],iterations:a[2]});else if(!a.every(Number.isFinite))nonfinite++}
+   else if((m=coRx.exec(line))){const a=[Number(m[1]),Number(m[2])];if(a.every(Number.isFinite)&&courant.length<50000)courant.push({time,mean:a[0],max:a[1]});else if(!a.every(Number.isFinite))nonfinite++}
+   if(/FOAM FATAL|Floating point exception|Segmentation fault/i.test(line))fatal++;
+   if(/(?:residual\s*=\s*|deltaT\s*=\s*)(?:nan|inf)(?:\b|,)/i.test(line))nonfinite++;
+   if(/^\s*End\s*$/.test(line))ends++;
+  }
+  return {lastTime,lastDeltaT:Number.isFinite(dt)?dt:null,timeSteps:steps,normalEndMarkers:ends,fatalMarkers:fatal,nonfiniteMarkers:nonfinite,residualRows:rows,courantRows:courant,truncated:rows.length===50000||courant.length===50000,runSuccessVerified:false}
  }
  function build(input){
   if(!input||!['13','14'].includes(input.version)||!['single','multi'].includes(input.mode))fail('Select Foundation 13/14 and case mode');
@@ -337,11 +397,13 @@ const flCaseBuilder=(()=>{
    entries.push({name:'draft/'+loc+'/physicalProperties',data})
   }
   for(const table of tables)entries.push({name:'material-data/'+table.region+'.csv',data:table.columns.join(',')+'\n'+table.values.map(v=>v.join(',')).join('\n')+'\n'});
-  const manifest={schema,version:input.version,mode:input.mode,regions:regionList,patches:items(patches),fields:items(fields),boundaryConditions:items(conditions),materials:items(materials),materialTables:tables,numerics:numerical,physics,nativeConstantSolidDrafts:items(nativeSolids),importedPatchInventories:items(inventories),allDeclaredPatchInventoriesMatched:inventories.size===regionList.length,thermalInterfaces:[...interfaces.values()],time:{startTime:0,endTime:end,deltaT:dt,writeControl:adaptiveSettings?'adjustableRunTime':'runTime',writeInterval:write,adaptive:adaptiveSettings},materialUnits:'SI constant reference values and temperature tables only, not OpenFOAM thermo dictionaries',meshPatchInventoryVerified:false,solverModulesVerified:false,physicalModelValidated:false,solverReady:false,originalCaseModified:false,missing:['actual full mesh topology and interface geometry verification','remaining solver-specific physicalProperties and variable thermophysical models',numerical.active?'solver-required numerical equation coverage and native dictionary validation':'fvSchemes and fvSolution','native thermophysical transport, contact resistance and any solver-required fields or dictionaries','native OpenFOAM parsing and execution validation']};
+  const execution=executionPlan(input,regionList,fields,physics,numerical);
+  entries.push({name:'execution/prepare-run.sh',data:executionScript(execution)},{name:'execution/README.txt',data:'Trusted complete candidate only. Complete missing dictionaries and mesh yourself. Source the selected Foundation environment in WSL. Run bash execution/prepare-run.sh /path/to/complete-case --check; use --run only when explicitly ready. Script copies 0/constant/system to new /tmp directory, basic checkMesh and serial solver; no parallel, restart or native app launch. Review includes, libraries and coded entries before running; this is not a sandbox for untrusted cases. Logs remain in /tmp until you save them. Never supply your original as a target to modify.\n'});
+  const manifest={schema,version:input.version,mode:input.mode,regions:regionList,patches:items(patches),fields:items(fields),boundaryConditions:items(conditions),materials:items(materials),materialTables:tables,numerics:numerical,physics,execution,nativeConstantSolidDrafts:items(nativeSolids),importedPatchInventories:items(inventories),allDeclaredPatchInventoriesMatched:inventories.size===regionList.length,thermalInterfaces:[...interfaces.values()],time:{startTime:0,endTime:end,deltaT:dt,writeControl:adaptiveSettings?'adjustableRunTime':'runTime',writeInterval:write,adaptive:adaptiveSettings},materialUnits:'SI constant reference values and temperature tables only, not OpenFOAM thermo dictionaries',meshPatchInventoryVerified:false,solverModulesVerified:false,physicalModelValidated:false,solverReady:false,originalCaseModified:false,missing:['actual full mesh topology and interface geometry verification','remaining solver-specific physicalProperties and variable thermophysical models',numerical.active?'solver-required numerical equation coverage and native dictionary validation':'fvSchemes and fvSolution','native thermophysical transport, contact resistance and any solver-required fields or dictionaries','native OpenFOAM parsing and execution validation']};
   entries.push({name:'manifest.json',data:JSON.stringify(manifest,null,2)+'\n'},{name:'case-builder.json',data:JSON.stringify({schema,input},null,2)+'\n'},{name:'README.txt',data:'DRAFT ONLY. This is not a runnable or validated OpenFOAM case. No solver run or mesh geometry generated. Only explicitly selected constant solid physicalProperties drafts may be present; other material models require manual completion. Reciprocal mappedWall names and coupled temperature draft entries do not validate geometric mapping or heat balance. Compare every declared patch to original polyMesh/boundary and complete the missing files listed in manifest.json. Extract to a new folder; never overlay an existing case without review.\n'});
   return {manifest,entries}
  }
- return Object.freeze({build,schema,parseBoundary,materialAt,phasePreview})
+ return Object.freeze({build,schema,parseBoundary,materialAt,phasePreview,inspectRunLog})
 })();
 /* FOAMLENS_CASE_BUILDER_CORE_END */
 function flMountCaseBuilder(){
@@ -379,6 +441,7 @@ function flMountCaseBuilder(){
  area('flCbMaterialTables',t('Temperature table: region | T [K] | density | Cp | k (SI)','Tabla por temperatura: región | T [K] | densidad | Cp | k (SI)'),'metal | 1200 | rho | Cp | k')+
  '<div class="cgTools"><label>'+t('Preview region','Región de consulta')+' <input id="flCbTableRegion"></label><label>T [K] <input id="flCbTableT" inputmode="decimal"></label><button type="button" class="btn soft" id="flCbTablePreview">'+t('Interpolate table','Interpolar tabla')+'</button></div><pre id="flCbTableResult"></pre>'+
  '<p class="cgNotice">'+t('Mapped thermal interfaces: import both region boundary files, declare reciprocal mappedWall, set T to coupledTemperature with explicit initial patch value on both sides. Cyclic and nonconformal variants unsupported. Tables are exported as SI CSV, not native thermo models.','Interfaces térmicas: importa ambos boundary, declara mappedWall recíproco y T con coupledTemperature y valor inicial explícito en ambos lados. Variantes cíclicas y no conformes no soportadas. Las tablas se exportan en CSV SI, no como modelos termo nativos.')+'</p>'+
+ '<details style="margin-top:12px"><summary><b>'+t('Execution preparation and log review','Preparación de ejecución y revisión de logs')+'</b></summary><p class="cgNotice">'+t('ZIP includes an optional Bash script for trusted completed cases. Run in WSL with --check or explicitly --run; it copies the initial case into a new /tmp directory. No launch from FoamLens yet.','ZIP incluye un script Bash opcional para casos completos de confianza. Ejecuta en WSL con --check o explícitamente --run; copia el caso inicial a un directorio nuevo en /tmp. Aún sin lanzamiento desde FoamLens.')+'</p><label>'+t('Read solver log locally (8 MiB max)','Leer log local (máx. 8 MiB)')+' <input type="file" id="flCbLogFile"></label><button type="button" class="btn soft" id="flCbLogExport" disabled>'+t('Export parsed evidence ZIP','Exportar evidencia de log ZIP')+'</button><pre id="flCbLogStatus" style="white-space:pre-wrap;max-height:300px;overflow:auto"></pre></details>'+
  '<div class="cgTools"><button type="button" class="btn primary" id="flCbValidate">'+t('Validate and preview draft','Validar y previsualizar borrador')+'</button><button type="button" class="btn soft" id="flCbExport" disabled>'+t('Export draft ZIP','Exportar borrador ZIP')+'</button><label>'+t('Reopen draft JSON','Reabrir borrador JSON')+' <input type="file" id="flCbImport" accept=".json,application/json"></label></div>'+
  '<p id="flCbStatus" class="cgNotice" aria-live="polite"></p><label>'+t('Generated file','Archivo generado')+' <select id="flCbFile" disabled></select></label><pre id="flCbPreview" style="white-space:pre-wrap;max-height:380px;overflow:auto"></pre>';
  anchor.insertAdjacentElement('afterend',panel);
@@ -399,6 +462,10 @@ function flMountCaseBuilder(){
   }catch(e){if(token===revision)el('Status').textContent=e.message}};
  el('TablePreview').onclick=()=>{try{const current=flCaseBuilder.build(read()),table=current.manifest.materialTables.find(x=>x.region===el('TableRegion').value.trim()),raw=el('TableT').value.trim();if(!table||!/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(raw))throw Error('Select material table and decimal temperature');el('TableResult').textContent=JSON.stringify(flCaseBuilder.materialAt(table,Number(raw)),null,2)}catch(e){el('TableResult').textContent=e.message}};
  el('PhasePreview').onclick=()=>{try{const current=flCaseBuilder.build(read()),m=current.manifest.physics.phaseModels.find(x=>x.region===el('PhaseRegion').value.trim()),raw=el('PhaseT').value.trim();if(!m||!/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(raw))throw Error('Select phase region and decimal temperature');el('PhaseResult').textContent=JSON.stringify(flCaseBuilder.phasePreview(m,Number(raw)),null,2)}catch(e){el('PhaseResult').textContent=e.message}};
+ let logEvidence=null,logRevision=0;
+ el('LogFile').onchange=async()=>{const file=el('LogFile').files[0];el('LogFile').value='';if(!file)return;const token=++logRevision;logEvidence=null;el('LogExport').disabled=true;el('LogStatus').textContent='';
+  try{if(file.size>8*1024*1024)throw Error('Log exceeds 8 MiB');const raw=await file.text();if(token!==logRevision)return;const log=flCaseBuilder.inspectRunLog(raw);logEvidence=log;const {residualRows,courantRows,...summary}=log;el('LogStatus').textContent=JSON.stringify({...summary,residualSamples:residualRows.length,courantSamples:courantRows.length,lastResiduals:residualRows.slice(-8)},null,2);el('LogExport').disabled=false}catch(e){if(token===logRevision)el('LogStatus').textContent=e.message}};
+ el('LogExport').onclick=()=>{if(logEvidence)cgDownloadZip('FoamLens-solver-log-evidence.zip',cgStoreZip([{name:'solver-log-summary.json',data:JSON.stringify(logEvidence,null,2)}]))};
  const preview=()=>{el('Preview').textContent=plan?.entries.find(e=>e.name===el('File').value)?.data||''};
  el('File').onchange=preview;
  const validate=()=>{clear();try{plan=flCaseBuilder.build(read());for(const e of plan.entries){const o=document.createElement('option');o.value=e.name;o.textContent=e.name;el('File').append(o)}el('File').disabled=false;el('Export').disabled=false;el('Status').textContent=plan.manifest.regions.length+' · '+cgUi('regions; structural draft valid, NOT solver-ready.','regiones; borrador estructural válido, NO apto para solver.');preview()}catch(e){el('Status').textContent=e.message}};
