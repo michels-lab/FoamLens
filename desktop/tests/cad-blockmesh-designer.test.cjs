@@ -142,3 +142,21 @@ assert.deepEqual(recoveryLayer({...layerEvidence,layerPeakLowWeightFaces:-1}),{z
 assert.equal(recoveryLayer({...layerEvidence,finalSurfaceLayerEvidence:null}),null);
 assert.deepEqual(recoveryLayer({...layerEvidence,finalSurfaceLayerEvidence:{flSurface_001:{...zeroLayer,averageLayers:.5}},layerPeakLowWeightFaces:12}),{zeroExtrusion:false,peakLowWeightFaces:12});
 console.log('Layer recovery distinguishes attempted defects from retained mesh and missing evidence PASS');
+
+{
+const bands=new Function(src.slice(a,b)+';return cmbConformalBands')();
+const unitInput={axes:['0\n1 8 1','0\n1 8 1','0\n1 8 1'],patches:input.patches,zones:''};
+const bounds=[{min:[.25,.25,.25],max:[.75,.75,.75]}];
+const v=bands(unitInput,bounds,.125,.25,0);
+assert.deepEqual(v.plan.axes.map(q=>q.points),Array(3).fill([0,.25,.75,1]));
+assert.deepEqual(v.plan.axes.map(q=>q.counts),Array(3).fill([1,4,1]));
+assert.equal(v.plan.cellCount,216);assert.equal(v.plan.blocks.length,27);assert.equal(v.previousCells,512);
+assert.equal(v.plan.meshGenerated,false);assert.equal(api.nativePayload(v.plan,'14').zones.length,0);
+assert.equal(unitInput.axes[0],'0\n1 8 1');
+assert.throws(()=>bands({...unitInput,zones:'0 0 0 metal'},bounds,.125,.25,0));
+assert.throws(()=>bands(unitInput,bounds,.25,.125,0));
+assert.throws(()=>bands(unitInput,[{min:[0,.25,.25],max:[.75,.75,.75]}],.125,.25,0));
+assert.throws(()=>bands(unitInput,bounds,.125,.25,-1));
+assert(bands(unitInput,bounds,.125,.25,.125).plan.cellCount>216);
+console.log('Conformal CAD bands: shared planes, editable resolution, original plan untouched PASS');
+}

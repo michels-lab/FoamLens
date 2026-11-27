@@ -291,6 +291,17 @@ foreach(var attempt in new[]{(Name:"thicker-050",Level:1,Thickness:.50,Cap:20000
   return evidence;
  });
 }
+// Conformal tensor-product bands, no octree refinement. Exact CAD bounds
+// become shared block planes; retain original strict local-refinement fixtures.
+if(suite!="core")await Scenario("snappy-conformal-bands",async()=>{
+ var bandAxes=Enumerable.Range(0,3).Select(_=>Axis(new[]{0.0,.25,.75,1.0},new[]{1,4,1})).ToArray();
+ var cfg=JsonSerializer.SerializeToElement(new{axes=bandAxes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=0,maxLevel=0,maxCells=20000,snapEnabled=false,stlBase64=Convert.ToBase64String(stream.ToArray())}});
+ if(NativeCartesianMesh.Build(cfg).Cells!=216)throw new InvalidOperationException("Conformal band count mismatch");
+ var dir=await Run("snappy-conformal-bands","snappyHexMesh",false,cfg);
+ int cells=Cells(dir);if(cells!=152)throw new InvalidOperationException("Expected 216 background minus 64 aligned interior cells, got "+cells);
+ CheckLog(dir,"checkMesh.log");
+ return new{cells,backgroundCells=216,localRefinement=0,snap=false,quality="mesh-ok-reported",qualityCertified=false};
+});
 if(suite!="core")await Scenario("snappy-multi",async()=>{
 var multi=await Run("snappy-multi","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.125f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}}));
 var multiCells=Cells(multi);if(multiCells<=0||multiCells==512)throw new InvalidOperationException("Multi-surface snappy did not produce a different mesh");
