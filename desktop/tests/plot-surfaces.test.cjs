@@ -110,7 +110,7 @@ for(const name of passed)console.log('  ✓ '+name);
 
 const fesStart=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_START */'),fesEnd=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_END */');
 assert(fesStart>=0&&fesEnd>fesStart);
-const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj};')();
+const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable};')();
 const source={caseId:'a',region:'metal',field:'T',association:'volume',component:'value',unit:'K',time_s:0,paths:['0/metal/T'],dimensions:[0,0,0,1,0,0,0],meshId:'mesh-A'};
 const mesh={cellCount:4,cellCenters:[0,0,0,1,0,0,2,1,0,3,1,0]};
 const input={mesh,source,values:[0,100,200,null]};
@@ -159,4 +159,25 @@ test('surface clip produces real intersection vertices and preserves triangle wi
 test('surface clip exports original triangle IDs, open shell and coverage',()=>{
  const m={points:[0,0,0,2,0,0,0,2,0],surfaceTriangles:[0,1,2,0,1,99]},a=fes.fesClipSurface({mesh:m,source},{axis:'x',offset:1,side:'below'});assert(a.valid);assert.strictEqual(a.triangles.length,2);assert.strictEqual(a.coverage.invalid,1);assert(a.triangles.every(t=>t.sourceTriangle===0));assert(a.limitations.includes('uncapped'));
  const obj=fes.fesClipObj(a);assert(obj.includes('f 1 2 3'));assert(obj.includes('f 4 5 6'));assert(obj.includes('sourceTriangle 0'));assert(!fes.fesClipSurface({mesh:m,source},{axis:'x',offset:1,side:'below',limit:1}).valid);assert(!fes.fesClipSurface({mesh:m,source},{axis:'x',offset:'',side:'above'}).valid);
+});
+
+function cube(x=0,size=1){
+ const points=[0,0,0,1,0,0,1,1,0,0,1,0,0,0,1,1,0,1,1,1,1,0,1,1].map((v,i)=>v*size+(i%3===0?x:0));
+ return {cellCount:1,points,cellCenters:[x+size/2,size/2,size/2],owners:[0,0,0,0,0,0],neighbours:[],faceOffsets:[0,4,8,12,16,20,24],facePoints:[0,3,2,1,4,5,6,7,0,1,5,4,1,2,6,5,2,3,7,6,3,0,4,7]}
+}
+test('verified volume is scale-independent and integral uses field dimensions',()=>{
+ const a={mesh:cube(0,.001),values:[1000],source:{...source,dimensions:'[0 0 0 1 0 0 0]'}},q=fes.fesIntegrate(a);
+ assert(q.valid);assert(Math.abs(q.volume_m3-1e-9)<1e-20);assert(Math.abs(q.integral-1e-6)<1e-17);assert(Math.abs(q.weightedMean-1000)<1e-10);assert.deepStrictEqual(q.integralDimensions,[0,3,0,1,0,0,0]);
+ assert(!fes.fesIntegrate({...a,values:[null]}).valid);assert(!fes.fesIntegrate({...a,source:{...source,dimensions:''}}).valid);assert(!fes.fesIntegrate(a,[]).valid);
+});
+test('open, inverted and warped cells are never integrated',()=>{
+ const a=cube(),open={...a,owners:a.owners.slice(1),faceOffsets:a.faceOffsets.slice(0,-1),facePoints:a.facePoints.slice(0,-4)},inv={...a,facePoints:a.facePoints.slice().reverse()},warped=cube();warped.points[20]+=.1;
+ assert.strictEqual(fes.fesBuildCells(open)[0],null);assert.strictEqual(fes.fesBuildCells(inv)[0],null);assert.strictEqual(fes.fesBuildCells(warped)[0],null);
+});
+test('resample finds containing cell, rejects outside and incompatible source',()=>{
+ const a={mesh:cube(0,.5),values:[10],source},b={mesh:cube(),values:[20],source:{...source,caseId:'b'}};
+ const q=fes.fesResample(a,b);assert(q.valid);assert.strictEqual(q.coverage.matched,1);assert.strictEqual(q.rows[0].difference,10);assert.strictEqual(q.metrics.rmse,10);
+ const outside=fes.fesResample({...a,mesh:cube(2,.5)},b);assert(outside.valid);assert.strictEqual(outside.coverage.unmatched,1);assert.strictEqual(outside.rows[0].b,null);assert.strictEqual(outside.metrics,null);
+ assert(!fes.fesResample(a,{...b,source:{...b.source,time_s:1}}).valid);assert(!fes.fesResample(a,{...b,source:{...b.source,region:'mold'}}).valid);assert(!fes.fesResample(a,{...b,source:{...b.source,dimensions:[0,1,0,0,0,0,0]}}).valid);
+ const overlap=fes.fesCellTree([...fes.fesBuildCells(cube()),{...fes.fesBuildCells(cube())[0],id:1}]);assert.deepStrictEqual(fes.fesLocate(overlap,[.5,.5,.5]),[0,1]);
 });
