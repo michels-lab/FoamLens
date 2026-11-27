@@ -134,3 +134,11 @@ for(const bad of [{...zeroLayer,faces:0},{...zeroLayer,averageLayers:2},{...zero
 assert.equal(finalLayerSummary({...layerEvidence,finalSurfaceLayerEvidence:{flSurface_002:zeroLayer}}),null);
 assert.equal(finalLayerSummary({}),null);
 console.log('Final native layer metrics: zero layers distinct from missing evidence, thickness not face coverage PASS');
+
+const recoveryLayer=new Function(src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbLayerReceiptMatches('))+';return cmbLayerRecoveryEvidence')();
+assert.deepEqual(recoveryLayer({...layerEvidence,layerPeakLowWeightFaces:48}),{zeroExtrusion:true,peakLowWeightFaces:48});
+assert.deepEqual(recoveryLayer({...layerEvidence,layerPeakLowWeightFaces:0}),{zeroExtrusion:true,peakLowWeightFaces:0});
+assert.deepEqual(recoveryLayer({...layerEvidence,layerPeakLowWeightFaces:-1}),{zeroExtrusion:true,peakLowWeightFaces:null});
+assert.equal(recoveryLayer({...layerEvidence,finalSurfaceLayerEvidence:null}),null);
+assert.deepEqual(recoveryLayer({...layerEvidence,finalSurfaceLayerEvidence:{flSurface_001:{...zeroLayer,averageLayers:.5}},layerPeakLowWeightFaces:12}),{zeroExtrusion:false,peakLowWeightFaces:12});
+console.log('Layer recovery distinguishes attempted defects from retained mesh and missing evidence PASS');

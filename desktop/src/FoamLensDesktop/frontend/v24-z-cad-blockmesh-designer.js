@@ -187,6 +187,11 @@ function cmbFinalLayerSummary(r){
  }
  return rows
 }
+function cmbLayerRecoveryEvidence(r){
+ const rows=cmbFinalLayerSummary(r),peak=r?.layerPeakLowWeightFaces;
+ if(!rows)return null;
+ return {zeroExtrusion:rows.every(v=>v.averageLayers===0),peakLowWeightFaces:Number.isSafeInteger(peak)&&peak>=0?peak:null}
+}
 function cmbLayerReceiptMatches(payload,r){
  const expected=Object.fromEntries((payload.snappy?.surfaceSettings||[]).filter(v=>v.layers>0).map(v=>['flSurface_'+String(v.id).padStart(3,'0'),v.layers]));
  const actual=r.requestedSurfaceLayers;
@@ -274,6 +279,7 @@ function cmbMount(){
    if(r.uniformBackgroundLevel!=null)el('cmbNativeStatus').textContent+=' · '+tr('Uniform background','Fondo uniforme')+' L'+r.uniformBackgroundLevel+' · '+r.originalBackgroundCells+' → '+r.plannedCells+' '+tr('planned cells','celdas planificadas');if(r.generationUtility==='snappyHexMesh')el('cmbNativeStatus').textContent+=' · '+tr('DIAGNOSTIC ONLY','SOLO DIAGNÓSTICO');if(r.qualityStatus==='checks-failed')el('cmbNativeStatus').textContent+=' · '+tr('Not solver-ready. Inspect defect sets before changing refinement or snapping.','No apta para solver. Inspecciona conjuntos de defectos antes de cambiar refinamiento o snap.');
    const requestedLayers=Object.entries(r.requestedSurfaceLayers||{});if(requestedLayers.length)el('cmbNativeStatus').textContent+=' · '+cgUi('Requested layers (coverage unverified): ','Capas solicitadas (cobertura sin verificar): ')+requestedLayers.map(([name,n])=>name+': '+n).join(' | ');
    const finalLayers=cmbFinalLayerSummary(r);if(requestedLayers.length){el('cmbNativeStatus').textContent+=' · '+(finalLayers?cgUi('Final native mean layers: ','Capas medias finales nativas: ')+finalLayers.map(v=>v.name+': '+v.averageLayers+' / '+v.target+' · '+v.faces+' '+cgUi('faces','caras')+' · '+v.thicknessM+' m · '+v.thicknessPercent+'% '+cgUi('thickness','espesor')).join(' | ')+'. '+cgUi('Thickness percentage is not face coverage.','El porcentaje de espesor no es cobertura de caras.'):cgUi('Final layer table unavailable; extrusion unverified.','Tabla final de capas no disponible; extrusión sin verificar.'))}
+   const layerRecovery=cmbLayerRecoveryEvidence(r);if(layerRecovery?.zeroExtrusion){el('cmbNativeStatus').textContent+=' · '+cgUi('No layers retained. Mesh OK is not extrusion success.','No se conservaron capas. Mesh OK no implica extrusión exitosa.');if(layerRecovery.peakLowWeightFaces>0)el('cmbNativeStatus').textContent+=' · '+cgUi('Peak low-weight faces during attempted extrusion (<0.05): ','Máximo de caras con bajo peso durante el intento de extrusión (<0.05): ')+layerRecovery.peakLowWeightFaces+'. '+cgUi('For a separate run, compare a larger relative thickness or finer background if compatible; keep the quality threshold unchanged.','En otra ejecución, compara mayor espesor relativo o fondo más fino si es compatible; conserva el umbral de calidad.') }
    const defects=cmbSnappyDefects(r);if(defects?.concaveCells!=null)el('cmbNativeStatus').textContent+=' · '+cgUi('Native concave cells: ','Celdas cóncavas nativas: ')+defects.concaveCells.toLocaleString()+' · '+cgUi('For a separate comparison, consider uniform background + explicit sharp-edge snap if eligible; preserve this failed result first.','Para una comparación separada, considera fondo uniforme + ajuste explícito de aristas si es compatible; conserva primero este resultado fallido.');
    el('cmbNativeLogs').textContent=[r.stderr,r.stdout,r.blockMeshLog,r.surfaceCheckLog,r.snappyLog,r.checkMeshLog,r.splitLog].filter(Boolean).join('\n\n');
   }catch(e){if(token===undefined||token===revision)el('cmbNativeStatus').textContent=e.message}finally{nativeTask=null;buttons()}};

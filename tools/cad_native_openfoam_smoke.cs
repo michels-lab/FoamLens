@@ -262,6 +262,35 @@ foreach(bool withLayers in new[]{false,true}){
   return new{cells,quality,surfaces=2,withLayers,finalLayers,layerCoverageCertified=false,qualityCertified=false};
  });
 }
+// Controlled recovery experiments: same surfaces/retained point and strict
+// quality thresholds, vary thickness or background resolution, never the gate.
+foreach(var attempt in new[]{(Name:"thicker-050",Level:1,Thickness:.50,Cap:20000),(Name:"thicker-065",Level:1,Thickness:.65,Cap:20000),(Name:"finer-L2",Level:2,Thickness:.25,Cap:100000)}){
+ if(suite=="core")break;
+ string scenario="snappy-layer-recovery-"+attempt.Name;
+ await Scenario(scenario,async()=>{
+  var surfaceSettings=new[]{new{id=1,minLevel=attempt.Level,maxLevel=attempt.Level,layers=1},new{id=2,minLevel=attempt.Level,maxLevel=attempt.Level,layers=1}};
+  var cfg=JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=attempt.Level,maxLevel=attempt.Level,maxCells=attempt.Cap,uniformBackground=true,snapEnabled=true,explicitFeatures=true,transitionLayers=3,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.143f))},new{stlBase64=Convert.ToBase64String(SmallCube(.49f))}},surfaceSettings,layerSettings=new{expansionRatio=1.2,finalLayerThickness=attempt.Thickness,minThickness=.1}}});
+  var prepared=NativeCartesianMesh.PrepareSnappyBackground(cfg);
+  long backgroundCells=NativeCartesianMesh.Build(prepared.Input).Cells;
+  var (dict,surfaces)=NativeCartesianMesh.BuildSnappy(prepared.Input,backgroundCells);
+  if(surfaces.Count!=2||!dict.Contains("minFaceWeight 0.05;")||!dict.Contains("maxConcave 80;")||!dict.Contains("nSurfaceLayers 1;"))throw new InvalidOperationException("Recovery changed strict controls");
+  var dir=await Run(scenario,"snappyHexMesh",false,cfg);
+  int cells=Cells(dir);
+  var boundary=File.ReadAllText(Path.Combine(dir,"constant","polyMesh","boundary"));
+  if(cells<=0||!boundary.Contains("flSurface_001")||!boundary.Contains("flSurface_002"))throw new InvalidOperationException("Recovery surface identities lost");
+  var quality=NativeCartesianMesh.QualityStatus(0,File.ReadAllText(Path.Combine(dir,"checkMesh.log")));
+  if(quality is not ("mesh-ok-reported" or "checks-failed"))throw new InvalidOperationException("Missing native quality evidence");
+  string generationLog=File.ReadAllText(Path.Combine(dir,"generation.log"));
+  var finalLayers=NativeCartesianMesh.FinalLayerEvidence(0,generationLog,NativeCartesianMesh.RequestedSurfaceLayers(prepared.Input));
+  if(finalLayers is null)throw new InvalidOperationException("Missing final recovery layer evidence");
+  var peakLowWeightFaces=NativeCartesianMesh.LayerPeakLowWeightFaces(0,generationLog);
+  bool positiveOnBoth=finalLayers.Values.All(v=>v.AverageLayers>0);
+  bool recoveryObserved=positiveOnBoth&&quality=="mesh-ok-reported";
+  var evidence=new{cells,backgroundCells,quality,attempt.Level,attempt.Thickness,finalLayers,peakLowWeightFaces,positiveOnBoth,recoveryObserved,layerCoverageCertified=false,qualityCertified=false};
+  Console.WriteLine(scenario+" evidence: "+JsonSerializer.Serialize(evidence));
+  return evidence;
+ });
+}
 if(suite!="core")await Scenario("snappy-multi",async()=>{
 var multi=await Run("snappy-multi","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.125f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}}));
 var multiCells=Cells(multi);if(multiCells<=0||multiCells==512)throw new InvalidOperationException("Multi-surface snappy did not produce a different mesh");

@@ -138,6 +138,27 @@ internal static class NativeCartesianMesh
         return result.Count==requested.Count?result:null;
     }
 
+    // Report attempted interpolation-weight failures during extrusion, not
+    // a count of defects in the final retained mesh. Do not sum iterations.
+    internal static long? LayerPeakLowWeightFaces(int? exit,string log)
+    {
+        if(exit!=0||log.Contains("[truncated]",StringComparison.Ordinal))return null;
+        var phase=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^Shrinking and layer addition phase[ \t\r]*$");
+        var finish=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^Layer mesh[ \t]*:");
+        var end=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*End[ \t\r]*$");
+        if(phase.Count!=1||finish.Count!=1||end.Count!=1||phase[0].Index>=finish[0].Index||finish[0].Index>=end[0].Index||
+           !string.IsNullOrWhiteSpace(log[(end[0].Index+end[0].Length)..]))return null;
+        var part=log[phase[0].Index..finish[0].Index];
+        var rows=System.Text.RegularExpressions.Regex.Matches(part,@"(?m)^[ \t]*faces with interpolation weights \(0\.\.1\)[ \t]*<[ \t]*0\.05[ \t]*:[ \t]*(\d+)[ \t\r]*$");
+        if(rows.Count==0)return null;
+        long peak=0;
+        foreach(System.Text.RegularExpressions.Match row in rows){
+            if(!long.TryParse(row.Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long count))return null;
+            peak=Math.Max(peak,count);
+        }
+        return peak;
+    }
+
     internal static void SelfTest()
     {
         var fixture=new NativeCadSurfaceCheck.ProcessOutput(0,"project=OpenFOAM\nversion=14\nblockMesh=available\ncheckMesh=available\ntimeout=available\n","",false);
@@ -175,6 +196,12 @@ internal static class NativeCartesianMesh
         foreach(var bad in new[]{layerTable+layerTable,layerTable+"[truncated]",layerTable.Replace("overall thickness","avg thickness[m]"),layerTable.Replace("flSurface_002","flSurface_001"),layerTable.Replace("0.5","2"),layerTable.Replace("0.001","NaN"),layerTable.Replace("End\n","")})
             if(FinalLayerEvidence(0,bad,targets)!=null)throw new InvalidOperationException("Invalid layer table accepted.");
         if(FinalLayerEvidence(1,layerTable,targets)!=null)throw new InvalidOperationException("Failed generation layer evidence accepted.");
+        const string attemptedLayers="    faces with interpolation weights (0..1) < 0.05 : 999\nShrinking and layer addition phase\n    faces with interpolation weights (0..1) < 0.05 : 0\n    faces with interpolation weights (0..1) < 0.05 : 48\n    faces with interpolation weights (0..1) < 0.05 : 48\nLayer mesh : cells:3968\n    faces with interpolation weights (0..1) < 0.05 : 200\nEnd\n";
+        if(LayerPeakLowWeightFaces(0,attemptedLayers)!=48||LayerPeakLowWeightFaces(0,attemptedLayers.Replace("48","0"))!=0)
+            throw new InvalidOperationException("Layer attempted peak weight evidence mismatch.");
+        foreach(var bad in new[]{attemptedLayers+attemptedLayers,attemptedLayers+"[truncated]",attemptedLayers.Replace("0.05","0.01"),attemptedLayers.Replace("End\n",""),attemptedLayers.Replace("48","99999999999999999999999999")})
+            if(LayerPeakLowWeightFaces(0,bad)!=null)throw new InvalidOperationException("Ambiguous layer attempted weights accepted.");
+        if(LayerPeakLowWeightFaces(1,attemptedLayers)!=null)throw new InvalidOperationException("Failed layer evidence accepted.");
         const string valid = """
             {"axes":[{"points":[0,1,2],"counts":[2,3],"grading":[1,1]},{"points":[0,1],"counts":[4],"grading":[1]},{"points":[0,1],"counts":[5],"grading":[1]}],"patches":["xMin","xMax","yMin","yMax","zMin","zMax"],"zones":[{"ijk":[0,0,0],"name":"metal"},{"ijk":[1,0,0],"name":"mold"}]}
             """;
@@ -932,12 +959,16 @@ internal static class NativeCartesianMesh
             var combinedEvidence=await ReportedQuality("checkMesh.log",cm);
             var requestedLayers=snappy?RequestedSurfaceLayers(root):null;
             Dictionary<string,LayerPatchEvidence>? finalLayers=null;
+            long? layerPeakLowWeightFaces=null;
             if(requestedLayers is {Count:>0}&&bm==0){
                 var generation=new FileInfo(Path.Combine(dir,"generation.log"));
-                if(generation.Exists&&generation.Length<=16*1024*1024&&(generation.Attributes&FileAttributes.ReparsePoint)==0)
-                    finalLayers=FinalLayerEvidence(bm,await File.ReadAllTextAsync(generation.FullName,token),requestedLayers);
+                if(generation.Exists&&generation.Length<=16*1024*1024&&(generation.Attributes&FileAttributes.ReparsePoint)==0){
+                    string generationLog=await File.ReadAllTextAsync(generation.FullName,token);
+                    finalLayers=FinalLayerEvidence(bm,generationLog,requestedLayers);
+                    layerPeakLowWeightFaces=LayerPeakLowWeightFaces(bm,generationLog);
+                }
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,uniformBackgroundLevel=background.UniformLevel,originalBackgroundCells=background.OriginalCells,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=combinedEvidence.Status,nativeConcaveCells=combinedEvidence.ConcaveCells,requestedSurfaceLayers=requestedLayers,finalSurfaceLayerEvidence=finalLayers,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,uniformBackgroundLevel=background.UniformLevel,originalBackgroundCells=background.OriginalCells,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=combinedEvidence.Status,nativeConcaveCells=combinedEvidence.ConcaveCells,requestedSurfaceLayers=requestedLayers,finalSurfaceLayerEvidence=finalLayers,layerPeakLowWeightFaces,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
