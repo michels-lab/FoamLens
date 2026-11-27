@@ -104,13 +104,13 @@ assert(source.includes('window.FoamLensRibbonMeasureChrome=measure')&&source.inc
   'Ribbon navigation must synchronously measure the chrome before placing the sidebar');
 console.log('FoamLens v1.6 Ribbon/context/activity scope audit passed:',tabs.length,'top-level tabs.');
 
-assert(source.includes('function flRibbonFieldSubbars')&&source.includes("shelf.classList.toggle('hidden',!enabled)"),'One-at-a-time contextual 3D subbars are missing.');
+assert(source.includes('function flRibbonFieldSubbars')&&source.includes("shelf.classList.toggle('hidden',scope.hidden)"),'Permanent camera shelf and contextual subbars are missing.');
 assert(source.includes('.flRibbonTimeGroup{min-width:300px')&&source.includes('flRibbonCacheAdvanced'),'Field ribbon must be compact and cache configuration collapsible.');
 assert(!source.includes("flRibbonActionHtml('flRaAbout'"),'About must not disappear when the Home ribbon tab is not active.');
 assert(source.includes("document.getElementById('fcEnabled')?.checked")&&source.includes("setInspector?.(true)"),'Compare must reveal explicit second-view controls.');
 
 for(const id of ['flRaCameraIso','flRaCameraFront','flRaCameraBack','flRaCameraLeft','flRaCameraRight','flRaCameraTop','flRaCameraBottom','flRaQuickIso','flRaQuickFront','flRaQuickBack','flRaQuickLeft','flRaQuickRight','flRaQuickTop','flRaQuickBottom'])assert(source.includes(id),'Camera preset missing: '+id);
-assert(source.includes('flRibbonCameraTools')&&source.includes('flCameraToolsActive'),'Orbit/pan/zoom tools must live in contextual Camera subbar.');
+assert(source.includes('flRibbonCameraTools')&&source.includes('flCameraToolsActive'),'Orbit/pan/zoom tools must live in permanent 3D camera shelf.');
 
 assert(source.includes("flRibbonBind('flRaDataTimeSeries',()=>flRibbonOpenDataView('timeseries'))")&&source.includes("setAppMode('data');setDataView(view)"),'Data Time series must use canonical Data workspace view navigation.');
 assert(source.includes("flRibbonBind('flRaDataProfiles',()=>flRibbonOpenDataView('profile'))"),'Data spatial profiles must use canonical Data workspace view navigation.');
@@ -299,3 +299,8 @@ for(const id of ['flRaDataProfiles','flRaDataTimeSeries','flRaDataLogs','flRaDat
     'Ribbon fallback must still delegate to original Add View action');
   console.log('Granada Field chrome PASS: one visible Add View, Ribbon uses same original controller');
 }
+
+const scopeStart=source.indexOf('function flRibbonFieldShelfState('),scopeEnd=source.indexOf('function flRibbonUpdateFieldScope()',scopeStart);
+const scopeFn=new Function(source.slice(scopeStart,scopeEnd)+';return flRibbonFieldShelfState')();
+for(const selected of [null,'camera','inspect','compare']){const a=scopeFn(true,selected);assert.equal(a.hidden,false);assert.equal(a.camera,true);assert.equal(a.inspect,selected==='inspect');assert.equal(a.compare,selected==='compare');assert.deepStrictEqual(scopeFn(false,selected),{hidden:true,camera:false,inspect:false,compare:false})}
+assert(source.includes("group.dataset.flShelfGroup=key"));assert(source.includes("state.layout!=='plot'"));assert(source.includes("flRibbonActionHtml('flRaPhotoHd','image','HD Photo','Foto HD')"));assert(source.includes("openPhoto?.('A')"));assert(source.includes("overflow:visible!important;max-height:none!important;height:auto!important"));

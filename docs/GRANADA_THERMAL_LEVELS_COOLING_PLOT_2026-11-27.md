@@ -1,0 +1,2 @@
+# Granada extensa — selected temperature levels and cooling-rate plots
+Parent 51f902210cd5f9048026514f9fe814d14abb70a3. User-specified Kelvin levels, original strict crossing brackets, exact levels and plateaus separately reported without direction; CSV and JSON; interval cooling rate plot; reopen/resize retains report. 167 direct V8 assertions. Actual owner sensor and native visual validation pending. No release.

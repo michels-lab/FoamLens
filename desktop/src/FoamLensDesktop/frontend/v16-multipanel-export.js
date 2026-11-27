@@ -7,6 +7,103 @@ function mePreset(){
   const key=document.getElementById('mePreset')?.value||'thesis';
   return key==='paper'?{key,w:2400,h:1800,label:'Paper'}:key==='presentation'?{key,w:1920,h:1080,label:'Presentation'}:key==='thesis-hires'?{key,w:3200,h:2000,label:'Thesis Hi-Res'}:{key:'thesis',w:2400,h:1600,label:'Thesis'}
 }
+/* FOAMLENS_HD_PHOTO_CORE_START */
+function mePhotoKey(view){
+ if(view==='A')return 'primary';if(view==='B')return 'view2';if(view==='Δ')return 'difference';
+ return /^\d+$/.test(String(view))&&Number(view)>=3?'view'+view:null
+}
+function mePhotoDimensions(longEdge,aspect,limits){
+ if(!Number.isSafeInteger(longEdge)||longEdge<2||!Number.isFinite(aspect)||aspect<=0)throw Error('Invalid image size or aspect');
+ const width=aspect>=1?longEdge:Math.round(longEdge*aspect),height=aspect>=1?Math.round(longEdge/aspect):longEdge;
+ if(width<2||height<2||!limits||!Number.isFinite(limits.width)||!Number.isFinite(limits.height)||width>limits.width||height>limits.height)
+  throw Error('Requested image exceeds GPU viewport capability; select a smaller long edge');
+ return {width,height}
+}
+function mePhotoRaster({src,gl,render,restore,create},size,background){
+ if(!src||!gl||gl.isContextLost?.())throw Error('WebGL source unavailable');
+ if(!['white','black','transparent'].includes(background))throw Error('Invalid background');
+ const oldW=src.width,oldH=src.height;let result,problem=null;
+ try{
+  const rendered=render(size.width,size.height);
+  if(rendered!==src||src.width!==size.width||src.height!==size.height||gl.drawingBufferWidth!==size.width||gl.drawingBufferHeight!==size.height||gl.isContextLost?.())throw Error('Exact GPU rerender unavailable; no upscaled screenshot exported');
+  const out=create();out.width=size.width;out.height=size.height;
+  const ctx=out.getContext('2d');if(!ctx||out.width!==size.width||out.height!==size.height)throw Error('PNG allocation failed');
+  if(background!=='transparent'){ctx.fillStyle=background==='white'?'#ffffff':'#000000';ctx.fillRect(0,0,size.width,size.height)}
+  // Copy synchronously before playback or ResizeObserver repaints the source.
+  ctx.drawImage(src,0,0);result=out
+ }catch(e){problem=e}
+ finally{
+  try{restore(oldW,oldH);if(src.width!==oldW||src.height!==oldH||gl.isContextLost?.())throw Error('Viewport restoration failed')}
+  catch(e){problem=problem?new Error(problem.message+'; '+e.message):e}
+ }
+ if(problem)throw problem;return result
+}
+/* FOAMLENS_HD_PHOTO_CORE_END */
+function mePhotoSource(view){
+ const key=mePhotoKey(view),primary=key==='primary',diff=key==='difference';
+ if(!key||typeof fvState==='undefined'||typeof fcState==='undefined')throw Error(meUi('3D view unavailable','Vista 3D no disponible'));
+ const state=primary?fvState:diff||key==='view2'?fcState:fcExtraViews.find(x=>'view'+x.id===key);
+ if(!state||state._fvFrameHold||state._fvGroupHold||state._fcFrameHold||state._fcGroupHold||diff&&(fvState._fvFrameHold||fvState._fvGroupHold))throw Error(meUi('Wait for the original field frame to finish loading','Espera a que termine de cargar el campo original'));
+ const descriptor=primary?window.FoamLensFieldView?.getVideoDescriptor?.():window.FoamLensFieldCompare?.getVideoDescriptors?.().find(v=>v.key===key);
+ if(!descriptor||!descriptor.caseName||!descriptor.fieldName||!Number.isFinite(descriptor.time)||!state.mesh||!state.fieldValues?.length)throw Error(meUi('Load a valid original field and time first','Carga primero un campo y tiempo originales válidos'));
+ if(primary){
+  for(const [id,value] of [['fvCase',state.caseId],['fvRegion',state.region],['fvField',state.fieldName],['fvComponent',state.component]]){
+   const el=document.getElementById(id);if(el&&String(el.value)!==String(value??''))throw Error(meUi('Source selection changed; wait for the current frame','La fuente cambió; espera el frame actual'))
+  }
+  const association=document.getElementById('fvField')?.selectedOptions?.[0]?.dataset?.storage;
+  if(association&&association!==state.fieldStorage)throw Error(meUi('Source association changed','Cambió la asociación del campo'))
+ }
+ const src=document.getElementById(descriptor.canvasId),gl=(diff?state.differenceRenderer:state.renderer)?.gl,rect=src?.getBoundingClientRect();
+ if(!gl||!rect||rect.width<=0||rect.height<=0||gl.isContextLost?.())throw Error(meUi('Open the selected 3D viewport first','Abre primero la vista 3D seleccionada'));
+ const vp=gl.getParameter(gl.MAX_VIEWPORT_DIMS),rb=gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),tx=gl.getParameter(gl.MAX_TEXTURE_SIZE);
+ const limits={width:Math.min(vp[0],rb,tx),height:Math.min(vp[1],rb,tx)};
+ const draw=(width,height)=>{
+  if(primary){(fvRender.__fcBase||fvRender)({width,height});return src}
+  return window.FoamLensFieldCompare.renderAtSize(key,width,height)
+ };
+ return {descriptor,src,gl,aspect:rect.width/rect.height,limits,render:draw,restore:draw,create:()=>document.createElement('canvas')}
+}
+let mePhotoView=null,mePhotoBusy=false;
+function mePhotoStatus(message,error=false){const el=document.getElementById('mePhotoStatus');if(el){el.textContent=message;el.classList.toggle('error',error)}}
+function mePhotoRefresh(){
+ const out=document.getElementById('mePhotoResolution'),btn=document.getElementById('mePhotoSave');
+ try{
+  const source=mePhotoSource(mePhotoView),size=mePhotoDimensions(Number(document.getElementById('mePhotoEdge').value),source.aspect,source.limits);
+  out.textContent=size.width+' × '+size.height+' px';
+  document.getElementById('mePhotoSource').textContent=source.descriptor.caseName+' · '+source.descriptor.fieldName+' · t = '+meFmt(source.descriptor.time)+' s';
+  btn.disabled=mePhotoBusy;mePhotoStatus('')
+ }catch(e){out.textContent='—';btn.disabled=true;mePhotoStatus(String(e?.message||e),true)}
+}
+function meOpenPhoto(view){
+ meInstallPhoto();const dialog=document.getElementById('mePhotoDialog');if(mePhotoBusy)return;
+ mePhotoView=view;document.getElementById('mePhotoTitle').textContent=meUi('HD Photo · View ','Foto HD · Vista ')+(view==='Δ'||view==='A'||view==='B'?view:String.fromCharCode(64+Number(view)));
+ if(!dialog.open)dialog.showModal();mePhotoRefresh()
+}
+async function meSavePhoto(){
+ if(mePhotoBusy)return;
+ const btn=document.getElementById('mePhotoSave');mePhotoBusy=true;btn.disabled=true;
+ try{
+  if(typeof vaState!=='undefined'&&vaState.exporting)throw Error(meUi('Finish video export first','Termina primero la exportación de video'));
+  const source=mePhotoSource(mePhotoView),size=mePhotoDimensions(Number(document.getElementById('mePhotoEdge').value),source.aspect,source.limits),background=document.getElementById('mePhotoBackground').value;
+  const image=mePhotoRaster(source,size,background),blob=await new Promise((resolve,reject)=>image.toBlob(b=>b?resolve(b):reject(Error('PNG encoding failed')),'image/png'));
+  const d=source.descriptor,safe=v=>String(v??'').replace(/[^\w.-]+/g,'_').slice(0,80);
+  const name='FoamLens_'+safe(d.key)+'_'+safe(d.caseName)+'_'+safe(d.fieldName)+'_t'+safe(d.time)+'_'+size.width+'x'+size.height+'.png';
+  const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+  mePhotoStatus(meUi('PNG prepared for download: ','PNG preparado para descargar: ')+size.width+' × '+size.height+' px')
+ }catch(e){mePhotoStatus(String(e?.message||e),true)}
+ finally{mePhotoBusy=false;btn.disabled=false}
+}
+function meInstallPhoto(){
+ if(document.getElementById('mePhotoDialog'))return;
+ const dialog=document.createElement('dialog');dialog.id='mePhotoDialog';
+ dialog.style.cssText='width:min(460px,92vw);max-height:90vh;overflow:auto;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:18px';
+ dialog.innerHTML='<div class="meHead"><h3 id="mePhotoTitle"></h3><button class="btn tiny" id="mePhotoClose" type="button" aria-label="Close">×</button></div><p id="mePhotoSource" class="smallnote"></p><p class="smallnote">'+meUi('Render at the requested pixel size; keeps viewport proportions. Scene only, without interface, axes overlays or legends.','Render a los píxeles solicitados; conserva proporciones. Solo escena, sin interfaz, ejes superpuestos ni leyendas.')+'</p><div class="field"><label>'+meUi('Long edge (px)','Lado largo (px)')+'</label><input id="mePhotoEdge" type="number" min="2" step="1" value="3840"><div class="meActions"><button class="btn soft" type="button" data-me-edge="1920">1920</button><button class="btn soft" type="button" data-me-edge="3840">3840 · 4K</button><button class="btn soft" type="button" data-me-edge="7680">7680 · 8K</button></div></div><div class="field"><label>'+meUi('Background','Fondo')+'</label><select id="mePhotoBackground"><option value="white">'+meUi('White','Blanco')+'</option><option value="black">'+meUi('Black','Negro')+'</option><option value="transparent">'+meUi('Transparent','Transparente')+'</option></select></div><p id="mePhotoResolution" aria-live="polite"></p><button type="button" class="btn primary" id="mePhotoSave">'+meUi('Download HD PNG','Descargar PNG HD')+'</button><p id="mePhotoStatus" aria-live="polite" class="smallnote"></p>';
+ document.body.appendChild(dialog);
+ document.getElementById('mePhotoClose').onclick=()=>dialog.close();
+ document.getElementById('mePhotoEdge').oninput=mePhotoRefresh;
+ dialog.querySelectorAll('[data-me-edge]').forEach(b=>b.onclick=()=>{document.getElementById('mePhotoEdge').value=b.dataset.meEdge;mePhotoRefresh()});
+ document.getElementById('mePhotoSave').onclick=()=>void meSavePhoto()
+}
 function mePlotAvailable(){
   const c=document.getElementById('canvas'),wrap=c?.closest('.chartwrap');if(!c||!wrap)return false;
   const style=getComputedStyle(wrap);return style.display!=='none'&&!wrap.classList.contains('hidden')&&c.width>0&&c.height>0
@@ -129,6 +226,6 @@ function meInstall(){
   const style=document.createElement('style');style.id='meStyles';style.textContent='.meOverlay{position:fixed;inset:0;z-index:11000;display:none;align-items:center;justify-content:center;background:rgba(2,8,18,.68);backdrop-filter:blur(10px);padding:20px}.meOverlay.open{display:flex}.meDialog{width:min(760px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 28px 80px rgba(0,0,0,.38)}.meHead{display:flex;justify-content:space-between;gap:12px;align-items:center}.meHead h3{margin:0}.meSourceList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:12px 0}.meSource{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--panel2)}.meSource span{min-width:0}.meSource b,.meSource small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meSource small{margin-top:2px;color:var(--muted);font-size:8px}.meActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.meActions .btn{flex:1}.meGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}@media(max-width:650px){.meSourceList,.meGrid{grid-template-columns:1fr}}';document.head.appendChild(style);
   const overlay=document.createElement('div');overlay.id='meDialog';overlay.className='meOverlay';overlay.innerHTML='<div class="meDialog"><div class="meHead"><div><h3>'+meUi('Multi-panel scientific figure','Figura científica multipanel')+'</h3><div class="smallnote">'+meUi('Compose 3D views, Difference and the current plot / Spatial Profile.','Combina vistas 3D, Difference y la gráfica / Perfil espacial actual.')+'</div></div><button class="btn tiny" id="meClose" type="button">×</button></div><div class="meGrid" style="margin-top:12px"><div class="field"><label>'+meUi('Preset','Preset')+'</label><select id="mePreset"><option value="thesis">Thesis 2400×1600</option><option value="thesis-hires">Thesis Hi-Res 3200×2000</option><option value="paper">Paper 2400×1800</option><option value="presentation">Presentation 1920×1080</option></select></div><div class="field"><label>'+meUi('Layout','Diseño')+'</label><select id="meLayout"><option value="auto">Auto</option><option value="one">1-up</option><option value="two">2-up</option><option value="grid">2×2</option><option value="3d-profile">3D + Profile</option></select></div></div><div class="field"><label>'+meUi('Figure title','Título de figura')+'</label><input id="meTitle" type="text" placeholder="'+meUi('Automatic FoamLens scientific comparison','Comparación científica FoamLens automática')+'"></div><div id="meSourceList" class="meSourceList"></div><div class="meActions"><button class="btn primary" id="meExport" type="button">'+meUi('Export multi-panel PNG','Exportar PNG multipanel')+'</button><button class="btn" id="meExportPanels" type="button">'+meUi('Export panels separately','Exportar paneles separados')+'</button><button class="btn" id="meRefresh" type="button">'+meUi('Refresh panels','Actualizar paneles')+'</button></div><div class="smallnote" id="meStatus" style="margin-top:8px"></div></div>';document.body.appendChild(overlay);
   document.getElementById('meClose').onclick=meClose;overlay.addEventListener('click',e=>{if(e.target===overlay)meClose()});document.getElementById('meExport').onclick=meExport;document.getElementById('meExportPanels').onclick=meExportPanels;document.getElementById('meRefresh').onclick=meRefreshSources;
-  window.FoamLensMultiPanelExport={open:meOpen,close:meClose,getSources:meSources,compose:meCompose,renderSource:meRenderSourceCanvas,getLastHiRes:()=>meState.lastHiRes||null,exportPng:meExport,exportPanels:meExportPanels}
+  window.FoamLensMultiPanelExport={openPhoto:meOpenPhoto,open:meOpen,close:meClose,getSources:meSources,compose:meCompose,renderSource:meRenderSourceCanvas,getLastHiRes:()=>meState.lastHiRes||null,exportPng:meExport,exportPanels:meExportPanels}
 }
 meInstall();

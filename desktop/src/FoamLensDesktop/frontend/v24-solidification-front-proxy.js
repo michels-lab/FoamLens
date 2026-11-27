@@ -82,6 +82,52 @@ function pfMeshGeometry(mesh,limits={}){
     geometryGuarantee:'numerically closed, consistently oriented cell shells under 1e-7 closure and 0.98 signed-volume tests',
     caveat:'Irregular/nonconvex/overlapping mesh cells and dynamic remeshing require independent native mesh-quality verification'}
 }
+function pfConnectedCrossingFaces(mesh,geometry,crossed,axis){
+  // Edge connectivity on the original mesh, not proximity, and not temporal tracking.
+  const limit=100000,edgeLimit=800000;
+  if(crossed.length>limit)return{status:'unavailable-limit',count:null,components:[],reason:'Crossing-face component limit exceeded; no decimation'};
+  const offsets=mesh.faceOffsets,ids=mesh.facePoints,pts=mesh.points,parents=Int32Array.from(crossed,(_,i)=>i),ranks=new Uint8Array(crossed.length),edges=new Map();
+  const find=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
+  const union=(a,b)=>{a=find(a);b=find(b);if(a===b)return;if(ranks[a]<ranks[b])[a,b]=[b,a];parents[b]=a;if(ranks[a]===ranks[b])ranks[a]++};
+  let nonManifoldEdges=0,edgeVisits=0;
+  for(let i=0;i<crossed.length;i++){
+    const fi=crossed[i],start=offsets[fi],end=offsets[fi+1];
+    for(let j=start;j<end;j++){
+      if(++edgeVisits>edgeLimit)return{status:'unavailable-limit',count:null,components:[],reason:'Crossing edge incidence limit exceeded; no sampling'};
+      const a=ids[j],b=ids[j+1===end?start:j+1],key=a<b?a+':'+b:b+':'+a;
+      const prior=edges.get(key);if(prior){union(i,prior.i);if(++prior.count===3)nonManifoldEdges++}else edges.set(key,{i,count:1})
+    }
+  }
+  const groups=new Map();
+  for(let i=0;i<crossed.length;i++){
+    const fi=crossed[i],root=find(i),a=geometry.faceAreas[fi];
+    let g=groups.get(root);if(!g){g={firstFace:fi,faceCount:0,areaProxyM2:0,weighted:[0,0,0],boundsMin:[Infinity,Infinity,Infinity],boundsMax:[-Infinity,-Infinity,-Infinity]};groups.set(root,g)}
+    g.faceCount++;g.areaProxyM2+=a;
+    for(let k=0;k<3;k++)g.weighted[k]+=a*geometry.faceCentroids[3*fi+k];
+    for(let j=offsets[fi];j<offsets[fi+1];j++)for(let k=0;k<3;k++){const v=pts[3*ids[j]+k];g.boundsMin[k]=Math.min(g.boundsMin[k],v);g.boundsMax[k]=Math.max(g.boundsMax[k],v)}
+  }
+  if(groups.size>5000)return{status:'unavailable-limit',count:null,components:[],reason:'Component count exceeds 5000 per snapshot; no silent truncation'};
+  const components=[...groups.values()].sort((a,b)=>b.areaProxyM2-a.areaProxyM2||a.firstFace-b.firstFace).map((g,i)=>({
+    frameComponent:i+1,firstSourceFace:g.firstFace,faceCount:g.faceCount,areaProxyM2:g.areaProxyM2,centroidM:g.weighted.map(v=>v/g.areaProxyM2),boundsMinM:g.boundsMin,boundsMaxM:g.boundsMax,axisMinM:g.boundsMin[axis],axisMaxM:g.boundsMax[axis]
+  }));
+  return{status:'available',count:components.length,components,nonManifoldEdges,method:'original crossing faces connected by shared source mesh edge; identifiers local to each snapshot',temporalIdentityVerified:false}
+}
+function pfReconstructedMetrics(geom){
+  const p=geom?.positions,n=geom?.triangleCount;
+  const bad=reason=>({status:'unavailable',reason,areaM2:null,centroidM:null,triangleCount:null});
+  if(!Number.isSafeInteger(n)||n<0||n>1000000||!p||p.length!==n*9)return bad('Invalid or oversized reconstructed triangle buffer');
+  if(!n)return{status:'no-triangles',areaM2:0,centroidM:null,triangleCount:0};
+  let area=0;const c=[0,0,0],lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<p.length;i+=9){
+    const a=[p[i],p[i+1],p[i+2]],b=[p[i+3],p[i+4],p[i+5]],d=[p[i+6],p[i+7],p[i+8]];
+    if(![...a,...b,...d].every(Number.isFinite))return bad('Nonfinite reconstructed triangle');
+    const weight=.5*Math.hypot(...pfCross(b.map((x,j)=>x-a[j]),d.map((x,j)=>x-a[j])));
+    if(!(weight>0)||!Number.isFinite(weight))return bad('Degenerate reconstructed triangle (including Float32 precision loss)');
+    area+=weight;for(let j=0;j<3;j++){c[j]+=weight*(a[j]+b[j]+d[j])/3;lo[j]=Math.min(lo[j],a[j],b[j],d[j]);hi[j]=Math.max(hi[j],a[j],b[j],d[j])}
+  }
+  if(!Number.isFinite(area)||!c.every(Number.isFinite))return bad('Nonfinite reconstructed area or centroid');
+  return{status:'available',areaM2:area,centroidM:c.map(x=>x/area),boundsMinM:lo,boundsMaxM:hi,triangleCount:n,method:'existing Field cell-to-point reconstruction and marching tetrahedra; Float32 triangle coordinates',physicalInterfaceVerified:false}
+}
 function pfSnapshot(mesh,geometry,alpha,config={}){
   const fail=reason=>({ok:false,reason});
   if(!geometry?.ok)return fail('Physical polyMesh cell volumes unavailable: '+(geometry?.reason||'unknown'));
@@ -134,6 +180,7 @@ function pfSnapshot(mesh,geometry,alpha,config={}){
     ambiguousThresholdFaces:ambiguousFaces
   }:{areaProxyM2:0,crossedInternalFaces:0,areaWeightedFaceCentroidM:null,
     coordinateProxyM:null,ambiguousThresholdFaces:ambiguousFaces};
+  front.connectivity=pfConnectedCrossingFaces(mesh,geometry,crossed,axis);
   const fractions={};for(const key of Object.keys(volumes))fractions[key]=volumes[key]/total;
   return{ok:true,timeS:t,region:String(config.region||''),meshCells:geometry.cells,
     totalVolumeM3:geometry.totalVolumeM3,volumesM3:volumes,fractions,cellCounts:counts,
@@ -157,14 +204,18 @@ function pfEvolution(frames,expectedTimes=[]){
     const current=valid[i],prev=i?valid[i-1]:null,dt=prev?current.timeS-prev.timeS:null;
     if(prev&&!(dt>0))return{ok:false,reason:'Duplicate or decreasing source physical time',rows:[]};
     const same=prev&&current.region===prev.region&&current.axis===prev.axis&&
-      current.sourceRole===prev.sourceRole&&
+      current.sourceRole===prev.sourceRole&&current.frontIso===prev.frontIso&&
+      current.phaseThresholds.solidMushy===prev.phaseThresholds.solidMushy&&current.phaseThresholds.mushyLiquid===prev.phaseThresholds.mushyLiquid&&
       current.meshIdentity!=null&&current.meshIdentity===prev.meshIdentity&&
       current.meshCells===prev.meshCells&&
       Math.abs(current.totalVolumeM3-prev.totalVolumeM3)<=1e-8*Math.max(current.totalVolumeM3,prev.totalVolumeM3);
     const missingIntermediate=!!prev&&expectedTimes.some(t=>t>prev.timeS&&t<current.timeS&&!valid.some(f=>f.timeS===t));
     const f0=prev?.front?.coordinateProxyM,f1=current.front?.coordinateProxyM;
     const measuredDifference=same&&!missingIntermediate&&f0!==null&&f1!==null&&Number.isFinite(f0)&&Number.isFinite(f1);
-    rows.push({...current,frontCentroidVelocityProxyMPerS:measuredDifference?(f1-f0)/dt:null,
+    const ca=prev?.front?.connectivity,cb=current.front?.connectivity;
+    const single=ca?.status==='available'&&cb?.status==='available'&&ca.count===1&&cb.count===1&&ca.nonManifoldEdges===0&&cb.nonManifoldEdges===0;
+    const rates=same&&!missingIntermediate?Object.fromEntries(['solid','mushy','liquid'].map(k=>[k,(current.volumesM3[k]-prev.volumesM3[k])/dt])):null;
+    rows.push({...current,phaseVolumeRateM3PerS:rates,frontConnectivityChange:!prev?'first-sample':!same||missingIntermediate?'not-comparable':ca?.status!=='available'||cb?.status!=='available'?'unavailable':ca.count!==cb.count?'component-count-changed':'same-count-not-tracked',singleConnectedCentroidContext:!!(single&&measuredDifference),frontCentroidVelocityProxyMPerS:measuredDifference?(f1-f0)/dt:null,
       timeGapS:dt,velocityStatus:!prev?'first-sample':!same?'not-comparable-geometry-or-region':
         missingIntermediate?'missing-original-snapshot-between':
         !measuredDifference?'no-front-in-one-or-both-times':'apparent-centroid-displacement',
@@ -172,6 +223,118 @@ function pfEvolution(frames,expectedTimes=[]){
   }
   return{ok:true,rows,method:'finite differences of area-weighted crossing-face centroids at actual consecutive source field times',
     caveat:'Apparent centroid displacement is NOT measured local phase-front propagation speed and does not account for mesh deformation or front splitting.'}
+}
+// Fixed-mesh, contiguous original-frame cell history. Keep only previous
+// alpha and compact per-cell state, never an array of all field snapshots.
+// A missed frame or changed mesh invalidates the optional whole history.
+function pfCellHistory(times,mesh,geometry,config){
+  if(!Array.isArray(times)||times.length<2||times.some((v,i)=>!Number.isFinite(v)||i>0&&v<=times[i-1]))throw Error('Cell history requires at least two strictly ordered original times');
+  if(!geometry?.ok||mesh?.dynamicMesh||!Number.isSafeInteger(geometry.cells)||geometry.cells<=0||
+     mesh.cellCenters?.length!==3*geometry.cells||geometry.cellVolumes?.length!==geometry.cells||
+     !['liquidFraction','solidFraction'].includes(config.role)||!(config.low>=0&&config.low<config.high&&config.high<=1)||!(config.iso>0&&config.iso<1))throw Error('Cell history requires fixed verified mesh and distinct valid thresholds');
+  const n=geometry.cells,low=config.low,high=config.high,iso=config.iso;
+  const prev=new Float64Array(n),firstDown=new Float64Array(n).fill(NaN),bracketLo=new Float64Array(n).fill(NaN),bracketHi=new Float64Array(n).fill(NaN),mushy=new Float64Array(n),down=new Uint32Array(n),up=new Uint32Array(n),initial=new Uint8Array(n);
+  const bins=[];let index=0,closed=false;
+  const push=(t,sourceMesh,values)=>{
+    if(closed||index>=times.length||t!==times[index]||sourceMesh!==mesh||sourceMesh.dynamicMesh||values?.length!==n)throw Error('Incomplete, changed or incompatible original cell history');
+    // Validate all values before mutating any state.
+    for(let i=0;i<n;i++){const v=pfNumber(values[i]);if(!(v>=0&&v<=1))throw Error('Invalid original alpha at cell '+i)}
+    const t0=index?times[index-1]:null,dt=index?t-t0:0;
+    if(index&&(!Number.isFinite(dt)||dt<=0))throw Error('Invalid original time interval');
+    let firstCells=0,firstVolume=0;
+    for(let i=0;i<n;i++){
+      const raw=pfNumber(values[i]),a=config.role==='solidFraction'?1-raw:raw;
+      if(!index){initial[i]=a<=iso?1:0;prev[i]=a;continue}
+      const p=prev[i];
+      // Below/equal at initial frame is left-censored. Only a first observed
+      // above-to-below transition in an initially above cell yields an arrival.
+      if(p>iso&&a<=iso){
+        down[i]++;
+        if(!initial[i]&&!Number.isFinite(firstDown[i])){
+          const w=(p-iso)/(p-a);firstDown[i]=t0+w*dt;bracketLo[i]=t0;bracketHi[i]=t;
+          firstCells++;firstVolume+=geometry.cellVolumes[i]
+        }
+      }
+      if(p<=iso&&a>iso)up[i]++;
+      // Piecewise linear estimate of time with low < alpha <= high.
+      // This is not an observed sub-step transformation or exact kinetics.
+      if(p===a){if(a>low&&a<=high)mushy[i]+=dt}
+      else{
+        const u=(low-p)/(a-p),v=(high-p)/(a-p);
+        mushy[i]+=dt*Math.max(0,Math.min(1,Math.max(u,v))-Math.max(0,Math.min(u,v)))
+      }
+      prev[i]=a
+    }
+    if(index)bins.push({fromTimeS:t0,toTimeS:t,firstArrivalCells:firstCells,firstArrivalVolumeM3:firstVolume});
+    index++
+  };
+  const finish=()=>{
+    if(closed||index!==times.length)throw Error('Cell history has missing original frames; no complete result');
+    closed=true;
+    const totals={initialBelow:{cells:0,volumeM3:0},observedArrival:{cells:0,volumeM3:0},notReached:{cells:0,volumeM3:0},upwardRecrossing:{cells:0,volumeM3:0}};
+    let weightedArrival=0,arrivalMin=Infinity,arrivalMax=-Infinity,weightedMushy=0,totalVolume=0;
+    for(let i=0;i<n;i++){
+      const v=geometry.cellVolumes[i];if(!(v>0)||!Number.isFinite(v)||!Number.isFinite(mushy[i]))throw Error('Invalid original volume or history duration');
+      const k=initial[i]?'initialBelow':Number.isFinite(firstDown[i])?'observedArrival':'notReached';totals[k].cells++;totals[k].volumeM3+=v;totalVolume+=v;
+      if(k==='observedArrival'){weightedArrival+=firstDown[i]*v;arrivalMin=Math.min(arrivalMin,firstDown[i]);arrivalMax=Math.max(arrivalMax,firstDown[i])}
+      if(up[i]){totals.upwardRecrossing.cells++;totals.upwardRecrossing.volumeM3+=v}
+      weightedMushy+=mushy[i]*v
+    }
+    if(!Number.isFinite(totalVolume)||!Number.isFinite(weightedArrival)||!Number.isFinite(weightedMushy))throw Error('Nonfinite aggregate cell history');
+    const summary={status:'available',cells:n,firstTimeS:times[0],lastTimeS:times.at(-1),frames:times.length,thresholds:{low,high,arrival:iso},sourceRole:config.role,totalVolumeM3:totalVolume,categories:totals,
+      volumeWeightedArrivalEstimateS:totals.observedArrival.cells?weightedArrival/totals.observedArrival.volumeM3:null,
+      arrivalEstimateRangeS:totals.observedArrival.cells?[arrivalMin,arrivalMax]:null,volumeWeightedMushyDurationEstimateS:weightedMushy/totalVolume,intervals:bins,
+      method:'first observed downward alphaL threshold crossing bracket; linear estimate inside bracket; initial-below cells left-censored; upward recrossings are threshold events, not certified remelting; mushy duration estimated by piecewise linear alphaL within complete selected window',physicalKineticsVerified:false};
+    return {summary,mesh,geometry,firstDown,bracketLo,bracketHi,mushy,down,up,initial}
+  };
+  return {push,finish}
+}
+function* pfCellHistoryCsv(history,chunkSize=8192){
+  if(history?.summary?.status!=='available'||!Number.isSafeInteger(chunkSize)||chunkSize<1)throw Error('Complete cell history required');
+  yield 'source_cell_id,x_m,y_m,z_m,volume_m3,arrival_status,arrival_bracket_start_s,arrival_bracket_end_s,arrival_linear_estimate_s,mushy_linear_duration_s,downward_crossings,upward_recrossings\n';
+  const value=v=>Number.isFinite(v)?v:'';
+  let rows=[];
+  for(let i=0;i<history.summary.cells;i++){
+    const state=history.initial[i]?'initial-below-left-censored':Number.isFinite(history.firstDown[i])?'observed-bracket':'not-reached-in-window';
+    rows.push([i,...[0,1,2].map(k=>history.mesh.cellCenters[3*i+k]),history.geometry.cellVolumes[i],state,value(history.bracketLo[i]),value(history.bracketHi[i]),value(history.firstDown[i]),history.mushy[i],history.down[i],history.up[i]].join(',')+'\n');
+    if(rows.length===chunkSize){yield rows.join('');rows=[]}
+  }
+  if(rows.length)yield rows.join('')
+}
+// A center-binned slice preview; every selected native cell contributes once.
+// This is not an interpolated surface, cut-cell geometry, or sampled solver field.
+function pfHistorySlice(history,{axis,from,to,metric,bins=64}){
+  if(history?.summary?.status!=='available')throw Error('Complete cell history required');
+  const d=['x','y','z'].indexOf(axis),uv=[0,1,2].filter(k=>k!==d),lo=history.mesh.boundsMin,hi=history.mesh.boundsMax;
+  if(d<0||!Number.isFinite(from)||!Number.isFinite(to)||from>to||!lo||!hi||uv.some(k=>!(hi[k]>lo[k]))||from<lo[d]||to>hi[d]||!Number.isSafeInteger(bins)||bins<8||bins>256||
+      !['arrival','mushy','upward'].includes(metric))throw Error('Invalid physical slab, metric or display resolution');
+  const n=bins*bins,counts=new Uint32Array(n),validCounts=new Uint32Array(n),volume=new Float64Array(n),validVolume=new Float64Array(n),weighted=new Float64Array(n);
+  let selectedCells=0,eligibleCells=0,selectedVolumeM3=0,eligibleVolumeM3=0;
+  const index=(v,k)=>Math.min(bins-1,Math.max(0,Math.floor(bins*(v-lo[k])/(hi[k]-lo[k]))));
+  for(let i=0;i<history.summary.cells;i++){
+    const p=history.mesh.cellCenters,coord=p[i*3+d];if(!Number.isFinite(coord))throw Error('Invalid original center');
+    if(coord<from||coord>to)continue;
+    const u=p[i*3+uv[0]],v=p[i*3+uv[1]],w=history.geometry.cellVolumes[i];
+    if(!Number.isFinite(u)||!Number.isFinite(v)||u<lo[uv[0]]||u>hi[uv[0]]||v<lo[uv[1]]||v>hi[uv[1]]||!(w>0)||!Number.isFinite(w))throw Error('Original center or volume outside verified mesh bounds');
+    const k=index(u,uv[0])+bins*index(v,uv[1]);counts[k]++;volume[k]+=w;selectedCells++;selectedVolumeM3+=w;
+    const value=metric==='arrival'?history.firstDown[i]:metric==='mushy'?history.mushy[i]:history.up[i];
+    if(!Number.isFinite(value))continue;
+    validCounts[k]++;validVolume[k]+=w;weighted[k]+=value*w;eligibleCells++;eligibleVolumeM3+=w
+  }
+  const mean=new Float64Array(n).fill(NaN);let min=Infinity,max=-Infinity;
+  for(let k=0;k<n;k++)if(validVolume[k]>0){
+    const v=weighted[k]/validVolume[k];if(!Number.isFinite(v))throw Error('Nonfinite bin value');
+    mean[k]=v;min=Math.min(min,v);max=Math.max(max,v)
+  }
+  return {axis,from,to,metric,unit:metric==='upward'?'1':'s',bins,uAxis:'xyz'[uv[0]],vAxis:'xyz'[uv[1]],uMin:lo[uv[0]],uMax:hi[uv[0]],vMin:lo[uv[1]],vMax:hi[uv[1]],counts,validCounts,volume,validVolume,mean,selectedCells,eligibleCells,selectedVolumeM3,eligibleVolumeM3,range:eligibleCells?[min,max]:null,method:'whole-cell center slab selection and volume-weighted 2D display bins; no cut geometry, no interpolation; blank arrival values remain missing'};
+}
+function pfHistorySliceCsv(q){
+  const rows=['u_axis,v_axis,u_min_m,u_max_m,v_min_m,v_max_m,selected_cells,eligible_cells,selected_volume_m3,eligible_volume_m3,volume_weighted_mean,unit'];
+  for(let k=0;k<q.counts.length;k++)if(q.counts[k]){
+    const i=k%q.bins,j=Math.floor(k/q.bins),u=x=>q.uMin+(q.uMax-q.uMin)*x/q.bins,v=x=>q.vMin+(q.vMax-q.vMin)*x/q.bins;
+    rows.push([q.uAxis,q.vAxis,u(i),u(i+1),v(j),v(j+1),q.counts[k],q.validCounts[k],q.volume[k],q.validVolume[k],Number.isFinite(q.mean[k])?q.mean[k]:'',q.unit].join(','))
+  }
+  return rows.join('\n')+'\n'
 }
 function pfSourceTimeWindow(rawTimes,fromIndex,toExclusive,maxFrames=120){
   const fail=reason=>({ok:false,reason,times:[]});
@@ -194,15 +357,15 @@ function pfSourceTimeWindow(rawTimes,fromIndex,toExclusive,maxFrames=120){
 function pfUi(en,es){try{return typeof flUi==='function'?flUi(en,es):en}catch{return en}}
 function pfEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function pfEl(id){return document.getElementById(id)}
-let pfToken=0,pfLast=null,pfBinding=null,pfCaseRef=null,pfGroupRef=null;
+let pfToken=0,pfLast=null,pfBinding=null,pfCaseRef=null,pfGroupRef=null,pfHistory=null,pfSlice=null;
 const pfGeomCache=new WeakMap(),pfMeshIds=new WeakMap();let pfNextMeshId=1;
 function pfRuntimeMeshIdentity(mesh){
   if(!pfMeshIds.has(mesh))pfMeshIds.set(mesh,pfNextMeshId++);
   return pfMeshIds.get(mesh)
 }
 function pfInvalidate(note=''){
-  pfToken++;pfLast=null;pfBinding=null;
-  for(const id of ['pfExport','pfExportCsv','pfCancel']){const b=pfEl(id);if(b)b.disabled=true}
+  pfToken++;pfLast=null;pfBinding=null;pfHistory=null;pfSlice=null;const historyButton=pfEl('pfExportHistory');if(historyButton)historyButton.disabled=true;
+  for(const id of ['pfExport','pfExportCsv','pfExportComponents','pfCancel']){const b=pfEl(id);if(b)b.disabled=true}
   const out=pfEl('pfResult');if(out)out.textContent='';
   const plot=pfEl('pfPlot'),ctx=plot?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,plot.width,plot.height);
   if(note&&pfEl('pfStatus'))pfEl('pfStatus').textContent=note
@@ -246,7 +409,25 @@ function pfParams(){
   return{c,region,g,low:pfEl('pfLow')?.value,high:pfEl('pfHigh')?.value,iso:pfEl('pfIso')?.value,
     axis:pfEl('pfAxis')?.value,role:pfEl('pfRole')?.value,
     from:pfEl('pfFrom')?.value,to:pfEl('pfTo')?.value,
+    reconstruct:pfEl('pfReconstruct')?.checked===true,cellHistory:pfEl('pfCellHistory')?.checked===true,
     phaseRoleConfirmed:pfEl('pfConfirmAlpha')?.checked===true}
+}
+function pfDrawHistorySlice(){
+  const q=pfSlice,canvas=pfEl('pfHistoryCanvas');if(!canvas||!q)return;
+  const ctx=canvas.getContext('2d');if(!ctx)return;
+  const width=Math.max(260,canvas.clientWidth||640),height=280,dpr=Math.min(2,window.devicePixelRatio||1),l=65,r=22,t=26,b=42;
+  canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
+  const w=width-l-r,h=height-t-b,ratio=(q.uMax-q.uMin)/(q.vMax-q.vMin),pw=Math.min(w,h*ratio),ph=pw/ratio,x0=l+(w-pw)/2,y0=t+(h-ph)/2;
+  for(let k=0;k<q.counts.length;k++)if(q.counts[k]){
+    const i=k%q.bins,j=Math.floor(k/q.bins),v=q.mean[k],range=q.range;
+    if(!Number.isFinite(v))ctx.fillStyle='#737b88';
+    else{const f=range[1]===range[0]?.5:(v-range[0])/(range[1]-range[0]);ctx.fillStyle='hsl('+Math.round(240-240*f)+' 73% 53%)'}
+    ctx.fillRect(x0+i*pw/q.bins,y0+(q.bins-j-1)*ph/q.bins,pw/q.bins+.15,ph/q.bins+.15)
+  }
+  ctx.strokeStyle='#8a99ad';ctx.strokeRect(x0,y0,pw,ph);ctx.font='11px sans-serif';ctx.fillStyle='#8a99ad';
+  const fmt=v=>Number(v).toPrecision(5);ctx.fillText(q.uAxis.toUpperCase()+' [m] '+fmt(q.uMin)+' → '+fmt(q.uMax),l,height-8);
+  ctx.fillText(q.vAxis.toUpperCase()+' [m]',4,16);ctx.fillText(fmt(q.vMax),4,y0+10);ctx.fillText(fmt(q.vMin),4,y0+ph);
+  if(q.range)ctx.fillText('Blue '+fmt(q.range[0])+' → red '+fmt(q.range[1])+' ['+q.unit+']',l,16)
 }
 function pfPlot(report){
   const canvas=pfEl('pfPlot');if(!canvas||!report?.evolution?.rows?.length)return;
@@ -267,7 +448,7 @@ function pfPlot(report){
 }
 async function pfRun(){
   pfInvalidate('Computing measured cell volumes and threshold-crossing face proxies…');
-  const token=pfToken,{c,region,g,low,high,iso,axis,role,from,to,phaseRoleConfirmed}=pfParams(),status=pfEl('pfStatus');
+  const token=pfToken,{c,region,g,low,high,iso,axis,role,from,to,phaseRoleConfirmed,reconstruct,cellHistory}=pfParams(),status=pfEl('pfStatus');
   if(!c||!g){status.textContent='Choose an original dimensionless phase field.';return}
   if(!['liquidFraction','solidFraction'].includes(role)){
     status.textContent='Declare source role alphaL or alphaS explicitly.';return
@@ -280,8 +461,9 @@ async function pfRun(){
   const timeWindow=pfSourceTimeWindow(g.times,from,to,120);
   if(!timeWindow.ok){status.textContent=timeWindow.reason;return}
   const times=timeWindow.times;
+  if(reconstruct&&times.length>20){status.textContent='Optional reconstructed surface metrics require at most 20 original frames; narrow the time window.';return}
   const cancel=pfEl('pfCancel');if(cancel)cancel.disabled=false;
-  const excluded=[],frames=[],sourceFrames=[];
+  const excluded=[],frames=[],sourceFrames=[];let history=null,historyFailure=null;
   const inventory=c.volumeFieldInventory,discovery=c.discoveryModel,meshInventory=c.meshInventory;
   for(let i=0;i<times.length;i++){
     if(token!==pfToken)return;
@@ -298,12 +480,27 @@ async function pfRun(){
         meshIdentity:pfRuntimeMeshIdentity(mesh)
       });
       if(!current.ok)throw new Error(current.reason);
+      if(reconstruct){
+        if(mesh.cellCount>20000||mesh.faceCount>120000||mesh.facePoints.length>600000)current.reconstruction={status:'unavailable',reason:'Reconstruction exceeds bounded mesh size; no subsampling',areaM2:null};
+        else if(typeof fvBuildIsoSurfaceGeometry!=='function')current.reconstruction={status:'unavailable',reason:'Existing Field reconstruction unavailable',areaM2:null};
+        else {
+          const values=Float64Array.from(frame.fieldValues,x=>role==='solidFraction'?1-Number(x):Number(x));
+          if(values.some(x=>x===cut))current.reconstruction={status:'unavailable',reason:'Exact threshold cell value; plateau ambiguity',areaM2:null};
+          else try{current.reconstruction=pfReconstructedMetrics(fvBuildIsoSurfaceGeometry(mesh,values,cut))}catch(e){current.reconstruction={status:'unavailable',reason:'Field reconstruction failed: '+String(e?.message||e),areaM2:null}}
+        }
+      }else current.reconstruction={status:'not-requested',areaM2:null};
+      if(cellHistory&&!historyFailure)try{
+        const sourcePaths=(g.records||[]).filter(r=>String(r.region||'')===region&&Number(r.time)===t).map(r=>r.sourcePath);
+        if(!sourcePaths.length||sourcePaths.some(p=>typeof p!=='string'||!p.trim()))throw Error('Exact source field path evidence missing');
+        if(!history){if(i!==0)throw Error('First selected source frame missing');history=pfCellHistory(times,mesh,geometry,{low:lo,high:hi,iso:cut,role})}
+        history.push(t,mesh,frame.fieldValues)
+      }catch(e){historyFailure=String(e?.message||e);history=null}
       frames.push(current);
       sourceFrames.push({timeS:t,sourcePaths:(g.records||[]).filter(r=>String(r.region||'')===region&&Math.abs(Number(r.time)-t)<1e-10*Math.max(1,Math.abs(t))).map(r=>r.sourcePath),
         meshSnapshotTime:frame.meshInfo?.snapshot?.time??mesh.meshTime??null,
         meshCells:mesh.cellCount,meshFaces:mesh.faceCount,dynamicMesh:!!mesh.dynamicMesh,
         dimensions,volumeMethod:geometry.sourceEvidence,geometryCaveat:geometry.caveat});
-    }catch(e){excluded.push({timeS:t,reason:String(e?.message||e)})}
+    }catch(e){excluded.push({timeS:t,reason:String(e?.message||e)});if(cellHistory){historyFailure='Missing original frame at '+t+' s';history=null}}
     if(i%3===0)await new Promise(r=>setTimeout(r,0))
   }
   if(token!==pfToken)return;
@@ -314,6 +511,7 @@ async function pfRun(){
   }
   const evolution=pfEvolution(frames,times);
   if(!evolution.ok){if(cancel)cancel.disabled=true;status.textContent=evolution.reason;return}
+  if(cellHistory&&history&&!historyFailure)try{pfHistory=history.finish()}catch(e){historyFailure=String(e?.message||e)}
   pfLast={schema:'foamlens/solidification-front-proxy/2',caseId:c.id,caseName:c.name,
     region,field:g.name,dimensions:g.dimensions,axis,
     fieldRole:{originalRole:role,sourceSemanticEvidence:'user-confirmed',
@@ -322,35 +520,48 @@ async function pfRun(){
     timeWindow:{fromIndex:timeWindow.fromIndex,toExclusive:timeWindow.toExclusive,
       sourceTimesAvailable:timeWindow.sourceTimesAvailable,selectedOriginalTimes:timeWindow.times,
       explicitlyExcludedTimes:timeWindow.explicitlyExcludedTimes,method:timeWindow.method},
-    parameters:{low:lo,high:hi,iso:cut},
+    parameters:{low:lo,high:hi,iso:cut,reconstruct,cellHistory},cellHistory:pfHistory?.summary??{status:cellHistory?'unavailable':'not-requested',reason:historyFailure},
     sourceFrames,evolution,excluded,completion:excluded.length?'partial-evidence':'source-backed-evidence',
     interpretations:{automaticNucleation:false,automaticRecalescence:false,automaticMicrostructure:false},
     caveats:[
       'Each phase volume comes from verified geometric polyMesh signed cell volumes, not percentages of equally-sized cells.',
       'Front area and coordinate are a FACE-CROSSING PROXY, not a genuine interpolated isosurface or independently measured solidification front.',
       'The reported apparent centroid velocity is not local front speed, especially during front splitting, topology changes or dynamic meshing.',
+      'Optional reconstructed area uses the existing cell-to-point/marching tetrahedra Field engine; Float32 geometry and interpolation are approximate, not measured physical interface. Crossing-face components share original mesh edges. IDs are snapshot-local; component counts cannot establish split/merge events or temporal identity. Phase category volume rates are finite differences, not metallurgical transformation kinetics.',
       'Only selected original output times were analyzed. Omitted/missing times are disclosed, never imputed.',
       'Solid-phase fraction alphaS is normalized to alphaL=1-alphaS only after source-role confirmation; the physical model is not independently certified.'
     ]};
   pfBinding={c,inventory,discovery,meshInventory,g,fieldName:g.name,region,
     role,fromIndex:timeWindow.fromIndex,toExclusive:timeWindow.toExclusive,
-    low:lo,high:hi,iso:cut,axis};
+    low:lo,high:hi,iso:cut,axis,reconstruct,cellHistory};
   const fmt=n=>n===null||!Number.isFinite(n)?'not available':n.toLocaleString(undefined,{maximumSignificantDigits:6});
   pfEl('pfResult').innerHTML='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
-    ['Time [s]','Solid [m³]','Mushy [m³]','Liquid [m³]','Volume-weighted αL','Front face area [m²]','Centroid ['+axis+', m]','Apparent centroid speed [m/s]']
+    ['Time [s]','Solid [m³]','Mushy [m³]','Liquid [m³]','Volume-weighted αL','Front face area [m²]','Connected proxies','Reconstructed area [m²]','Centroid ['+axis+', m]','Apparent centroid speed [m/s]','Solid-category volume rate [m³/s]']
       .map(x=>'<th>'+pfEsc(x)+'</th>').join('')+'</tr></thead><tbody>'+
     evolution.rows.map(r=>'<tr>'+[
       r.timeS,r.volumesM3.solid,r.volumesM3.mushy,r.volumesM3.liquid,
-      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.coordinateProxyM,r.frontCentroidVelocityProxyMPerS
+      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.connectivity.count,r.reconstruction?.areaM2??null,r.front.coordinateProxyM,r.frontCentroidVelocityProxyMPerS,r.phaseVolumeRateM3PerS?.solid??null
     ].map(x=>'<td>'+pfEsc(fmt(x))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+
     '<p class="smallnote">Front = face-crossing proxy, NOT true continuous isosurface or local propagation speed. '+pfEsc(pfLast.caveats.join(' '))+'</p>'+
+    '<details><summary>'+pfUi('Spatial front components by snapshot','Componentes espaciales del frente por instante')+'</summary>'+evolution.rows.map(r=>{const q=r.front.connectivity;return '<details><summary>t = '+pfEsc(r.timeS)+' s · '+pfEsc(q.count??q.status)+'</summary><p class="smallnote">'+pfEsc(q.method??q.reason??'')+' · '+pfEsc(r.frontConnectivityChange)+'</p>'+(q.components.length?'<div class="extTableWrap"><table class="extTable"><thead><tr>'+['ID (frame only)','Faces','Area proxy [m²]','Axis min [m]','Axis max [m]','Centroid [m]'].map(h=>'<th>'+pfEsc(h)+'</th>').join('')+'</tr></thead><tbody>'+q.components.slice(0,100).map(g=>'<tr>'+[g.frameComponent,g.faceCount,fmt(g.areaProxyM2),fmt(g.axisMinM),fmt(g.axisMaxM),g.centroidM.map(fmt).join(', ')].map(v=>'<td>'+pfEsc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'')+(q.components.length>100?'<p class="smallnote">First 100 shown; full component evidence in JSON/CSV.</p>':'')+'</details>'}).join('')+'</details>'+
+    (cellHistory?'<details open><summary>'+pfUi('Cell arrival and mushy residence','Llegada por celda y permanencia pastosa')+'</summary><p class="smallnote">'+pfEsc(pfLast.cellHistory.method??pfLast.cellHistory.reason??'Unavailable')+'</p>'+ (pfHistory?'<div class="extTableWrap"><table class="extTable"><thead><tr><th>Category</th><th>Cells</th><th>Volume [m³]</th></tr></thead><tbody>'+Object.entries(pfHistory.summary.categories).map(([k,v])=>'<tr><td>'+pfEsc(k)+'</td><td>'+pfEsc(v.cells)+'</td><td>'+pfEsc(fmt(v.volumeM3))+'</td></tr>').join('')+'</tbody></table></div><p>'+pfUi('Volume-weighted arrival estimate [s]: ','Llegada estimada ponderada por volumen [s]: ')+pfEsc(fmt(pfHistory.summary.volumeWeightedArrivalEstimateS))+' · '+pfUi('Volume-weighted mushy duration [s]: ','Duración pastosa ponderada por volumen [s]: ')+pfEsc(fmt(pfHistory.summary.volumeWeightedMushyDurationEstimateS))+'</p><div class="extTableWrap"><table class="extTable"><thead><tr><th>From [s]</th><th>To [s]</th><th>First arrivals</th><th>Volume [m³]</th></tr></thead><tbody>'+pfHistory.summary.intervals.map(v=>'<tr>'+[v.fromTimeS,v.toTimeS,v.firstArrivalCells,fmt(v.firstArrivalVolumeM3)].map(z=>'<td>'+pfEsc(z)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'')+'</details>':'')+
     (excluded.length?'<p class="smallnote">Excluded exact source times: '+pfEsc(excluded.map(x=>x.timeS+': '+x.reason).join(' | '))+'</p>':'');
+  if(pfHistory){
+    const host=pfEl('pfResult'),section=document.createElement('details');section.open=true;
+    section.innerHTML='<summary>'+pfUi('Spatial cell-history preview','Vista espacial del historial por celda')+'</summary><p class="smallnote">'+pfUi('Cell-center slab; volume-weighted bins, not a cut mesh. Gray: selected cells without arrival evidence. Export full native cell IDs separately.','Banda de centros de celda; bins ponderados por volumen, no malla cortada. Gris: celdas seleccionadas sin evidencia de llegada. Exporta IDs nativos completos por separado.')+'</p><div class="extGrid2"><label>'+pfUi('Normal axis','Eje normal')+' <select id="pfHistoryAxis"><option>x</option><option>y</option><option>z</option></select></label><label>'+pfUi('Metric','Métrica')+' <select id="pfHistoryMetric"><option value="arrival">'+pfUi('Arrival estimate','Llegada estimada')+'</option><option value="mushy">'+pfUi('Mushy duration','Duración pastosa')+'</option><option value="upward">'+pfUi('Upward crossings','Cruces ascendentes')+'</option></select></label><label>'+pfUi('Slab from [m]','Banda desde [m]')+' <input id="pfHistoryFrom" inputmode="decimal"></label><label>'+pfUi('Slab to [m]','Banda hasta [m]')+' <input id="pfHistoryTo" inputmode="decimal"></label><label>'+pfUi('Display bins per axis','Bins visuales por eje')+' <select id="pfHistoryBins"><option>32</option><option selected>64</option><option>128</option></select></label></div><div class="extActions"><button id="pfHistorySliceRun" class="btn soft" type="button">'+pfUi('Update slab','Actualizar banda')+'</button><button id="pfHistorySliceExport" class="btn soft" type="button" disabled>'+pfUi('Export slab bins CSV','Exportar bins CSV')+'</button></div><p class="smallnote" id="pfHistorySliceStatus" aria-live="polite"></p><canvas id="pfHistoryCanvas" style="width:100%;height:280px" aria-label="Volume-weighted cell-center slab preview"></canvas>';
+    host.appendChild(section);
+    const clear=()=>{pfSlice=null;pfEl('pfHistorySliceExport').disabled=true;pfEl('pfHistorySliceStatus').textContent=pfUi('Update slab to compute.','Actualiza la banda para calcular.');const cv=pfEl('pfHistoryCanvas');cv.getContext('2d')?.clearRect(0,0,cv.width,cv.height)};
+    const defaults=()=>{const d='xyz'.indexOf(pfEl('pfHistoryAxis').value);pfEl('pfHistoryFrom').value=pfHistory.mesh.boundsMin[d];pfEl('pfHistoryTo').value=pfHistory.mesh.boundsMax[d];clear()};
+    pfEl('pfHistoryAxis').onchange=defaults;for(const id of ['pfHistoryMetric','pfHistoryFrom','pfHistoryTo','pfHistoryBins'])pfEl(id).addEventListener('input',clear);
+    pfEl('pfHistorySliceRun').onclick=()=>{clear();try{pfSlice=pfHistorySlice(pfHistory,{axis:pfEl('pfHistoryAxis').value,from:pfNumber(pfEl('pfHistoryFrom').value),to:pfNumber(pfEl('pfHistoryTo').value),metric:pfEl('pfHistoryMetric').value,bins:pfNumber(pfEl('pfHistoryBins').value)});pfDrawHistorySlice();const q=pfSlice;pfEl('pfHistorySliceStatus').textContent=q.selectedCells+' '+pfUi('selected cells, ','celdas seleccionadas, ')+q.eligibleCells+' '+pfUi('with metric; volume coverage: ','con métrica; cobertura volumétrica: ')+(q.selectedVolumeM3>0?fmt(100*q.eligibleVolumeM3/q.selectedVolumeM3)+'%':'—');pfEl('pfHistorySliceExport').disabled=false}catch(e){pfEl('pfHistorySliceStatus').textContent=e.message}};
+    pfEl('pfHistorySliceExport').onclick=()=>pfExport('slice');defaults();pfEl('pfHistorySliceRun').click();
+  }
   status.textContent=frames.length+' selected original-time frames, '+excluded.length+
     ' unavailable in selection, '+timeWindow.explicitlyExcludedTimes+
     ' source times outside selection. Declared role: '+role+
     '. Centroid rate is NOT a measured local front velocity.';
   pfPlot(pfLast);if(cancel)cancel.disabled=true;
-  pfEl('pfExport').disabled=false;pfEl('pfExportCsv').disabled=false
+  pfEl('pfExport').disabled=false;pfEl('pfExportCsv').disabled=false;pfEl('pfExportComponents').disabled=false;pfEl('pfExportHistory').disabled=!pfHistory
 }
 function pfDownload(name,content,type){
   if(typeof downloadText==='function'){downloadText(name,content,type);return}
@@ -362,18 +573,29 @@ function pfExport(kind){
   const c=pfParams().c,b=pfBinding,params=pfParams();
   if(c!==b.c||c.volumeFieldInventory!==b.inventory||c.discoveryModel!==b.discovery||
     c.meshInventory!==b.meshInventory||params.g!==b.g||params.region!==b.region||
-    params.role!==b.role||!params.phaseRoleConfirmed||
+    params.role!==b.role||params.reconstruct!==b.reconstruct||params.cellHistory!==b.cellHistory||!params.phaseRoleConfirmed||
     pfNumber(params.from)!==b.fromIndex||pfNumber(params.to)!==b.toExclusive||
     pfNumber(params.low)!==b.low||pfNumber(params.high)!==b.high||
     pfNumber(params.iso)!==b.iso||params.axis!==b.axis){
     pfInvalidate('Case, source alpha field or mesh inventory changed. Recalculate before exporting.');return
   }
-  if(kind==='json')pfDownload('FoamLens_solidification_front_proxy.json',
+  if(kind==='slice'){if(pfSlice)pfDownload('FoamLens_cell_history_slab_bins.csv',pfHistorySliceCsv(pfSlice),'text/csv')}
+  else if(kind==='history'){
+    if(!pfHistory)return;
+    try{
+      const parts=[...pfCellHistoryCsv(pfHistory)],url=URL.createObjectURL(new Blob(parts,{type:'text/csv;charset=utf-8'})),a=document.createElement('a');
+      a.href=url;a.download='FoamLens_cell_arrival_mushy_history.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)
+    }catch(e){pfEl('pfStatus').textContent='Cell-history export failed: '+String(e?.message||e)}
+  }else if(kind==='json')pfDownload('FoamLens_solidification_front_proxy.json',
     JSON.stringify({...pfLast,exportedAt:new Date().toISOString()},null,2),'application/json');
-  else{
-    const h='time_s,solid_m3,mushy_m3,liquid_m3,mean_alpha_volume_weighted,front_proxy_area_m2,front_centroid_axis_m,apparent_centroid_velocity_m_per_s';
+  else if(kind==='components'){
+    const h='time_s,frame_component,first_source_face,face_count,area_proxy_m2,centroid_x_m,centroid_y_m,centroid_z_m,axis_min_m,axis_max_m';
+    const rows=pfLast.evolution.rows.flatMap(r=>r.front.connectivity.components.map(g=>[r.timeS,g.frameComponent,g.firstSourceFace,g.faceCount,g.areaProxyM2,...g.centroidM,g.axisMinM,g.axisMaxM].join(',')));
+    pfDownload('FoamLens_front_components.csv',[h,...rows].join('\n')+'\n','text/csv')
+  }else{
+    const h='time_s,solid_m3,mushy_m3,liquid_m3,mean_alpha_volume_weighted,front_proxy_area_m2,front_centroid_axis_m,apparent_centroid_velocity_m_per_s,connected_face_components,reconstructed_area_m2,reconstruction_status,solid_category_rate_m3_per_s,mushy_category_rate_m3_per_s,liquid_category_rate_m3_per_s';
     const rows=pfLast.evolution.rows.map(r=>[r.timeS,r.volumesM3.solid,r.volumesM3.mushy,r.volumesM3.liquid,
-      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.coordinateProxyM??'',r.frontCentroidVelocityProxyMPerS??''].join(','));
+      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.coordinateProxyM??'',r.frontCentroidVelocityProxyMPerS??'',r.front.connectivity.count??'',r.reconstruction?.areaM2??'',r.reconstruction?.status??'not-requested',r.phaseVolumeRateM3PerS?.solid??'',r.phaseVolumeRateM3PerS?.mushy??'',r.phaseVolumeRateM3PerS?.liquid??''].join(','));
     pfDownload('FoamLens_solidification_front_proxy.csv',[h,...rows].join('\n')+'\n','text/csv')
   }
 }
@@ -395,29 +617,32 @@ function pfInstall(){
   '<div class="field"><label>End original time index, exclusive</label><input id="pfTo" type="number" min="1" step="1" value="0"></div>'+
   '</div><p id="pfTimeCount" class="smallnote">Original time range, maximum 120 existing frames per run; no decimation.</p>'+
   '<label class="extCheck"><input id="pfConfirmAlpha" type="checkbox"> I verified the ORIGINAL phase field represents the physical role chosen above for this material; names alone are insufficient.</label>'+
+  '<label class="extCheck"><input id="pfReconstruct" type="checkbox"> '+pfUi('Optional reconstructed iso-surface area (20 frames / 20k cells max; approximate, not physical interface validation)','Área reconstruida opcional de isosuperficie (máx. 20 tiempos / 20 mil celdas; aproximada, no validación física)')+'</label>'+
+  '<label class="extCheck"><input id="pfCellHistory" type="checkbox"> '+pfUi('Cell arrival / mushy residence (same fixed mesh and all selected source frames; linear estimates, not measured kinetics)','Llegada por celda / permanencia pastosa (misma malla fija y todos los tiempos seleccionados; estimaciones lineales, no cinética medida)')+'</label>'+
   '<div class="extActions"><button id="pfRefresh" class="btn soft" type="button">Refresh original source fields</button>'+
   '<button id="pfRun" class="btn primary" type="button">Measure source phases and front proxy</button>'+
   '<button id="pfCancel" class="btn soft" type="button" disabled>Cancel source analysis</button>'+
   '<button id="pfExport" class="btn soft" type="button" disabled>Export JSON</button>'+
-  '<button id="pfExportCsv" class="btn soft" type="button" disabled>Export CSV</button></div>'+
+  '<button id="pfExportCsv" class="btn soft" type="button" disabled>Export CSV</button><button id="pfExportComponents" class="btn soft" type="button" disabled>'+pfUi('Components CSV','CSV componentes')+'</button><button id="pfExportHistory" class="btn soft" type="button" disabled>'+pfUi('Cell history CSV','CSV historial por celda')+'</button></div>'+
   '<p id="pfStatus" class="smallnote" aria-live="polite"></p>'+
   '<canvas id="pfPlot" style="width:100%;height:230px" aria-label="Measured source phase volume fractions at original OpenFOAM physical times"></canvas>'+
   '<div id="pfResult"></div>';
   host.appendChild(el);
   pfEl('pfRefresh').onclick=()=>pfRefresh('cases');pfEl('pfRun').onclick=()=>void pfRun();
   pfEl('pfCancel').onclick=()=>pfInvalidate('Source analysis cancelled. No partial evidence exported.');
-  pfEl('pfExport').onclick=()=>pfExport('json');pfEl('pfExportCsv').onclick=()=>pfExport('csv');
+  pfEl('pfExport').onclick=()=>pfExport('json');pfEl('pfExportCsv').onclick=()=>pfExport('csv');pfEl('pfExportComponents').onclick=()=>pfExport('components');pfEl('pfExportHistory').onclick=()=>pfExport('history');
   for(const [id,scope] of [['pfCase','cases'],['pfRegion','field'],['pfAlpha','field']])
     pfEl(id).addEventListener('change',()=>pfRefresh(scope));
   pfEl('pfRole').addEventListener('change',()=>{
     pfEl('pfConfirmAlpha').checked=false;
     pfInvalidate('Original phase role changed; reconfirm its physical meaning before analysis.');
   });
-  for(const id of ['pfLow','pfHigh','pfIso','pfAxis','pfFrom','pfTo','pfConfirmAlpha'])
+  for(const id of ['pfLow','pfHigh','pfIso','pfAxis','pfFrom','pfTo','pfConfirmAlpha','pfReconstruct','pfCellHistory'])
     for(const type of ['input','change'])
       pfEl(id).addEventListener(type,
         ()=>pfInvalidate('Source parameters changed. Re-run before exporting physical evidence.'));
-  el.addEventListener('toggle',()=>{if(el.open)pfRefresh('cases')});
+  el.addEventListener('toggle',()=>{if(el.open){if(pfLast){pfPlot(pfLast);pfDrawHistorySlice()}else pfRefresh('cases')}});
+  window.addEventListener('resize',()=>{if(el.open&&pfLast){pfPlot(pfLast);pfDrawHistorySlice()}});
   try{if(typeof flApplyBilingualText==='function')flApplyBilingualText(el)}catch{}
   pfRefresh('cases')
 }

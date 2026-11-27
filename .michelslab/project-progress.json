@@ -3,17 +3,17 @@
   "project": "FoamLens",
   "repository": "michels-lab/FoamLens",
   "role": "application",
-  "as_of": "2026-11-25",
+  "as_of": "2026-11-27",
   "scope": "Ruta integral de aceptación y publicación final estable FoamLens: ciencia OpenFOAM, Field A-D, perfiles, CAD, experiencia transversal y Windows; rendimiento 3008 archivos excluido por decisión del propietario",
   "estimate_method": "equal_weight_verified_milestones",
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "v1.8.24 published and independently verified; G-C 4.1 WSL preflight candidate #383",
-  "source_pr": "https://github.com/michels-lab/FoamLens/pull/383",
-  "source_head_sha": "b88df9f67f260053848c960856df862b1525f267",
+  "phase": "Field UX owner priority: permanent 3D camera/navigation shelf and direct per-viewport HD PNG; thermal import campaign interrupted",
+  "source_pr": "https://github.com/michels-lab/FoamLens/pull/386",
+  "source_head_sha": "dc4e8a0975e5fd899a468a781e2ec5c91b7622a4",
   "latest_verified_stable": "v1.8.24",
-  "release_hold": false,
+  "release_hold": true,
   "owner_physical_acceptance": false,
   "milestones": [
     {
@@ -151,24 +151,38 @@
       ]
     }
   ],
-  "next_step": "Validate exact native/Windows CI for #383; add explicit distribution selection and staging evidence; resolve strict snappy 4.3; owner acceptance.",
-  "limitations": "Historical 8/15, V2 N/D. v1.8.24 official verified; physical acceptance pending; preflight candidate not published, strict snappy remains diagnostic-only.",
+  "next_step": "Verify actual Windows viewport visibility and PNG raster, including split/fullscreen and narrow layouts; resume experimental import and strict CAD integration.",
+  "limitations": "8/15 verified; V2 N/D. New buttons and HD render tested with JS adapter; native UI/PNG not verified. Scene-only PNG excludes DOM legends and axes; custom pixel dimensions limited by GPU capabilities. Experimental import attempt not committed, previous 4 MiB remains. Strict CAD unresolved; no release.",
   "last_granada": {
-    "as_of": "2026-11-25",
+    "as_of": "2026-11-27",
     "progress_before": 53,
     "progress_after": 53,
     "verified_milestones": 8,
     "total_milestones": 15,
-    "source_code_sha": "b88df9f67f260053848c960856df862b1525f267",
-    "scope": "Official stable v1.8.24 verified; start G-C 4.1 WSL preflight",
+    "source_code_sha": "dc4e8a0975e5fd899a468a781e2ec5c91b7622a4",
+    "scope": "User interruption prioritized persistent 3D camera/navigation tools, global and per-view HD photo, true GPU rerender and viewport restoration",
     "evidence": [
-      "https://github.com/michels-lab/FoamLens/commit/fb1aea5478588267a4d4eb914abfe1c4ee747686",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45586465969",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45586465447",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45737560786",
-      "https://github.com/michels-lab/FoamLens/actions/runs/45738655721"
+      "https://github.com/michels-lab/FoamLens/commit/4f496977e01f6bdd16da2af7a0b19570b4dca865",
+      "https://github.com/michels-lab/FoamLens/commit/dc4e8a0975e5fd899a468a781e2ec5c91b7622a4",
+      "https://github.com/michels-lab/FoamLens/actions/runs/46060055497",
+      "https://github.com/michels-lab/FoamLens/actions/runs/46060055763",
+      "https://github.com/michels-lab/FoamLens/actions/runs/46060055738",
+      "https://github.com/michels-lab/FoamLens/pull/386",
+      "https://github.com/michels-lab/FoamLens/releases/tag/v1.8.24"
     ],
-    "pending": "Validate exact native/Windows CI for #383; add explicit distribution selection and staging evidence; resolve strict snappy 4.3; owner acceptance."
+    "pending": "Verify actual Windows viewport visibility and PNG raster, including split/fullscreen and narrow layouts; resume experimental import and strict CAD integration.",
+    "backlog_before": {
+      "issues": 18,
+      "pull_requests": 8,
+      "drafts": 7,
+      "stacked": 5
+    },
+    "backlog_after": {
+      "issues": 18,
+      "pull_requests": 8,
+      "drafts": 7,
+      "stacked": 5
+    }
   },
   "roadmap_v2": {
     "document": "docs/IMPLEMENTATION_ROADMAP_V2_2026-11-24.md",
@@ -177,12 +191,13 @@
     "deliverables": 36,
     "progress_percent": null,
     "verified_deliverables": null,
-    "status": "baseline inventory pending; historical 8/15 unchanged",
-    "active_operation": "G-C",
+    "status": "baseline inventory pending; protected controls verified but strict snappy, native WSL and physical acceptance pending; historical 8/15 unchanged",
+    "active_operation": "G-E / G-F",
     "active_deliverables": [
-      "4.1",
-      "4.2",
-      "4.3"
+      "7.1",
+      "7.2",
+      "8.2",
+      "8.3"
     ],
     "deferred": [
       "2.1–2.3 until G-F",

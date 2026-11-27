@@ -145,3 +145,36 @@ for(const token of ["id='tcTools'","id=\"tcFile\"","id=\"tcCalculate\"","id=\"tc
 }
 for(const fixture of ['QuickCup','B12_','C12_','metalTop'])assert(!source.includes(fixture),'Thesis fixture leaked into general product: '+fixture);
 console.log('Granada #152 Thermocouple XYZ PASS: containment, Kelvin conversion, strict evidence, shifted overlap, mismatch rejection, mapped sensitivity.');
+
+{
+ const a=new Function(source.slice(p,q)+';return {temporal:tcTemporalEvidence,csv:tcWindowCsv}')();
+ const v=a.temporal([[0,300],[1,302],[2,300]],[[0,301],[2,301]],0,2);
+ near(v.metrics.biasK,0);near(v.metrics.maeK,.5);near(v.metrics.rmseK,Math.sqrt(1/3));near(v.metrics.maxAbsK,1);near(v.metrics.coolingRateMAEKPerS,2);
+ assert.deepEqual(v.rows.map(x=>x.timeS),[0,1,2]);assert.equal(v.rows[1].experimentTimeSource,'linear-time');assert.equal(v.rates[0].simulationCoolingKPerS,-2);assert.equal(v.rates[1].simulationCoolingKPerS,2);
+ assert(a.csv(v.rates,['fromTimeS','toTimeS','simulationCoolingKPerS']).includes('0,1,-2'));
+ const x=api.compare(sim,exp,{...config,startTimeS:.5,endTimeS:2});assert(x.valid,x.reason);near(x.temporal.metrics.durationS,1.5);near(x.temporal.metrics.rmseK,1);assert.equal(x.rows.length,2);assert.equal(x.temporal.rows[0].timeS,.5);
+ assert.equal(api.compare(sim,exp,{...config,startTimeS:2,endTimeS:1}).valid,false);
+ assert.equal(api.compare(sim,exp,{...config,startTimeS:'nan'}).valid,false);
+ assert.equal(api.compare(sim,exp,{...config,startTimeS:3}).valid,false);
+ const many=Array.from({length:103},(_,i)=>history('extra'+i,[Number((.21+i*.00001).toPrecision(8)),.3,.4]));
+ const z=api.sensitivity(sim,[sim,...many],exp,{...config,locateAlternative:xyz=>api.locate(mesh,xyz,contains,()=>[0])});
+ assert.equal(z.results.length,103);
+ const shorter=history('short',[.23,.3,.4],[0,1],[300,310]);
+ const zz=api.sensitivity(sim,[shorter],exp,{...config,locateAlternative:xyz=>api.locate(mesh,xyz,contains,()=>[0])});
+ assert.equal(zz.results[0].deltaRMSEK,null);
+ console.log('Thermocouple time integration, rate intervals, explicit windows, all alternative probes and comparability PASS')
+}
+
+{
+ const a=new Function(source.slice(p,q)+';return {levels:tcThresholds,events:tcThresholdEvidence}')();
+ assert.deepEqual(a.levels('310, 300; 305'),[300,305,310]);assert.deepEqual(a.levels(' '),[]);
+ for(const raw of ['300,300','-1','NaN','300,'])assert.throws(()=>a.levels(raw));
+ const v=a.events([[0,320],[2,300],[4,320],[5,310],[6,310],[7,300]],[[0,320],[2,300],[4,300],[7,300]],[310],.5,6);
+ const e=v.events.filter(x=>x.source==='simulation');
+ assert.equal(e.length,3);assert.equal(e[0].direction,'downward');near(e[0].estimatedTimeS,1);assert.equal(e[1].direction,'upward');near(e[1].estimatedTimeS,3);
+ assert.equal(e[2].status,'exact-source-plateau');assert.equal(e[2].direction,null);assert.equal(e[2].estimatedTimeS,null);assert.equal(e[2].bracketEndS,6);assert.equal(v.metallurgicalEventsVerified,false);
+ const event=api.compare(sim,exp,{...config,thresholdsK:'305',startTimeS:0,endTimeS:1.75});assert(event.valid,event.reason);assert.equal(event.thresholdEvidence.events.length,2);
+ assert.equal(api.compare(sim,exp,{...config,thresholdsK:'-10'}).valid,false);
+ assert(source.includes("tcEl('tcExportThresholds').onclick=()=>tcExport('thresholds')"));
+ console.log('User temperature levels and cooling plot contract PASS')
+}

@@ -67,3 +67,233 @@ assert.equal(advanced(bg,1,"","","1.2 .3 .1",true,3,true).explicitFeatures,true)
 assert.equal(advancedPlan.explicitFeatures,false);
 assert.throws(()=>advanced(bg,1,"","","1.2 .3 .1",false,3,true));
 console.log("Explicit sharp-edge recovery mode validation PASS");
+
+const uniform=new Function(src.slice(src.indexOf('function cmbUniformBackgroundPreview('),sa)+';return cmbUniformBackgroundPreview')();
+const ub=api.plan({...input,axes:['0\n0.01 4 1\n0.03 6 1',...input.axes.slice(1)],zones:''});
+const ucfg={minLevel:1,maxLevel:1,maxCells:200000},empty={boxes:[],surfaceSettings:[]};
+assert.deepEqual(uniform(ub,ucfg,empty),{factor:2,cells:1920,level:1});
+assert.throws(()=>uniform(bg,ucfg,empty));
+assert.throws(()=>uniform(ub,{...ucfg,maxLevel:2},empty));
+assert.throws(()=>uniform(ub,{...ucfg,maxCells:1919},empty));
+assert.throws(()=>uniform(ub,ucfg,{...empty,boxes:[{}]}));
+assert.throws(()=>uniform(ub,ucfg,{...empty,surfaceSettings:[{}]}));
+assert.throws(()=>uniform({...ub,cellCount:25001},ucfg,empty));
+assert.throws(()=>uniform(p,ucfg,empty));
+assert(src.includes('uniformBackground,surfaces:'));
+console.log('Uniform background alternative and strict limits PASS');
+
+const receipt=new Function(src.slice(src.indexOf('function cmbUniformBackgroundPreview('),src.indexOf('function cmbSnappySettings('))+';return cmbNativePlanReceipt')();
+const request={snappy:{...ucfg,...empty,uniformBackground:true}};
+const nativeReceipt={schema:'foamlens/native-snappy-mesh/1',originalCaseModified:false,stagingIsolated:true,plannedCells:1920,originalBackgroundCells:240,uniformBackgroundLevel:1,snappyDiagnosticOnly:true};
+assert.equal(receipt(ub,request,nativeReceipt),true);
+for(const mismatch of [{plannedCells:240},{originalBackgroundCells:239},{uniformBackgroundLevel:2},{snappyDiagnosticOnly:false},{stagingIsolated:false},{originalCaseModified:true}])assert.equal(receipt(ub,request,{...nativeReceipt,...mismatch}),false);
+assert.equal(receipt(ub,{snappy:{...request.snappy,uniformBackground:false}},{...nativeReceipt,plannedCells:240,originalBackgroundCells:null,uniformBackgroundLevel:null}),true);
+assert.equal(receipt(ub,{}, {schema:'foamlens/native-cartesian-mesh/1',originalCaseModified:false,stagingIsolated:true,plannedCells:240}),true);
+assert.equal(receipt(ub,{},{...nativeReceipt,plannedCells:240}),false);
+console.log('Uniform background receipt binds expanded count and original plan without certifying mesh quality PASS');
+
+const recovery=new Function(src.slice(src.indexOf('function cmbUniformBackgroundPreview('),src.indexOf('function cmbNativePlanReceipt('))+';return{estimate:cmbSnappyPlanEstimate,defects:cmbSnappyDefects}')();
+const estimate=recovery.estimate(ub,ucfg,false,false,false,true,true);
+assert.equal(estimate.baseCells,240);assert.equal(estimate.uniform.cells,1920);assert.equal(estimate.uniformSelected,false);assert.equal(estimate.explicitFeatures,true);
+assert.equal(recovery.estimate(ub,ucfg,true,false,false,true,true).uniform,null);
+assert.equal(recovery.estimate(ub,ucfg,false,true,false,true,true).uniform,null);
+assert.equal(recovery.estimate(ub,{...ucfg,maxCells:1919},false,false,true,true,true).uniform,null);
+assert.equal(recovery.estimate(ub,{...ucfg,maxLevel:2},false,false,false,true,true).uniform,null);
+const reject={generationUtility:'snappyHexMesh',qualityStatus:'checks-failed',checkMeshLog:' ***Concave cells (using face planes) found, number of cells: 144\nFailed 1 mesh checks.\nEnd\n'};
+assert.deepEqual(recovery.defects(reject),{concaveCells:144});
+assert.equal(recovery.defects({...reject,qualityStatus:'mesh-ok-reported'}),null);
+assert.equal(recovery.defects({...reject,generationUtility:'blockMesh'}),null);
+assert.deepEqual(recovery.defects({...reject,checkMeshLog:reject.checkMeshLog+reject.checkMeshLog}),{concaveCells:null});
+assert.deepEqual(recovery.defects({...reject,checkMeshLog:'Failed 1 mesh checks.'}),{concaveCells:null});
+assert(src.includes('id="cmbSnappyPlanEstimate"'));assert(src.includes('function buttons(){updateSnappyEstimate();'));
+console.log('Read-only recovery budget and native concavity evidence PASS');
+
+const uniformLayer={id:1,minLevel:1,maxLevel:1,layers:1};
+assert.deepEqual(uniform(ub,ucfg,{...empty,surfaceSettings:[uniformLayer],snapEnabled:true}),{factor:2,cells:1920,level:1});
+for(const surfaceSettings of [[{...uniformLayer,maxLevel:2}],[uniformLayer,uniformLayer],[{...uniformLayer,id:0}],[{...uniformLayer,layers:9}]])assert.throws(()=>uniform(ub,ucfg,{...empty,surfaceSettings,snapEnabled:true}));
+assert.throws(()=>uniform(ub,ucfg,{...empty,surfaceSettings:[uniformLayer],snapEnabled:false}));
+assert.equal(recovery.estimate(ub,ucfg,false,[uniformLayer],true,true,true).uniform.cells,1920);
+const layerRequest={snappy:{...request.snappy,surfaceSettings:[uniformLayer],snapEnabled:true}};
+assert.equal(receipt(ub,layerRequest,{...nativeReceipt,requestedSurfaceLayers:{flSurface_001:1}}),true);
+assert.equal(receipt(ub,layerRequest,nativeReceipt),false);
+for(const requestedSurfaceLayers of [{flSurface_001:2},{flSurface_002:1},{flSurface_001:1,flSurface_002:1},[]])assert.equal(receipt(ub,layerRequest,{...nativeReceipt,requestedSurfaceLayers}),false);
+console.log('Uniform matching surface layers and receipt compatibility PASS');
+
+assert.deepEqual(recovery.defects({...reject,checkMeshLog:'[truncated]',nativeConcaveCells:144}),{concaveCells:144});
+assert.deepEqual(recovery.defects({...reject,nativeConcaveCells:null}),{concaveCells:null});
+assert.deepEqual(recovery.defects({...reject,nativeConcaveCells:-1}),{concaveCells:null});
+assert.deepEqual(recovery.defects({...reject,checkMeshLog:reject.checkMeshLog+'[truncated]'}),{concaveCells:null});
+console.log('Full native defect evidence and exact requested layer receipt PASS');
+
+const finalLayerSummary=new Function(src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbLayerReceiptMatches('))+';return cmbFinalLayerSummary')();
+const zeroLayer={faces:96,averageLayers:0,thicknessM:0,thicknessPercent:0};
+const layerEvidence={requestedSurfaceLayers:{flSurface_001:1},finalSurfaceLayerEvidence:{flSurface_001:zeroLayer}};
+assert.deepEqual(finalLayerSummary(layerEvidence),[{name:'flSurface_001',target:1,...zeroLayer}]);
+assert.equal(finalLayerSummary({...layerEvidence,finalSurfaceLayerEvidence:null}),null);
+for(const bad of [{...zeroLayer,faces:0},{...zeroLayer,averageLayers:2},{...zeroLayer,thicknessM:NaN},{...zeroLayer,thicknessPercent:-1}])assert.equal(finalLayerSummary({...layerEvidence,finalSurfaceLayerEvidence:{flSurface_001:bad}}),null);
+assert.equal(finalLayerSummary({...layerEvidence,finalSurfaceLayerEvidence:{flSurface_002:zeroLayer}}),null);
+assert.equal(finalLayerSummary({}),null);
+console.log('Final native layer metrics: zero layers distinct from missing evidence, thickness not face coverage PASS');
+
+const recoveryLayer=new Function(src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbLayerReceiptMatches('))+';return cmbLayerRecoveryEvidence')();
+assert.deepEqual(recoveryLayer({...layerEvidence,layerPeakLowWeightFaces:48}),{zeroExtrusion:true,peakLowWeightFaces:48});
+assert.deepEqual(recoveryLayer({...layerEvidence,layerPeakLowWeightFaces:0}),{zeroExtrusion:true,peakLowWeightFaces:0});
+assert.deepEqual(recoveryLayer({...layerEvidence,layerPeakLowWeightFaces:-1}),{zeroExtrusion:true,peakLowWeightFaces:null});
+assert.equal(recoveryLayer({...layerEvidence,finalSurfaceLayerEvidence:null}),null);
+assert.deepEqual(recoveryLayer({...layerEvidence,finalSurfaceLayerEvidence:{flSurface_001:{...zeroLayer,averageLayers:.5}},layerPeakLowWeightFaces:12}),{zeroExtrusion:false,peakLowWeightFaces:12});
+console.log('Layer recovery distinguishes attempted defects from retained mesh and missing evidence PASS');
+
+{
+const bands=new Function(src.slice(a,b)+';return cmbConformalBands')();
+const unitInput={axes:['0\n1 8 1','0\n1 8 1','0\n1 8 1'],patches:input.patches,zones:''};
+const bounds=[{min:[.25,.25,.25],max:[.75,.75,.75]}];
+const v=bands(unitInput,bounds,.125,.25,0);
+assert.deepEqual(v.plan.axes.map(q=>q.points),Array(3).fill([0,.25,.75,1]));
+assert.deepEqual(v.plan.axes.map(q=>q.counts),Array(3).fill([1,4,1]));
+assert.equal(v.plan.cellCount,216);assert.equal(v.plan.blocks.length,27);assert.equal(v.previousCells,512);
+assert.equal(v.plan.meshGenerated,false);assert.equal(api.nativePayload(v.plan,'14').zones.length,0);
+assert.equal(unitInput.axes[0],'0\n1 8 1');
+assert.throws(()=>bands({...unitInput,zones:'0 0 0 metal'},bounds,.125,.25,0));
+assert.throws(()=>bands(unitInput,bounds,.25,.125,0));
+assert.throws(()=>bands(unitInput,[{min:[0,.25,.25],max:[.75,.75,.75]}],.125,.25,0));
+assert.throws(()=>bands(unitInput,bounds,.125,.25,-1));
+assert(bands(unitInput,bounds,.125,.25,.125).plan.cellCount>216);
+console.log('Conformal CAD bands: shared planes, editable resolution, original plan untouched PASS');
+}
+
+{
+const bandFn=new Function(src.slice(a,b)+';return cmbConformalBands')();
+const original={axes:['0\n1 8 1','0\n1 8 1','0\n1 8 1'],patches:input.patches,zones:''};
+const geom=[{min:[.25,.25,.25],max:[.75,.75,.75]}];
+const protectedPlan=bandFn(original,geom,.0625,.25,0,true);
+assert.deepEqual(protectedPlan.plan.axes.map(q=>q.counts),Array(3).fill([2,8,2]));
+assert.equal(protectedPlan.plan.cellCount,1728);assert.equal(protectedPlan.clearanceAdjustments.length,6);
+assert.equal(bandFn(original,geom,.0625,.25,0,false).plan.cellCount,1000);
+const already=bandFn(original,geom,.0625,.125,0,true);
+assert.equal(already.clearanceAdjustments.length,0);assert.equal(already.plan.cellCount,1728);
+const padded=bandFn(original,geom,.0625,.25,.125,true);
+assert.equal(padded.clearanceAdjustments.length,0);
+assert.throws(()=>bandFn(original,geom,.0625,.25,0,'yes'));
+console.log('Conformal CAD exterior clearance protection and explicit opt-out PASS');
+}
+
+{
+const gapBands=new Function(src.slice(a,b)+';return cmbConformalBands')();
+const baseInput={axes:['0\n1 8 1','0\n1 8 1','0\n1 8 1'],patches:input.patches,zones:''};
+const parts=[{min:[.125,.125,.125],max:[.375,.375,.375]},{min:[.625,.625,.625],max:[.875,.875,.875]}];
+const v=gapBands(baseInput,parts,.0625,.25,0,true,true);
+assert.deepEqual(v.plan.axes.map(q=>q.counts),Array(3).fill([2,4,2,4,2]));
+assert.equal(v.plan.cellCount,2744);assert.equal(v.clearanceAdjustments.filter(q=>q.side==='projected-gap').length,3);
+assert.deepEqual(v.clearanceAdjustments.filter(q=>q.side==='projected-gap').map(q=>[q.min,q.max]),Array(3).fill([.375,.625]));
+assert.equal(gapBands(baseInput,parts,.0625,.25,0,true,false).plan.cellCount,2197);
+assert.equal(gapBands(baseInput,parts,.0625,.125,0,true,true).clearanceAdjustments.filter(q=>q.side==='projected-gap').length,0);
+const touching=[parts[0],{min:[.375,.375,.375],max:[.625,.625,.625]}];
+const intersecting=[parts[0],{min:[.25,.25,.25],max:[.625,.625,.625]}];
+for(const bds of [touching,intersecting,[parts[0],parts[0]]])assert.equal(gapBands(baseInput,bds,.0625,.25,0,true,true).clearanceAdjustments.filter(q=>q.side==='projected-gap').length,0);
+assert.throws(()=>gapBands(baseInput,parts,.0625,.25,0,true,'yes'));
+console.log('Projected CAD gap protection: disjoint, touching and overlapping extents PASS');
+}
+
+{
+const spacingCore=new Function(src.slice(a,b)+';return {spacing:cmbBandSpacing,bands:cmbConformalBands}')();
+const originalCounts=[1,8,1],points=[0,.25,.75,1];
+const raw=spacingCore.spacing(points,originalCounts);
+assert.equal(raw.beforeRatio,4);assert.equal(raw.afterRatio,4);assert.deepEqual(raw.counts,originalCounts);
+const smoothed=spacingCore.spacing(points,originalCounts,2);
+assert.deepEqual(smoothed.counts,[2,8,2]);assert.equal(smoothed.beforeRatio,4);assert.equal(smoothed.afterRatio,2);
+assert.equal(smoothed.minWidth,.0625);assert.equal(smoothed.maxWidth,.125);
+assert.deepEqual(originalCounts,[1,8,1]);assert.equal(smoothed.changes.length,2);
+const chain=spacingCore.spacing([0,1,2,3,4],[1,1,1,16],2);
+assert.deepEqual(chain.counts,[2,4,8,16]);assert.equal(chain.afterRatio,2);
+const reverse=spacingCore.spacing([0,1,2,3,4],[16,1,1,1],2);
+assert.deepEqual(reverse.counts,[16,8,4,2]);
+assert.throws(()=>spacingCore.spacing(points,originalCounts,1));
+assert.throws(()=>spacingCore.spacing(points,originalCounts,Infinity));
+assert.throws(()=>spacingCore.spacing([0,1,1.000001],[1,1],2));
+const fixture={axes:['0\n1 8 1','0\n1 8 1','0\n1 8 1'],patches:input.patches,zones:''};
+const bounds=[{min:[.25,.25,.25],max:[.75,.75,.75]}];
+const v=spacingCore.bands(fixture,bounds,.0625,.25,0,false,false,2);
+assert.equal(v.plan.cellCount,1728);
+assert.deepEqual(v.plan.axes.map(q=>q.points),Array(3).fill(points));
+assert(v.spacingDiagnostics.every(q=>q.afterRatio<=2*(1+1e-12)));
+assert.equal(v.plan.meshGenerated,false);
+assert.equal(spacingCore.bands(fixture,bounds,.0625,.25,0,false,false).plan.cellCount,1000);
+console.log('Conformal band spacing: monotone refinement, ratio propagation, exact CAD planes, explicit budget PASS');
+}
+
+{
+const cmp=new Function(src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbSnappySettings('))+';return {snapshot:cmbExperimentSnapshot,compare:cmbCompareExperiments}')();
+const payload={axes:[{points:[0,1],counts:[8],grading:[1]},{points:[0,1],counts:[8],grading:[1]},{points:[0,1],counts:[8],grading:[1]}],patches:input.patches,snappy:{inside:[.1,.1,.1],surfaces:[{stlBase64:'large'}],minLevel:0,maxLevel:0}};
+const report={schema:'foamlens/native-snappy-mesh/1',stagingIsolated:true,originalCaseModified:false,version:'14',distribution:'Ubuntu',plannedCells:1728,nativeFinalCells:1216,qualityStatus:'mesh-ok-reported',stagingInputs:[{path:'constant/geometry/surface_001.stl',bytes:684,sha256:'a'.repeat(64)}],files:{'constant/polyMesh/points':'large'}};
+const x=cmp.snapshot(report,payload),y=cmp.snapshot({...report,plannedCells:4096,nativeFinalCells:3584,qualityStatus:'checks-failed',nativeConcaveCells:144},payload);
+assert.equal(x.finalCells,1216);assert.equal(x.concaveCells,null);assert.equal(x.qualityCertified,false);
+assert(!JSON.stringify(x).includes('large'));assert.equal(x.source[0].bytes,684);
+const q=cmp.compare(x,y);assert.equal(q.sameSource,true);assert.equal(q.sameContext,true);assert.equal(q.plannedDelta,2368);assert.equal(q.finalDelta,2368);assert.equal(q.concaveDelta,null);
+assert.equal(cmp.compare(x,{...y,version:'13'}).finalDelta,null);
+assert.equal(cmp.compare(x,{...y,settings:{...y.settings,inside:[.2,.1,.1]}}).sameContext,false);
+assert.equal(cmp.compare(x,{...y,source:[{...y.source[0],sha256:'b'.repeat(64)}]}).sameSource,false);
+assert.equal(cmp.compare(x,{...y,source:null}).sameSource,null);
+assert.equal(cmp.snapshot({...report,stagingInputs:[...report.stagingInputs,...report.stagingInputs]},payload).source,null);
+assert.equal(cmp.snapshot({...report,nativeFinalCells:0},payload).finalCells,null);
+assert.equal(cmp.snapshot({...report,originalCaseModified:true},payload),null);
+assert.equal(cmp.compare(x,null),null);
+payload.snappy.inside[0]=.5;assert.equal(x.settings.inside[0],.1);
+console.log('Compact native A/B receipts: exact CAD identity, recorded context, final cells, no retained mesh bytes PASS');
+}
+
+{
+const qapi=new Function(src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbSnappySettings('))+';return {summary:cmbQualitySummary,snapshot:cmbExperimentSnapshot,compare:cmbCompareExperiments}')();
+const quality={maxAspectRatio:2,maxNonOrthogonalityDeg:0,meanNonOrthogonalityDeg:0,maxSkewness:0,minDeterminant:0,minFaceWeight:1/3,minFaceVolumeRatio:.5,concaveCells:0,underdeterminedCells:96};
+assert.deepEqual(qapi.summary({nativeFinalCells:152,nativeQualitySummary:quality}),quality);
+assert.deepEqual(qapi.summary({nativeFinalCells:152,nativeQualitySummary:{concaveCells:0,underdeterminedCells:153,maxSkewness:NaN,unknown:7}}),{concaveCells:0});
+assert.equal(qapi.summary({nativeQualitySummary:{concaveCells:0}}),null);
+assert.equal(qapi.summary({nativeFinalCells:152}),null);
+const a={version:'14',distribution:'Ubuntu',source:[{sha256:'a'}],domain:[[0,1]],patches:['wall'],settings:{inside:[.1,.1,.1]},qualitySummary:quality};
+const b={...a,qualitySummary:{minDeterminant:.5,maxNonOrthogonalityDeg:10,concaveCells:2}};
+assert.deepEqual(qapi.compare(a,b).metricDeltas,{maxNonOrthogonalityDeg:10,minDeterminant:.5,concaveCells:2});
+assert.deepEqual(qapi.compare(a,{...b,version:'13'}).metricDeltas,{});
+assert.deepEqual(qapi.compare(a,{...b,qualitySummary:null}).metricDeltas,{});
+console.log('Native quality summary preserves real zeros, incomplete data and comparable metric deltas PASS');
+}
+
+{
+const core=src.slice(a,b),extra=src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbMount()'));
+const ex=new Function(core+'\n'+extra+';return {import:cmbImportExperiment,config:cmbExperimentConfig,rows:cmbExperimentRows,changes:cmbExperimentChanges,csv:cmbExperimentCsv}')();
+const axis={points:[0,.25,.75,1],counts:[2,8,2],grading:[1,1,1]},settings={inside:[.11,.11,.11],minLevel:0,maxLevel:0,maxCells:20000,boxes:[],surfaceSettings:[],layerSettings:{expansionRatio:1.2,finalLayerThickness:.3,minThickness:.1},snapEnabled:false,transitionLayers:2,explicitFeatures:false,uniformBackground:false};
+const e={schema:'foamlens/snappy-experiment/1',version:'14',distribution:'Ubuntu',domain:Array(3).fill([0,1]),patches:input.patches,axes:Array(3).fill(axis),settings,source:[{path:'constant/geometry/surface_001.stl',bytes:684,sha256:'a'.repeat(64)}],plannedCells:1728,finalCells:1216,quality:'mesh-ok-reported',generationExit:0,checkMeshExit:0,concaveCells:0,qualitySummary:{concaveCells:0,maxSkewness:0},layers:null,qualityCertified:false,diagnosticOnly:true};
+const imp=ex.import(JSON.parse(JSON.stringify(e)));
+assert.equal(imp.importedRecord,true);assert.equal(imp.concaveCells,0);assert.equal(ex.config(imp).plan.cellCount,1728);
+assert.deepEqual(ex.config(imp).plan.axes[0],axis);
+assert.equal(ex.import({...e,source:null}).source,null);
+for(const bad of [{...e,qualityCertified:true},{...e,plannedCells:1},{...e,domain:[[1,2],[0,1],[0,1]]},{...e,concaveCells:1217},{...e,qualitySummary:{concaveCells:1}},{...e,settings:{...settings,inside:[2,0,0]}},{...e,settings:{...settings,unknown:true}},{...e,source:[{...e.source[0],sha256:'bad'}]},{...e,axes:[axis]},{...e,patches:['a','a','b','c','d','e']}])assert.throws(()=>ex.import(bad));
+const next={...imp,finalCells:1000,concaveCells:10,qualitySummary:{concaveCells:10,maxSkewness:.25,underdeterminedCells:5},settings:{...imp.settings,transitionLayers:3}};
+const rows=ex.rows(imp,next);
+assert.equal(rows.find(v=>v.metric==='concaveFraction').delta,.01);
+assert.equal(rows.find(v=>v.metric==='underdeterminedFraction').A,null);
+assert.equal(rows.find(v=>v.metric==='underdeterminedFraction').B,.005);
+assert.equal(rows.find(v=>v.metric==='underdeterminedFraction').delta,null);
+assert.equal(ex.rows(imp,{...next,source:null}).find(v=>v.metric==='maxSkewness').delta,null);
+assert.deepEqual(ex.changes(imp,next).map(v=>v.parameter),['transitionLayers']);
+assert(ex.csv(rows).includes('"concaveFraction","1",0,0.01,0.01'));
+assert(ex.csv(rows).includes('"underdeterminedFraction","1",,0.005,'));
+console.log('Experiment workflow: portable validated import, exact plan restore, change detection, normalized metrics and CSV PASS');
+}
+
+{
+const ex=new Function(src.slice(a,b)+'\n'+src.slice(src.indexOf('function cmbUniformBackgroundPreview('),src.indexOf('function cmbMount()'))+';return {import:cmbImportExperimentFile,export:cmbExperimentExportEntries}')();
+const axis={points:[0,1],counts:[8],grading:[1]},settings={inside:[.11,.11,.11],minLevel:1,maxLevel:1,maxCells:20000,boxes:[],surfaceSettings:[],layerSettings:{expansionRatio:1.2,finalLayerThickness:.3,minThickness:.1},snapEnabled:true,transitionLayers:3,explicitFeatures:true,uniformBackground:true};
+const e={schema:'foamlens/snappy-experiment/1',version:'14',distribution:'Ubuntu',domain:Array(3).fill([0,1]),patches:input.patches,axes:Array(3).fill(axis),settings,source:[{path:'constant/geometry/surface_001.stl',bytes:684,sha256:'a'.repeat(64)}],plannedCells:4096,finalCells:3584,quality:'mesh-ok-reported',generationExit:0,checkMeshExit:0,concaveCells:0,qualitySummary:{concaveCells:0},layers:null,qualityCertified:false,diagnosticOnly:true};
+const single=ex.export(e,null);
+assert.deepEqual(single.map(v=>v.name),['experiment-A.json','metrics.csv','README.txt']);
+assert.equal(ex.import(JSON.parse(single[0].data),'A').A.plannedCells,4096);
+assert.equal(ex.import(JSON.parse(single[0].data),'B').B.importedRecord,true);
+const both=ex.export(e,e),raw=JSON.parse(both.find(v=>v.name==='comparison.json').data);
+assert.equal(raw.comparison.finalDelta,0);
+const restored=ex.import({...raw,comparison:{finalDelta:999}},'both');
+assert.equal(restored.A.plannedCells,4096);assert.equal(restored.B.finalCells,3584);
+assert.throws(()=>ex.import({...raw,B:{...e,plannedCells:1}},'both'));
+assert.throws(()=>ex.import(e,'both'));assert.throws(()=>ex.import(e,'C'));
+assert.throws(()=>ex.export(null,null));
+assert.throws(()=>ex.import({...e,settings:{...settings,uniformBackground:false}},'A'));
+console.log('Experiment archive: single and atomic pair import/export, uniform background, recomputation PASS');
+}

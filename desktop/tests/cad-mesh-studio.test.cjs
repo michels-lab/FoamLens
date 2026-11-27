@@ -215,3 +215,21 @@ assert.equal(ms.overlayMatches(overlayInfo,overlayInfo,{sync:{interpolated:true}
 assert.equal(ms.overlayMatches(overlayInfo,overlayInfo,{},false),false);
 assert.throws(()=>ms.overlayPoints([{id:0,x:NaN,y:0,z:0}]));
 console.log('Exact source ROI overlays, camera projection and capped marker sampling PASS');
+
+{
+const refinementFixture={generationUtility:'snappyHexMesh',refinementLevelStatus:'captured',files:{'constant/polyMesh/cellLevel':head('cellLevel','labelList')+'2(0 1)'}};
+const refinementOverlap=ms.generatedRefinement(refinementFixture,null,two,[{name:'concaveCells',kind:'cellSet',values:[0]}]);
+assert.deepEqual(refinementOverlap.levels,{0:1,1:1});assert.equal(refinementOverlap.transitionFaces,1);assert.equal(refinementOverlap.transitionCells,2);
+assert.equal(refinementOverlap.concaveAtTransition,1);assert.equal(refinementOverlap.concaveCells,1);
+assert.deepEqual(refinementOverlap.sets.find(v=>v.name==='FoamLens_coarseTransitionCells').values,[0]);
+assert.deepEqual(refinementOverlap.sets.find(v=>v.name==='FoamLens_fineTransitionCells').values,[1]);
+assert.deepEqual(refinementOverlap.sets.find(v=>v.name==='FoamLens_transitionFaces').values,[0]);
+assert(refinementOverlap.sets.every(v=>v.derived===true));
+assert.equal(ms.generatedRefinement(refinementFixture,null,two).concaveAtTransition,null);
+assert.equal(ms.generatedRefinement(refinementFixture,'metal',two),null);
+assert.equal(ms.generatedRefinement({...refinementFixture,refinementLevelStatus:'unavailable'},null,two),null);
+const sameLevel=ms.generatedRefinement({...refinementFixture,files:{'constant/polyMesh/cellLevel':head('cellLevel','labelList')+'2{0}'}},null,two);
+assert.equal(sameLevel.transitionCells,0);assert.deepEqual(sameLevel.sets,[]);
+for(const invalid of ['1(0)','2(0 -1)','2(0 1) trailing'])assert.throws(()=>ms.generatedRefinement({...refinementFixture,files:{'constant/polyMesh/cellLevel':head('cellLevel','labelList')+invalid}},null,two));
+console.log('Native refinement interface topology and concavity overlap PASS');
+}

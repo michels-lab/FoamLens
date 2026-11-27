@@ -118,3 +118,92 @@ for(const t of ["pfGeomCache=new WeakMap()","pfRuntimeMeshIdentity(mesh)","pfEl(
 }
 for(const t of ['QuickCup','B14','C14','metalTop','estimatedNucleation'])assert(!source.includes(t),'Thesis-specific fixture leaked '+t);
 console.log('Granada #153 PASS: cube volumes, unequal cell weighting, exact internal-face area, thresholds, invalid topology/alpha and safe front displacement.');
+
+// Two parallel interfaces separated by a cell are distinct edge components.
+const m4=cubeMesh([0,1,2,3,4]),g4=api.geometry(m4);
+const two=api.snapshot(m4,g4,[0,1,1,0],setup(0,{meshIdentity:9}));
+assert(two.ok);assert.equal(two.front.connectivity.count,2);
+assert.equal(two.front.connectivity.components[0].faceCount,1);
+near(two.front.connectivity.components[0].axisMinM,1);
+near(two.front.connectivity.components[1].axisMaxM,3);
+near(two.front.connectivity.components.reduce((sum,g)=>sum+g.areaProxyM2,0),two.front.areaProxyM2);
+assert.equal(two.front.connectivity.temporalIdentityVerified,false);
+const one=api.snapshot(m4,g4,[0,0,1,1],setup(2,{meshIdentity:9}));
+const change=api.evolution([two,one],[0,2]);
+assert.equal(change.rows[1].frontConnectivityChange,'component-count-changed');
+assert.equal(change.rows[1].singleConnectedCentroidContext,false);
+near(change.rows[1].phaseVolumeRateM3PerS.solid,0);
+const changedIso=api.snapshot(m4,g4,[0,0,1,1],setup(2,{meshIdentity:9,iso:0.7}));
+assert.equal(api.evolution([two,changedIso],[0,2]).rows[1].phaseVolumeRateM3PerS,null);
+assert.equal(api.evolution([two,changedIso],[0,2]).rows[1].frontCentroidVelocityProxyMPerS,null);
+assert.equal(api.evolution([two,one],[0,1,2]).rows[1].phaseVolumeRateM3PerS,null);
+assert.equal(b1.front.connectivity.count,0);
+const components=new Function(source.slice(first,last)+';return pfConnectedCrossingFaces')();
+const edgeMesh={faceOffsets:[0,4,8,12],facePoints:[0,1,2,3,1,4,5,2,5,6,7,8],points:[0,0,0,1,0,0,1,1,0,0,1,0,2,0,0,2,1,0,3,1,0,3,2,0,2,2,0]};
+const edgeGeo={faceAreas:[1,1,1],faceCentroids:[.5,.5,0,1.5,.5,0,2.5,1.5,0]};
+const grouped=components(edgeMesh,edgeGeo,[0,1,2],0);
+assert.equal(grouped.count,2,'vertex-only touch is not a shared edge');
+assert.equal(grouped.components[0].faceCount,2);near(grouped.components[0].areaProxyM2,2);near(grouped.components[0].centroidM[0],1);
+assert.equal(components(edgeMesh,edgeGeo,new Array(100001).fill(0),0).status,'unavailable-limit');
+assert(source.includes("'pfExport','pfExportCsv','pfExportComponents','pfCancel'"));
+assert(source.includes("pfExport('components')"));
+console.log('Granada #153 edge connectivity and phase category volume-rate regression PASS');
+
+const reconstructed=new Function(source.slice(first,last)+';return pfReconstructedMetrics')();
+const tri=reconstructed({triangleCount:1,positions:new Float32Array([0,0,0,2,0,0,0,2,0])});
+assert.equal(tri.status,'available');near(tri.areaM2,2);near(tri.centroidM[0],2/3);near(tri.centroidM[1],2/3);
+assert.equal(tri.physicalInterfaceVerified,false);
+assert.equal(reconstructed({triangleCount:0,positions:[]}).status,'no-triangles');
+assert.equal(reconstructed({triangleCount:1,positions:[0,0,0,1,0,0,2,0,0]}).status,'unavailable');
+assert.equal(reconstructed({triangleCount:1,positions:[0,0,0,1,0,0,NaN,1,0]}).status,'unavailable');
+assert.equal(reconstructed({triangleCount:1,positions:[0,0,0]}).status,'unavailable');
+assert(source.includes('fvBuildIsoSurfaceGeometry(mesh,values,cut)'));
+assert(source.includes('params.reconstruct!==b.reconstruct'));
+assert(source.includes('Exact threshold cell value; plateau ambiguity'));
+assert(source.includes('reconstruct&&times.length>20'));
+console.log('Optional reconstructed surface metrics, invalid triangle and source-binding checks PASS');
+
+{
+const hapi=new Function(source.slice(first,last)+';return {history:pfCellHistory,csv:pfCellHistoryCsv}')();
+const m=cubeMesh([0,1,3,6]),g=api.geometry(m),times=[0,2,5,6],config={low:.2,high:.8,iso:.5,role:'liquidFraction'};
+const frames=[[1,0,1],[.4,.6,.9],[.1,.4,.8],[.7,.3,.7]];
+const h=hapi.history(times,m,g,config);frames.forEach((v,i)=>h.push(times[i],m,v));const result=h.finish(),q=result.summary;
+assert.equal(q.categories.initialBelow.cells,1);near(q.categories.initialBelow.volumeM3,2);
+assert.equal(q.categories.observedArrival.cells,1);near(q.categories.observedArrival.volumeM3,1);
+assert.equal(q.categories.notReached.cells,1);near(q.categories.notReached.volumeM3,3);
+assert.equal(q.categories.upwardRecrossing.cells,2);near(q.categories.upwardRecrossing.volumeM3,3);
+near(result.firstDown[0],5/3);assert.equal(result.bracketLo[0],0);assert.equal(result.bracketHi[0],2);
+assert(Number.isNaN(result.firstDown[1]));assert(Number.isNaN(result.firstDown[2]));
+near(result.mushy[0],(2*2/3)+2+5/6);near(result.mushy[1],4+4/3);near(result.mushy[2],1);
+near(q.volumeWeightedArrivalEstimateS,5/3);
+near(q.volumeWeightedMushyDurationEstimateS,(result.mushy[0]+2*result.mushy[1]+3*result.mushy[2])/6);
+assert.equal(q.intervals[0].firstArrivalCells,1);assert.equal(q.intervals[1].firstArrivalCells,0);assert.equal(q.physicalKineticsVerified,false);
+const chunks=[...hapi.csv(result,1)];assert.equal(chunks.length,4);assert(chunks[1].includes('observed-bracket,0,2,'));
+assert(chunks[2].includes('initial-below-left-censored,,,,'));assert(chunks[3].includes('not-reached-in-window,,,,'));
+const hs=hapi.history(times,m,g,{...config,role:'solidFraction'});frames.forEach((v,i)=>hs.push(times[i],m,v.map(a=>1-a)));const ss=hs.finish();near(ss.firstDown[0],result.firstDown[0]);near(ss.mushy[0],result.mushy[0]);
+const incomplete=hapi.history(times,m,g,config);incomplete.push(0,m,frames[0]);assert.throws(()=>incomplete.push(5,m,frames[2]));assert.throws(()=>incomplete.finish());
+const changed=hapi.history(times,m,g,config);assert.throws(()=>changed.push(0,{...m},frames[0]));assert.throws(()=>changed.push(0,m,[1,0,NaN]));
+assert.throws(()=>hapi.history([0,0],m,g,config));assert.throws(()=>hapi.history([0,1],{...m,dynamicMesh:true},g,config));assert.throws(()=>hapi.history([0,1],m,g,{...config,low:.8}));
+const plateau=hapi.history([0,1,3],m,g,config);plateau.push(0,m,[.5,.2,.8]);plateau.push(1,m,[.5,.2,.8]);plateau.push(3,m,[.5,.2,.8]);const pl=plateau.finish();near(pl.mushy[0],3);near(pl.mushy[1],0);near(pl.mushy[2],3);assert.equal(pl.summary.categories.observedArrival.cells,0);
+assert(source.includes('params.cellHistory!==b.cellHistory'));assert(source.includes("historyFailure='Missing original frame at '"));
+console.log('Cell history: fixed mesh, first arrival bracket, volume weighting, censoring, recrossings, mushy dwell, source-role normalization, complete CSV PASS');
+}
+
+{
+const hapi=new Function(source.slice(first,last)+';return {history:pfCellHistory,slice:pfHistorySlice,csv:pfHistorySliceCsv}')();
+const m=cubeMesh([0,1,3,6]),g=api.geometry(m),h=hapi.history([0,2],m,g,{low:.2,high:.8,iso:.5,role:'liquidFraction'});
+h.push(0,m,[1,0,1]);h.push(2,m,[.4,.6,.9]);const result=h.finish();
+const full=hapi.slice(result,{axis:'z',from:0,to:1,metric:'arrival',bins:8});
+assert.equal(full.selectedCells,3);assert.equal(full.eligibleCells,1);near(full.selectedVolumeM3,6);near(full.eligibleVolumeM3,1);near(full.range[0],5/3);
+assert.equal(full.counts.reduce((a,b)=>a+b,0),3);assert.equal(full.validCounts.reduce((a,b)=>a+b,0),1);
+const partial=hapi.slice(result,{axis:'x',from:0,to:2,metric:'mushy',bins:8});
+assert.equal(partial.selectedCells,2);near(partial.selectedVolumeM3,3);assert.equal(partial.eligibleCells,2);near(partial.range[0],4/3);
+const empty=hapi.slice(result,{axis:'x',from:0,to:.1,metric:'upward',bins:8});assert.equal(empty.selectedCells,0);assert.equal(empty.range,null);
+assert.throws(()=>hapi.slice(result,{axis:'z',from:2,to:1,metric:'arrival',bins:8}));
+assert.throws(()=>hapi.slice(result,{axis:'z',from:0,to:1,metric:'unknown',bins:8}));
+assert.throws(()=>hapi.slice(result,{axis:'z',from:0,to:1,metric:'arrival',bins:512}));
+const csv=hapi.csv(full);assert(csv.includes('eligible_volume_m3,volume_weighted_mean,unit'));assert(csv.split('\n').some(x=>x.endsWith(',0,,s')));
+assert(source.includes("pfEl('pfHistorySliceExport').onclick=()=>pfExport('slice')"));
+assert(source.includes('if(pfLast){pfPlot(pfLast);pfDrawHistorySlice()}'));
+console.log('Cell history slab: exact cell-center selection, weighted bins, missing coverage and CSV PASS');
+}

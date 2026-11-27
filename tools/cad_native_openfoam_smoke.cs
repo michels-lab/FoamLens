@@ -17,8 +17,8 @@ Directory.CreateDirectory(output);
 if(suite!="snappy"){
     var probe=await NativeCadSurfaceCheck.RunProcessAsync("/bin/bash",output,new[]{"-lc",NativeCartesianMesh.ProbeScript(),"foamlens-wsl-probe","unused",version},TimeSpan.FromSeconds(30),CancellationToken.None);
     File.WriteAllText(Path.Combine(output,"environment-preflight.log"),probe.Stdout+"\n"+probe.Stderr);
-    var lines=probe.Stdout.Split('\n',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries);
-    if(probe.ExitCode!=0||probe.Truncated||!lines.Contains("project=OpenFOAM")||!lines.Contains("version="+version)||new[]{"blockMesh","checkMesh","gmshToFoam","splitMeshRegions","timeout"}.Any(t=>!lines.Contains(t+"=available")))throw new InvalidOperationException("Foundation environment preflight failed.");
+    var parsed=NativeCartesianMesh.ParsePreflight(probe,version);
+    NativeCartesianMesh.RequireTools(parsed,"blockMesh",true);NativeCartesianMesh.RequireTools(parsed,"gmshToFoam",true);NativeCartesianMesh.RequireTools(parsed,"surfaceCheck");
     if(Directory.Exists(Path.Combine(output,"constant"))||Directory.Exists(Path.Combine(output,"system")))throw new InvalidOperationException("Preflight wrote case staging directories.");
     Console.WriteLine("PASS native Foundation environment preflight "+version);
 }
@@ -29,6 +29,8 @@ var zones=new[]{new{ijk=new[]{0,0,0},name="metal"},new{ijk=new[]{1,0,0},name="mo
 const string control="FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }\napplication blockMesh; startFrom startTime; startTime 0; stopAt endTime; endTime 1; deltaT 1; writeControl timeStep; writeInterval 1; writeFormat ascii; writePrecision 12; writeCompression off; timeFormat general; timePrecision 6; runTimeModifiable false;\n";
 async Task<string> Run(string name, string utility, bool split, JsonElement input)
 {
+    var background=utility=="snappyHexMesh"?NativeCartesianMesh.PrepareSnappyBackground(input):(Input:input,UniformLevel:(int?)null,OriginalCells:(long?)null);
+    input=background.Input;
     var dir=Path.Combine(output,name);
     Directory.CreateDirectory(Path.Combine(dir,"system"));Directory.CreateDirectory(Path.Combine(dir,"constant"));
     File.WriteAllText(Path.Combine(dir,"system","controlDict"),control);
@@ -84,7 +86,9 @@ int Cells(string dir,string? region=null)
 void CheckLog(string dir,string file)
 {
     string log=File.ReadAllText(Path.Combine(dir,file));
-    if(!log.Contains("Mesh OK.",StringComparison.Ordinal)||log.Contains("Failed ",StringComparison.Ordinal)){
+    var exitPath=Path.Combine(dir,Path.ChangeExtension(file,".exit"));
+    int? code=File.Exists(exitPath)&&int.TryParse(File.ReadAllText(exitPath).Trim(),out var parsed)?parsed:null;
+    if(NativeCartesianMesh.QualityStatus(code,log)!="mesh-ok-reported"||log.Contains("Failed ",StringComparison.Ordinal)){
         Console.Error.WriteLine("=== quality evidence "+dir+"/"+file+" ===\n"+log);
         throw new InvalidOperationException("Mesh quality check did not report Mesh OK: "+file);
     }
@@ -165,6 +169,18 @@ if(suite!="core")await Scenario("snappy-aligned-control",async()=>{
     CheckLog(dir,"checkMesh.log");
     return new{cells,quality="Mesh OK",snap=false,refinement=0};
 });
+// Strict alternate path: same level-one near-surface cell size but
+// uniformly refined background, no octree transition. Original strict
+// cases remain in the suite; an alternate pass cannot hide their failure.
+if(suite!="core")await Scenario("snappy-uniform-background",async()=>{
+    var cfg=JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,uniformBackground=true,snapEnabled=false,stlBase64=Convert.ToBase64String(stream.ToArray())}});
+    var prepared=NativeCartesianMesh.PrepareSnappyBackground(cfg);
+    if(prepared.UniformLevel!=1||prepared.OriginalCells!=512||NativeCartesianMesh.Build(prepared.Input).Cells!=4096)throw new InvalidOperationException("Uniform background accounting failed");
+    var dir=await Run("snappy-uniform-background","snappyHexMesh",false,cfg);
+    int cells=Cells(dir);if(cells!=3584)throw new InvalidOperationException("Expected 3584 aligned external cells, got "+cells);
+    CheckLog(dir,"checkMesh.log");
+    return new{cells,backgroundCells=4096,originalBackgroundCells=512,localRefinement=0,quality="Mesh OK",snap=false};
+});
 // Repeat the original refinement with snapping disabled. This diagnostic
 // must produce a valid mesh snapshot and a determinate quality report;
 // its mesh-quality status is separate from the strict snapped scenarios.
@@ -201,6 +217,115 @@ byte[] SmallCube(float offset)
     }
     return data;
 }
+// Separate experimental alternatives with actual snapping on non-aligned geometry.
+ // The original strict local refinement scenarios remain mandatory and unchanged.
+ // Non-aligned surfaces use the same fixture shape at a shifted scale.
+foreach(bool explicitFeatures in new[]{false,true}){
+ if(suite=="core")break;
+ string scenario=explicitFeatures?"snappy-uniform-unaligned-explicit":"snappy-uniform-unaligned-implicit";
+ await Scenario(scenario,async()=>{
+  var shifted=SmallCube(.143f);
+  var cfg=JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,uniformBackground=true,snapEnabled=true,explicitFeatures,transitionLayers=3,stlBase64=Convert.ToBase64String(shifted)}});
+  var prepared=NativeCartesianMesh.PrepareSnappyBackground(cfg);
+  if(prepared.UniformLevel!=1||prepared.OriginalCells!=512||NativeCartesianMesh.Build(prepared.Input).Cells!=4096)throw new InvalidOperationException("Uniform snapped background accounting failed");
+  var dir=await Run(scenario,"snappyHexMesh",false,cfg);int cells=Cells(dir);
+  if(cells<=0||cells>=4096)throw new InvalidOperationException("Expected retained subset of uniform background");
+  string log=File.ReadAllText(Path.Combine(dir,"checkMesh.log"));string quality=NativeCartesianMesh.QualityStatus(0,log);
+  if(quality is not ("mesh-ok-reported" or "checks-failed"))throw new InvalidOperationException("Missing native quality evidence");
+  if(explicitFeatures&&File.ReadAllText(Path.Combine(dir,"surfaceFeatures.exit")).Trim()!="0")throw new InvalidOperationException("Explicit feature extraction failed");
+  Console.WriteLine(scenario+" quality: "+quality);
+  return new{cells,quality,snap=true,explicitFeatures,backgroundCells=4096,originalBackgroundCells=512,localRefinement=0,qualityCertified=false};
+ });
+}
+// Independent uniform alternatives: preserve both named surfaces and optional
+// layer requests; record actual quality, never substitute for strict local gates.
+foreach(bool withLayers in new[]{false,true}){
+ if(suite=="core")break;
+ string scenario=withLayers?"snappy-uniform-multi-layers":"snappy-uniform-multi-explicit";
+ await Scenario(scenario,async()=>{
+  var surfaceSettings=withLayers?new[]{new{id=1,minLevel=1,maxLevel=1,layers=1},new{id=2,minLevel=1,maxLevel=1,layers=1}}:new[]{new{id=1,minLevel=1,maxLevel=1,layers=1}}.Take(0).ToArray();
+  var cfg=JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,uniformBackground=true,snapEnabled=true,explicitFeatures=true,transitionLayers=3,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.143f))},new{stlBase64=Convert.ToBase64String(SmallCube(.49f))}},surfaceSettings,layerSettings=new{expansionRatio=1.2,finalLayerThickness=.25,minThickness=.1}}});
+  var prepared=NativeCartesianMesh.PrepareSnappyBackground(cfg);
+  var (dict,surfaces)=NativeCartesianMesh.BuildSnappy(prepared.Input,4096);
+  if(surfaces.Count!=2||!dict.Contains("level (0 0)")||(withLayers&&!dict.Contains("nSurfaceLayers 1;")))throw new InvalidOperationException("Uniform multi-surface transform mismatch");
+  var dir=await Run(scenario,"snappyHexMesh",false,cfg);int cells=Cells(dir);
+  var boundary=File.ReadAllText(Path.Combine(dir,"constant","polyMesh","boundary"));
+  if(cells<=0||!boundary.Contains("flSurface_001")||!boundary.Contains("flSurface_002"))throw new InvalidOperationException("Uniform surface identities lost");
+  var quality=NativeCartesianMesh.QualityStatus(0,File.ReadAllText(Path.Combine(dir,"checkMesh.log")));
+  if(quality is not ("mesh-ok-reported" or "checks-failed"))throw new InvalidOperationException("Missing native quality evidence");
+  Console.WriteLine(scenario+" quality: "+quality);
+  var finalLayers=withLayers?NativeCartesianMesh.FinalLayerEvidence(0,File.ReadAllText(Path.Combine(dir,"generation.log")),NativeCartesianMesh.RequestedSurfaceLayers(prepared.Input)):null;
+  if(withLayers){
+   if(finalLayers is null)throw new InvalidOperationException("Final native layer table missing or ambiguous");
+   Console.WriteLine(scenario+" final native layers: "+JsonSerializer.Serialize(finalLayers));
+  }
+  return new{cells,quality,surfaces=2,withLayers,finalLayers,layerCoverageCertified=false,qualityCertified=false};
+ });
+}
+// Controlled recovery experiments: same surfaces/retained point and strict
+// quality thresholds, vary thickness or background resolution, never the gate.
+foreach(var attempt in new[]{(Name:"thicker-050",Level:1,Thickness:.50,Cap:20000),(Name:"thicker-065",Level:1,Thickness:.65,Cap:20000),(Name:"finer-L2",Level:2,Thickness:.25,Cap:100000)}){
+ if(suite=="core")break;
+ string scenario="snappy-layer-recovery-"+attempt.Name;
+ await Scenario(scenario,async()=>{
+  var surfaceSettings=new[]{new{id=1,minLevel=attempt.Level,maxLevel=attempt.Level,layers=1},new{id=2,minLevel=attempt.Level,maxLevel=attempt.Level,layers=1}};
+  var cfg=JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=attempt.Level,maxLevel=attempt.Level,maxCells=attempt.Cap,uniformBackground=true,snapEnabled=true,explicitFeatures=true,transitionLayers=3,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.143f))},new{stlBase64=Convert.ToBase64String(SmallCube(.49f))}},surfaceSettings,layerSettings=new{expansionRatio=1.2,finalLayerThickness=attempt.Thickness,minThickness=.1}}});
+  var prepared=NativeCartesianMesh.PrepareSnappyBackground(cfg);
+  long backgroundCells=NativeCartesianMesh.Build(prepared.Input).Cells;
+  var (dict,surfaces)=NativeCartesianMesh.BuildSnappy(prepared.Input,backgroundCells);
+  if(surfaces.Count!=2||!dict.Contains("minFaceWeight 0.05;")||!dict.Contains("maxConcave 80;")||!dict.Contains("nSurfaceLayers 1;"))throw new InvalidOperationException("Recovery changed strict controls");
+  var dir=await Run(scenario,"snappyHexMesh",false,cfg);
+  int cells=Cells(dir);
+  var boundary=File.ReadAllText(Path.Combine(dir,"constant","polyMesh","boundary"));
+  if(cells<=0||!boundary.Contains("flSurface_001")||!boundary.Contains("flSurface_002"))throw new InvalidOperationException("Recovery surface identities lost");
+  var quality=NativeCartesianMesh.QualityStatus(0,File.ReadAllText(Path.Combine(dir,"checkMesh.log")));
+  if(quality is not ("mesh-ok-reported" or "checks-failed"))throw new InvalidOperationException("Missing native quality evidence");
+  string generationLog=File.ReadAllText(Path.Combine(dir,"generation.log"));
+  var finalLayers=NativeCartesianMesh.FinalLayerEvidence(0,generationLog,NativeCartesianMesh.RequestedSurfaceLayers(prepared.Input));
+  if(finalLayers is null)throw new InvalidOperationException("Missing final recovery layer evidence");
+  var peakLowWeightFaces=NativeCartesianMesh.LayerPeakLowWeightFaces(0,generationLog);
+  bool positiveOnBoth=finalLayers.Values.All(v=>v.AverageLayers>0);
+  bool recoveryObserved=positiveOnBoth&&quality=="mesh-ok-reported";
+  var evidence=new{cells,backgroundCells,quality,attempt.Level,attempt.Thickness,finalLayers,peakLowWeightFaces,positiveOnBoth,recoveryObserved,layerCoverageCertified=false,qualityCertified=false};
+  Console.WriteLine(scenario+" evidence: "+JsonSerializer.Serialize(evidence));
+  return evidence;
+ });
+}
+// Conformal tensor-product bands, no octree refinement. Exact CAD bounds
+// become shared block planes; retain original strict local-refinement fixtures.
+if(suite!="core")await Scenario("snappy-conformal-bands",async()=>{
+ var bandAxes=Enumerable.Range(0,3).Select(_=>Axis(new[]{0.0,.25,.75,1.0},new[]{1,4,1})).ToArray();
+ var cfg=JsonSerializer.SerializeToElement(new{axes=bandAxes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=0,maxLevel=0,maxCells=20000,snapEnabled=false,stlBase64=Convert.ToBase64String(stream.ToArray())}});
+ if(NativeCartesianMesh.Build(cfg).Cells!=216)throw new InvalidOperationException("Conformal band count mismatch");
+ var dir=await Run("snappy-conformal-bands","snappyHexMesh",false,cfg);
+ int cells=Cells(dir);if(cells!=152)throw new InvalidOperationException("Expected 216 background minus 64 aligned interior cells, got "+cells);
+ CheckLog(dir,"checkMesh.log");
+ return new{cells,backgroundCells=216,localRefinement=0,snap=false,quality="mesh-ok-reported",qualityCertified=false};
+});
+// Keep the earlier 216-cell strict fixture unchanged. This new case
+// separates the two boundary faces by at least two cells and uses finer CAD bands.
+if(suite!="core")await Scenario("snappy-conformal-protected-clearance",async()=>{
+ var bandAxes=Enumerable.Range(0,3).Select(_=>Axis(new[]{0.0,.25,.75,1.0},new[]{2,8,2})).ToArray();
+ var cfg=JsonSerializer.SerializeToElement(new{axes=bandAxes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=0,maxLevel=0,maxCells=20000,snapEnabled=false,stlBase64=Convert.ToBase64String(stream.ToArray())}});
+ if(NativeCartesianMesh.Build(cfg).Cells!=1728)throw new InvalidOperationException("Protected conformal count mismatch");
+ var dir=await Run("snappy-conformal-protected-clearance","snappyHexMesh",false,cfg);
+ int cells=Cells(dir);if(cells!=1216)throw new InvalidOperationException("Expected 1728 background minus 512 interior cells, got "+cells);
+ CheckLog(dir,"checkMesh.log");
+ return new{cells,backgroundCells=1728,uniformFineReferenceCells=4096,localRefinement=0,snap=false,quality="mesh-ok-reported",qualityCertified=false};
+});
+// Two disjoint, aligned CAD solids. Independently test a conformal
+// background with protected projected gaps; preserve strict original cases.
+if(suite!="core")await Scenario("snappy-conformal-protected-multi",async()=>{
+ var bandAxes=Enumerable.Range(0,3).Select(_=>Axis(new[]{0.0,.125,.375,.625,.875,1.0},new[]{2,4,2,4,2})).ToArray();
+ var cfg=JsonSerializer.SerializeToElement(new{axes=bandAxes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.03125,.03125,.03125},minLevel=0,maxLevel=0,maxCells=20000,snapEnabled=false,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(0f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}});
+ if(NativeCartesianMesh.Build(cfg).Cells!=2744)throw new InvalidOperationException("Protected multi conformal count mismatch");
+ var dir=await Run("snappy-conformal-protected-multi","snappyHexMesh",false,cfg);
+ int cells=Cells(dir);if(cells!=2616)throw new InvalidOperationException("Expected 2744 background minus 128 aligned interior cells, got "+cells);
+ var boundary=File.ReadAllText(Path.Combine(dir,"constant","polyMesh","boundary"));
+ if(!boundary.Contains("flSurface_001")||!boundary.Contains("flSurface_002"))throw new InvalidOperationException("Distinct CAD identities lost");
+ CheckLog(dir,"checkMesh.log");
+ return new{cells,backgroundCells=2744,surfaces=2,localRefinement=0,snap=false,quality="mesh-ok-reported",qualityCertified=false};
+});
 if(suite!="core")await Scenario("snappy-multi",async()=>{
 var multi=await Run("snappy-multi","snappyHexMesh",false,JsonSerializer.SerializeToElement(new{axes,patches,zones=Array.Empty<object>(),snappy=new{inside=new[]{.11,.11,.11},minLevel=1,maxLevel=1,maxCells=20000,surfaces=new[]{new{stlBase64=Convert.ToBase64String(SmallCube(.125f))},new{stlBase64=Convert.ToBase64String(SmallCube(.5f))}}}}));
 var multiCells=Cells(multi);if(multiCells<=0||multiCells==512)throw new InvalidOperationException("Multi-surface snappy did not produce a different mesh");

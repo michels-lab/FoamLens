@@ -22,7 +22,9 @@ const model={name:'metal.obj',format:'obj-surface',triangles:obj.triangles,unit:
  partSummaries:new Map([[part,sum]])};
 const uiStart=cad.indexOf('let cgNativeCheckBusy='),uiEnd=cad.indexOf('function cgExportVisibleBatch(){',uiStart);
 assert(uiStart>stop&&uiEnd>uiStart,'native CAD actions must be source-owned');
-const source=cad.slice(uiStart,uiEnd);
+const mesh=fs.readFileSync(path.join(dir,'frontend','v24-z-cad-blockmesh-designer.js'),'utf8');
+const wslSource=mesh.slice(mesh.indexOf('function flWslOptions('),mesh.indexOf('function flWslPreview('));
+const source=wslSource+cad.slice(uiStart,uiEnd);
 const create=(mode='success',bridgeEnabled=true)=>{
  const listeners=new Set(),messages=[],status=[],downloads=[];
  const webview=bridgeEnabled?{
@@ -36,7 +38,7 @@ const create=(mode='success',bridgeEnabled=true)=>{
       {type:'nativeReply',requestId:message.requestId,ok:false,error:'No WSL default distribution'}:
       {type:'nativeReply',requestId:message.requestId,ok:true,data:{
         utility:'surfaceCheck -checkSelfIntersection',runner:'Default WSL distribution',
-        executed:true,exitCode:0,triangleCount:1,
+        executed:true,exitCode:0,triangleCount:1,requestedVersion:message.version,distribution:mode==='wrong-target'?'Other':(message.distribution||'Ubuntu-24.04'),
         stdout:'Statistics: 1 triangle\nSurface does not have any illegal triangles',
         stderr:'',outputTruncated:false,openFoamCaseMutated:false
       }};
@@ -47,6 +49,8 @@ const create=(mode='success',bridgeEnabled=true)=>{
  }:null;
  const elements=new Map([
   ['cgPart',{value:'0|metal'}],
+  ['cgNativeVersion',{value:'14'}],
+  ['cgNativeDistribution',{value:'',options:[{value:'',disabled:false},{value:'Ubuntu-26.04',disabled:false}]}],
   ['cgSurfaceCheckRun',{disabled:true,title:''}],
   ['cgSurfaceCheckCancel',{disabled:true}],
   ['cgSurfaceCheckExport',{disabled:true}],
@@ -55,11 +59,11 @@ const create=(mode='success',bridgeEnabled=true)=>{
  const models=[{...model,partsVisible:new Map(model.partsVisible),
    partSummaries:new Map(model.partSummaries)}];
  const window={chrome:bridgeEnabled?{webview}:undefined};
- const mockDocument={getElementById:id=>elements.get(id)||null};
+ const mockDocument={getElementById:id=>elements.get(id)||null,createElement:()=>({value:'',textContent:'',disabled:false})};
  const api=new Function('window','document','cgModels','cgUnitScale','cgBinaryStl',
     'cgUi','cgShow','cgDownload','btoa','setTimeout','clearTimeout',source+
     ';return {cgNativeCheckAvailable,cgNativeSelectedSurface,cgRefreshNativeCheck,'+
-    'cgNativeSurfaceCheckRequest,cgRunNativeSurfaceCheck,cgExportNativeCheckReport}')(
+    'cgNativeSurfaceCheckRequest,cgRunNativeSurfaceCheck,cgExportNativeCheckReport,flWslOptions,flWslSelectionAvailable,flWslReceiptMatches}')(
     window,mockDocument,models,u=>({mm:.001,m:1,cm:.01,in:.0254})[u]||null,
     binary,(en)=>en,t=>status.push(t),(name,content)=>downloads.push({name,content}),
     text=>Buffer.from(text,'binary').toString('base64'),setTimeout,clearTimeout);
@@ -74,6 +78,7 @@ const create=(mode='success',bridgeEnabled=true)=>{
  await a.api.cgRunNativeSurfaceCheck();
  const requests=a.messages.filter(m=>m.type==='runCadSurfaceCheck');
  assert.strictEqual(requests.length,1,'native CAD must submit an explicit request');
+ assert.strictEqual(requests[0].version,'14');assert.strictEqual(requests[0].distribution,'');
  assert(!('command' in requests[0])&&!('path' in requests[0]),
    'browser may send ONLY bounded STL, never shell or source path');
  const data=Buffer.from(requests[0].stlBase64,'base64');
@@ -93,6 +98,19 @@ const create=(mode='success',bridgeEnabled=true)=>{
  assert.strictEqual(a.listeners.size,0,'native response listener must be cleaned up');
  assert.strictEqual(a.models[0].unit,'mm','native check never mutates CAD source units');
 
+ const wrong=create('wrong-target');wrong.elements.get('cgNativeDistribution').value='Ubuntu-26.04';await wrong.api.cgRunNativeSurfaceCheck();
+ assert.match(wrong.elements.get('cgSurfaceCheckOutput').textContent,/Unrecognized native/);
+ assert.strictEqual(wrong.elements.get('cgSurfaceCheckExport').disabled,true);
+ const missing=create();const select=missing.elements.get('cgNativeDistribution');select.value='Ubuntu-26.04';select.replaceChildren=function(){this.options=[];this.value=''};select.append=function(o){this.options.push(o)};
+ const inventory={schema:'foamlens/wsl-distributions/1',distributions:[{name:'Ubuntu-24.04',isDefault:true}]};
+ missing.api.flWslOptions(select,inventory,x=>x);
+ assert.strictEqual(select.value,'Ubuntu-26.04');assert.strictEqual(missing.api.flWslSelectionAvailable(select),false);
+ missing.api.cgRefreshNativeCheck();assert.strictEqual(missing.elements.get('cgSurfaceCheckRun').disabled,true);
+ await missing.api.cgRunNativeSurfaceCheck();assert.strictEqual(missing.messages.length,0);
+ assert.throws(()=>missing.api.flWslOptions(select,{...inventory,distributions:[...inventory.distributions,...inventory.distributions]},x=>x));
+ assert.strictEqual(select.value,'Ubuntu-26.04');select.value='';assert(missing.api.flWslSelectionAvailable(select));
+ await missing.api.cgRunNativeSurfaceCheck();assert.strictEqual(missing.messages[0].distribution,'');
+ assert(!missing.api.flWslReceiptMatches({requestedVersion:'13',distribution:'Ubuntu-24.04'},'14',''));
  const rejected=create('error');await rejected.api.cgRunNativeSurfaceCheck();
  assert.match(rejected.elements.get('cgSurfaceCheckOutput').textContent,/No WSL default/);
  assert.strictEqual(rejected.elements.get('cgSurfaceCheckExport').disabled,true);
@@ -126,7 +144,7 @@ const create=(mode='success',bridgeEnabled=true)=>{
  assert.strictEqual(cancel.listeners.size,0);
 
  assert(host.includes('case "runCadSurfaceCheck":'));
- assert(host.includes('NativeCadSurfaceCheck.RunAsync(data, operation.Token)'));
+ assert(host.includes('NativeCadSurfaceCheck.RunAsync(data, operation.Token,RequiredString(root,"version"),NativeCartesianMesh.RequestedDistribution(root))'));
  assert(host.includes('case "cancelOperation":'));
  assert(native.includes('surfaceCheck -checkSelfIntersection \\"$1\\"')||
    native.includes('surfaceCheck -checkSelfIntersection \"$1\"'));
@@ -135,7 +153,7 @@ const create=(mode='success',bridgeEnabled=true)=>{
  assert(native.includes('Path.GetTempPath()'));
  assert(native.includes('Directory.Delete(directory, recursive: true)'));
  assert(native.includes('start.ArgumentList.Add(arg)'));
- assert(native.includes('--exec'));
+ assert(native.includes('NativeCartesianMesh.WslArgs(distribution'));assert(native.includes('NativeCartesianMesh.FoundationLoader()'));
  assert(!native.includes('argumentsFromBrowser'));
  console.log('CAD native surfaceCheck PASS: real UI request, metric unit scaling, cancellation, native report, error/size/bridge gates');
 })().catch(e=>{console.error(e);process.exitCode=1});

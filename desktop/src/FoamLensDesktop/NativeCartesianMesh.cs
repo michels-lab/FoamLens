@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace FoamLensDesktop;
 
@@ -75,15 +76,196 @@ internal static class NativeCartesianMesh
     {
         if(exit is null)return "not-run";
         if(exit!=0)return "command-failed";
-        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^\s*Failed\s+\d+\s+mesh checks?\.\s*$"))return "checks-failed";
+        // Native reports are evidence, not certification. A standalone success
+        // marker is insufficient in truncated, concatenated or fatal output.
+        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^[ \t]*Failed[ \t]+\d+[ \t]+mesh checks?\.[ \t\r]*$"))return "checks-failed";
+        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?im)\bFOAM\s+FATAL\s+(?:IO\s+)?ERROR\b|\bFOAM\s+aborting\b|^[ \t]*(?!sigFpe[ \t]*:[ \t]*Enabling floating point exception trapping \(FOAM_SIGFPE\)\.[ \t\r]*$)(?:Floating point exception|Segmentation fault|SIGFPE|SIGSEGV)\b"))return "checks-failed";
         if(log.Contains("[truncated]",StringComparison.Ordinal))return "undetermined";
-        if(System.Text.RegularExpressions.Regex.IsMatch(log,@"(?m)^\s*Mesh OK\.\s*$"))return "mesh-ok-reported";
+        var ok=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*Mesh OK\.[ \t\r]*$");
+        var end=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*End[ \t\r]*$");
+        if(ok.Count==1&&end.Count==1&&ok[0].Index<end[0].Index&&string.IsNullOrWhiteSpace(log[(end[0].Index+end[0].Length)..]))return "mesh-ok-reported";
         return "undetermined";
+    }
+
+    // The UI log is only a preview; capture the exact count from the full
+    // bounded native receipt. Missing or ambiguous counts are never zero.
+    internal static (string Status,long? ConcaveCells) QualityEvidence(int? exit,string log)
+    {
+        string status=QualityStatus(exit,log);
+        if(status!="checks-failed"||log.Contains("[truncated]",StringComparison.Ordinal))return(status,null);
+        var end=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*End[ \t\r]*$");
+        var failed=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*Failed[ \t]+\d+[ \t]+mesh checks?\.[ \t\r]*$");
+        var concave=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*\*{3}Concave cells \(using face planes\) found, number of cells:[ \t]*(\d+)[ \t\r]*$");
+        if(end.Count!=1||failed.Count!=1||concave.Count!=1||concave[0].Index>=failed[0].Index||failed[0].Index>=end[0].Index||
+           !string.IsNullOrWhiteSpace(log[(end[0].Index+end[0].Length)..])||
+           !long.TryParse(concave[0].Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long count)||count<=0)return(status,null);
+        return(status,count);
+    }
+
+    // Called only after BuildSnappy validated the effective request. Layer
+    // requests are not measured extrusion coverage.
+    internal static Dictionary<string,int> RequestedSurfaceLayers(JsonElement root)
+    {
+        var result=new Dictionary<string,int>(StringComparer.Ordinal);
+        if(root.GetProperty("snappy").TryGetProperty("surfaceSettings",out var settings))
+            foreach(var cfg in settings.EnumerateArray()){
+                int count=cfg.GetProperty("layers").GetInt32();
+                if(count>0)result.Add("flSurface_"+cfg.GetProperty("id").GetInt32().ToString("D3",CultureInfo.InvariantCulture),count);
+            }
+        return result;
+    }
+
+    internal sealed record LayerPatchEvidence(long Faces,double AverageLayers,double ThicknessM,double ThicknessPercent);
+    internal static Dictionary<string,LayerPatchEvidence>? FinalLayerEvidence(int? exit,string log,IReadOnlyDictionary<string,int> requested)
+    {
+        if(exit!=0||requested.Count==0||log.Contains("[truncated]",StringComparison.Ordinal))return null;
+        var ends=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*End[ \t\r]*$");
+        if(ends.Count!=1||!string.IsNullOrWhiteSpace(log[(ends[0].Index+ends[0].Length)..]))return null;
+        // Final overall-thickness table, never the initial target or iteration.
+        var tables=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*patch[ \t]+faces[ \t]+layers[ \t]+overall thickness[ \t\r]*\n[ \t]*\[m\][ \t]+\[%\][ \t\r]*\n[ \t]*-+[ \t]+-+[ \t]+-+[ \t]+-+[ \t]+-+[ \t\r]*\n(?<rows>[\s\S]*?)^[ \t]*Layer mesh[ \t]*:");
+        if(tables.Count!=1||tables[0].Index>=ends[0].Index)return null;
+        var result=new Dictionary<string,LayerPatchEvidence>(StringComparer.Ordinal);
+        foreach(string line in tables[0].Groups["rows"].Value.Split('\n')){
+            var parts=line.Split((char[]?)null,StringSplitOptions.RemoveEmptyEntries);
+            if(parts.Length==0)continue;
+            if(parts.Length!=5||!requested.TryGetValue(parts[0],out int target)||result.ContainsKey(parts[0])||
+               !long.TryParse(parts[1],NumberStyles.None,CultureInfo.InvariantCulture,out long faces)||faces<=0||
+               !double.TryParse(parts[2],NumberStyles.Float,CultureInfo.InvariantCulture,out double layers)||!double.IsFinite(layers)||layers<0||layers>target||
+               !double.TryParse(parts[3],NumberStyles.Float,CultureInfo.InvariantCulture,out double thickness)||!double.IsFinite(thickness)||thickness<0||
+               !double.TryParse(parts[4],NumberStyles.Float,CultureInfo.InvariantCulture,out double percent)||!double.IsFinite(percent)||percent<0)return null;
+            result.Add(parts[0],new(faces,layers,thickness,percent));
+        }
+        return result.Count==requested.Count?result:null;
+    }
+
+    // Report attempted interpolation-weight failures during extrusion, not
+    // a count of defects in the final retained mesh. Do not sum iterations.
+    internal static long? LayerPeakLowWeightFaces(int? exit,string log)
+    {
+        if(exit!=0||log.Contains("[truncated]",StringComparison.Ordinal))return null;
+        var phase=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^Shrinking and layer addition phase[ \t\r]*$");
+        var finish=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^Layer mesh[ \t]*:");
+        var end=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*End[ \t\r]*$");
+        if(phase.Count!=1||finish.Count!=1||end.Count!=1||phase[0].Index>=finish[0].Index||finish[0].Index>=end[0].Index||
+           !string.IsNullOrWhiteSpace(log[(end[0].Index+end[0].Length)..]))return null;
+        var part=log[phase[0].Index..finish[0].Index];
+        var rows=System.Text.RegularExpressions.Regex.Matches(part,@"(?m)^[ \t]*faces with interpolation weights \(0\.\.1\)[ \t]*<[ \t]*0\.05[ \t]*:[ \t]*(\d+)[ \t\r]*$");
+        if(rows.Count==0)return null;
+        long peak=0;
+        foreach(System.Text.RegularExpressions.Match row in rows){
+            if(!long.TryParse(row.Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long count))return null;
+            peak=Math.Max(peak,count);
+        }
+        return peak;
+    }
+
+    // Exact final checkMesh cell count; the planned background is different.
+    internal static long? FinalMeshCellCount(int? exit,string log)
+    {
+        if(exit!=0||log.Contains("[truncated]",StringComparison.Ordinal))return null;
+        var status=QualityStatus(exit,log);
+        if(status is not ("mesh-ok-reported" or "checks-failed"))return null;
+        var ends=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*End[ \t\r]*$");
+        var stats=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*Mesh stats[ \t\r]*$");
+        var counts=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*cells:[ \t]*(\d+)[ \t\r]*$");
+        if(ends.Count!=1||stats.Count!=1||counts.Count!=1||stats[0].Index>=counts[0].Index||counts[0].Index>=ends[0].Index||
+           !string.IsNullOrWhiteSpace(log[(ends[0].Index+ends[0].Length)..]))return null;
+        return long.TryParse(counts[0].Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long n)&&n>0?n:null;
+    }
+
+    // Summary values are source-native, not reconstructed per-cell metrics.
+    internal static Dictionary<string,double>? FinalMeshQuality(int? exit,string log)
+    {
+        if(FinalMeshCellCount(exit,log) is not long cells)return null;
+        var completion=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*(?:Mesh OK\.|Failed[ \t]+\d+[ \t]+mesh checks?\.)[ \t\r]*$");
+        if(completion.Count!=1)return null;
+        var geometry=System.Text.RegularExpressions.Regex.Matches(log,@"(?m)^[ \t]*Checking geometry\.\.\.[ \t\r]*$");
+        if(geometry.Count!=1||geometry[0].Index>=completion[0].Index)return null;
+        var body=log[geometry[0].Index..completion[0].Index];
+        const string number=@"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)";
+        var result=new Dictionary<string,double>(StringComparer.Ordinal);
+        void Read(string key,string pattern,int group=1){
+            var matches=System.Text.RegularExpressions.Regex.Matches(body,pattern);
+            if(matches.Count==1&&double.TryParse(matches[0].Groups[group].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out double value)&&double.IsFinite(value))
+                result[key]=value;
+        }
+        Read("maxAspectRatio",@"(?m)^[ \t]*(?:\*{3})?Max aspect ratio = "+number+@"(?: OK\.)?[ \t\r]*$");
+        Read("maxNonOrthogonalityDeg",@"(?m)^[ \t]*Mesh non-orthogonality Max: "+number+" average: "+number+@"[ \t\r]*$");
+        Read("meanNonOrthogonalityDeg",@"(?m)^[ \t]*Mesh non-orthogonality Max: "+number+" average: "+number+@"[ \t\r]*$",2);
+        Read("maxSkewness",@"(?m)^[ \t]*(?:\*{3})?Max skewness = "+number+@"(?: OK\.)?[ \t\r]*$");
+        Read("minDeterminant",@"(?m)^[ \t]*Cell determinant \(wellposedness\) : minimum: "+number+" average: "+number+@"[ \t\r]*$");
+        Read("minFaceWeight",@"(?m)^[ \t]*Face interpolation weight : minimum: "+number+" average: "+number+@"[ \t\r]*$");
+        Read("minFaceVolumeRatio",@"(?m)^[ \t]*Face volume ratio : minimum: "+number+" average: "+number+@"[ \t\r]*$");
+        var defects=System.Text.RegularExpressions.Regex.Matches(body,@"(?m)^[ \t]*\*{3}Concave cells \(using face planes\) found, number of cells:[ \t]*(\d+)[ \t\r]*$");
+        var passed=System.Text.RegularExpressions.Regex.Matches(body,@"(?m)^[ \t]*Concave cell check OK\.[ \t\r]*$");
+        if(defects.Count==0&&passed.Count==1)result["concaveCells"]=0;
+        else if(defects.Count==1&&passed.Count==0&&long.TryParse(defects[0].Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long count)&&count>0&&count<=cells)
+            result["concaveCells"]=count;
+        var under=System.Text.RegularExpressions.Regex.Matches(body,@"(?m)^[ \t]*\*{3}Cells with small determinant \(< 0\.001\) found, number of cells:[ \t]*(\d+)[ \t\r]*$");
+        if(under.Count==1&&long.TryParse(under[0].Groups[1].Value,NumberStyles.None,CultureInfo.InvariantCulture,out long bad)&&bad>0&&bad<=cells)
+            result["underdeterminedCells"]=bad;
+        return result.Count>0?result:null;
     }
 
     internal static void SelfTest()
     {
-        if(QualityStatus(0,"Failed 1 mesh checks.\n")!="checks-failed"||QualityStatus(0,"Mesh OK.\n")!="mesh-ok-reported"||QualityStatus(0,"End\n")!="undetermined"||QualityStatus(1,"Mesh OK.\n")!="command-failed"||QualityStatus(0,"Mesh OK.\n[truncated]")!="undetermined"||QualityStatus(0,"Mesh OK.\nFailed 2 mesh checks.\n")!="checks-failed")throw new InvalidOperationException("Quality receipt self-test failed.");
+        var fixture=new NativeCadSurfaceCheck.ProcessOutput(0,"project=OpenFOAM\nversion=14\nblockMesh=available\ncheckMesh=available\ntimeout=available\n","",false);
+        var probe=ParsePreflight(fixture,"14");RequireTools(probe,"blockMesh");
+        foreach(var invalid in new[]{ParsePreflight(fixture,"13"),ParsePreflight(fixture with {Truncated=true},"14"),ParsePreflight(fixture with {Stdout=fixture.Stdout+"version=13\n"},"14"),ParsePreflight(fixture with {Stdout=fixture.Stdout+"checkMesh=missing\n"},"14")})
+        {bool denied=false;try{RequireTools(invalid,"blockMesh");}catch(NotSupportedException){denied=true;}if(!denied)throw new InvalidOperationException("Invalid preflight accepted.");}
+        bool splitDenied=false;try{RequireTools(probe,"blockMesh",true);}catch(NotSupportedException){splitDenied=true;}if(!splitDenied)throw new InvalidOperationException("Missing splitMeshRegions accepted.");
+        var hashDir=Path.Combine(Path.GetTempPath(),"foamlens-input-test-"+Guid.NewGuid().ToString("N"));
+        try{Directory.CreateDirectory(hashDir);File.WriteAllText(Path.Combine(hashDir,"source.msh"),"abc");var h=HashStagingInputs(hashDir,CancellationToken.None).GetAwaiter().GetResult();if(h.Length!=1||h[0].Path!="source.msh"||h[0].Bytes!=3||h[0].Sha256!="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")throw new InvalidOperationException("Staging SHA256 mismatch.");}finally{Directory.Delete(hashDir,true);}
+        var installed=new[]{new WslDistribution("Ubuntu 24.04",true),new WslDistribution("Ubuntu-26.04",false)};
+        if(ResolveDistribution(null,installed)!="Ubuntu 24.04"||ResolveDistribution("Ubuntu-26.04",installed)!="Ubuntu-26.04")throw new InvalidOperationException("WSL selection failed.");
+        if(!WslArgs("Ubuntu 24.04","wslpath","-a","a b").SequenceEqual(new[]{"--distribution","Ubuntu 24.04","--exec","wslpath","-a","a b"}))throw new InvalidOperationException("WSL argument boundary failed.");
+        foreach(var invalid in new[]{"--exec","Ubuntu\nother","Unknown"}){bool denied=false;try{ResolveDistribution(invalid,installed);}catch(NotSupportedException){denied=true;}if(!denied)throw new InvalidOperationException("Unregistered WSL selection accepted.");}
+        if(!CommandPlan("gmshToFoam",true,false).Any(x=>x.StartsWith("splitMeshRegions"))||CommandPlan("blockMesh",false,false).Any(x=>x.StartsWith("snappyHexMesh")))throw new InvalidOperationException("Command preview mismatch.");
+        foreach(var qualityReceipt in new[]{"Mesh OK.\n\nEnd\n","Mesh OK.\r\nEnd\r\n","sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).\nMesh OK.\nEnd\n","  sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).\r\nMesh OK.\r\nEnd\r\n\r\n"})
+            if(QualityStatus(0,qualityReceipt)!="mesh-ok-reported")throw new InvalidOperationException("Complete native quality receipt rejected.");
+        foreach(var incomplete in new[]{"Mesh OK.\n","End\n","End\nMesh OK.\n","Mesh OK.\nEnd\nMesh OK.\nEnd\n","Mesh OK.\nEnd\n[truncated]","Mesh OK.\nEnd\nmore output","prefix Mesh OK.\nEnd\n"})
+            if(QualityStatus(0,incomplete)!="undetermined")throw new InvalidOperationException("Incomplete or ambiguous quality receipt accepted.");
+        foreach(var failure in new[]{"Failed 1 mesh checks.\n","Mesh OK.\nFailed 2 mesh checks.\nEnd\n","FOAM FATAL IO ERROR\nMesh OK.\nEnd\n","Mesh OK.\nFOAM aborting\nEnd\n","Floating point exception\nMesh OK.\nEnd\n","SIGFPE: arithmetic fault\nMesh OK.\nEnd\n","SIGSEGV\nMesh OK.\nEnd\n","sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE). unexpected trailing text\nMesh OK.\nEnd\n","sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).\nSIGFPE\nMesh OK.\nEnd\n"})
+            if(QualityStatus(0,failure)!="checks-failed")throw new InvalidOperationException("Negative native quality evidence accepted.");
+        if(QualityStatus(1,"Mesh OK.\nEnd\n")!="command-failed"||QualityStatus(null,"Mesh OK.\nEnd\n")!="not-run")throw new InvalidOperationException("Quality receipt command status ignored.");
+        const string defect=" ***Concave cells (using face planes) found, number of cells: 144\nFailed 1 mesh checks.\nEnd\n";
+        if(QualityEvidence(0,defect)!=("checks-failed",144L)||
+           QualityEvidence(0,new string('x',50000)+"\n"+defect).ConcaveCells!=144L)
+            throw new InvalidOperationException("Full native concavity evidence lost.");
+        foreach(var bad in new[]{defect+defect,defect+"[truncated]",defect.Replace("144","0"),defect.Replace("144","99999999999999999999999"),defect.Replace("End\n",""),defect.Replace("Failed 1 mesh checks.\n","")})
+            if(QualityEvidence(0,bad).ConcaveCells!=null)throw new InvalidOperationException("Ambiguous concavity count accepted.");
+        if(QualityEvidence(1,defect).ConcaveCells!=null||QualityEvidence(null,defect).ConcaveCells!=null)throw new InvalidOperationException("Concavity evidence exit ignored.");
+        const string layerTable="patch         faces    layers   overall thickness\n                                [m]       [%]\n-----         -----    ------   ---       ---\nflSurface_001 96       0        0         0\nflSurface_002 96       0.5      0.001     20\n\nLayer mesh : cells:3968 faces:12768 points:4859\nEnd\n";
+        var targets=new Dictionary<string,int>{{"flSurface_001",1},{"flSurface_002",1}};
+        var measured=FinalLayerEvidence(0,layerTable,targets);
+        if(measured==null||measured["flSurface_001"].AverageLayers!=0||measured["flSurface_002"].AverageLayers!=0.5||
+           measured["flSurface_002"].ThicknessPercent!=20||FinalLayerEvidence(0,layerTable.Replace("\n","\r\n"),targets)==null)
+            throw new InvalidOperationException("Final layer table evidence mismatch.");
+        foreach(var bad in new[]{layerTable+layerTable,layerTable+"[truncated]",layerTable.Replace("overall thickness","avg thickness[m]"),layerTable.Replace("flSurface_002","flSurface_001"),layerTable.Replace("0.5","2"),layerTable.Replace("0.001","NaN"),layerTable.Replace("End\n","")})
+            if(FinalLayerEvidence(0,bad,targets)!=null)throw new InvalidOperationException("Invalid layer table accepted.");
+        if(FinalLayerEvidence(1,layerTable,targets)!=null)throw new InvalidOperationException("Failed generation layer evidence accepted.");
+        const string attemptedLayers="    faces with interpolation weights (0..1) < 0.05 : 999\nShrinking and layer addition phase\n    faces with interpolation weights (0..1) < 0.05 : 0\n    faces with interpolation weights (0..1) < 0.05 : 48\n    faces with interpolation weights (0..1) < 0.05 : 48\nLayer mesh : cells:3968\n    faces with interpolation weights (0..1) < 0.05 : 200\nEnd\n";
+        if(LayerPeakLowWeightFaces(0,attemptedLayers)!=48||LayerPeakLowWeightFaces(0,attemptedLayers.Replace("48","0"))!=0)
+            throw new InvalidOperationException("Layer attempted peak weight evidence mismatch.");
+        foreach(var bad in new[]{attemptedLayers+attemptedLayers,attemptedLayers+"[truncated]",attemptedLayers.Replace("0.05","0.01"),attemptedLayers.Replace("End\n",""),attemptedLayers.Replace("48","99999999999999999999999999")})
+            if(LayerPeakLowWeightFaces(0,bad)!=null)throw new InvalidOperationException("Ambiguous layer attempted weights accepted.");
+        if(LayerPeakLowWeightFaces(1,attemptedLayers)!=null)throw new InvalidOperationException("Failed layer evidence accepted.");
+        const string meshStats="Mesh stats\n    points: 1234\n    cells: 1216\nChecking topology...\nMesh OK.\nEnd\n";
+        if(FinalMeshCellCount(0,meshStats)!=1216||FinalMeshCellCount(0,meshStats.Replace("Mesh OK.","Failed 1 mesh checks."))!=1216||
+           FinalMeshCellCount(0,new string('x',50000)+"\n"+meshStats)!=1216)
+            throw new InvalidOperationException("Final native cell count missing.");
+        foreach(var bad in new[]{meshStats+meshStats,meshStats+"[truncated]",meshStats.Replace("1216","0"),meshStats.Replace("1216","99999999999999999999999"),meshStats.Replace("End\n",""),meshStats.Replace("Mesh stats","Other stats"),meshStats.Replace("Mesh OK.","no quality result")})
+            if(FinalMeshCellCount(0,bad)!=null)throw new InvalidOperationException("Ambiguous final cell count accepted.");
+        if(FinalMeshCellCount(1,meshStats)!=null)throw new InvalidOperationException("Failed native cell count accepted.");
+        const string qualityStats="Mesh stats\n    cells: 152\nChecking geometry...\n    Max aspect ratio = 2 OK.\n    Mesh non-orthogonality Max: 0 average: 0\n    Max skewness = 0 OK.\n    Cell determinant (wellposedness) : minimum: 0 average: 0.27442061945\n ***Cells with small determinant (< 0.001) found, number of cells: 96\n    Concave cell check OK.\n    Face interpolation weight : minimum: 0.333333333333 average: 0.433333333333\n    Face volume ratio : minimum: 0.5 average: 0.8\nFailed 1 mesh checks.\nEnd\n";
+        var finalQuality=FinalMeshQuality(0,qualityStats);
+        if(finalQuality==null||finalQuality.Count!=9||finalQuality["concaveCells"]!=0||finalQuality["underdeterminedCells"]!=96||finalQuality["maxNonOrthogonalityDeg"]!=0||finalQuality["minFaceVolumeRatio"]!=.5)
+            throw new InvalidOperationException("Native final summary mismatch.");
+        var ambiguousQuality=FinalMeshQuality(0,qualityStats.Replace("    Max skewness = 0 OK.","    Max skewness = 0 OK.\n    Max skewness = 1 OK.").Replace("    Concave cell check OK.",""));
+        if(ambiguousQuality==null||ambiguousQuality.ContainsKey("maxSkewness")||ambiguousQuality.ContainsKey("concaveCells"))throw new InvalidOperationException("Ambiguous summary metric accepted.");
+        foreach(var badSummary in new[]{qualityStats+qualityStats,qualityStats+"[truncated]",qualityStats.Replace("End\n",""),qualityStats.Replace("Checking geometry...","Other geometry")})
+            if(FinalMeshQuality(0,badSummary)!=null)throw new InvalidOperationException("Incomplete summary accepted.");
+        if(FinalMeshQuality(1,qualityStats)!=null)throw new InvalidOperationException("Failed summary accepted.");
         const string valid = """
             {"axes":[{"points":[0,1,2],"counts":[2,3],"grading":[1,1]},{"points":[0,1],"counts":[4],"grading":[1]},{"points":[0,1],"counts":[5],"grading":[1]}],"patches":["xMin","xMax","yMin","yMax","zMin","zMax"],"zones":[{"ijk":[0,0,0],"name":"metal"},{"ijk":[1,0,0],"name":"mold"}]}
             """;
@@ -110,6 +292,51 @@ internal static class NativeCartesianMesh
         {
             var (sd,surface)=BuildSnappy(sn.RootElement,cells);
             if(!sd.Contains("insidePoint (0.5 0.5 0.5);")||!sd.Contains("level (1 2)")||!sd.Contains("addLayers false;")||surface.Count!=1||surface.Values.Single().Length!=134)throw new InvalidOperationException("Snappy dictionary self-test failed.");
+        }
+        // Exact native transformation, independently of frontend validation.
+        var uniformNode=JsonNode.Parse(snappyJson)!.AsObject();
+        foreach(var axis in uniformNode["axes"]!.AsArray())
+        {
+            var grading=axis!["grading"]!.AsArray();
+            for(int j=0;j<grading.Count;j++)grading[j]=JsonValue.Create(1.0);
+        }
+        uniformNode["snappy"]!["maxLevel"]=1;
+        uniformNode["snappy"]!["uniformBackground"]=true;
+        var uniform=PrepareSnappyBackground(JsonSerializer.SerializeToElement(uniformNode));
+        if(uniform.UniformLevel!=1||uniform.OriginalCells!=cells||Build(uniform.Input).Cells!=cells*8||
+           !BuildSnappy(uniform.Input,cells*8).Dictionary.Contains("level (0 0)")||
+           !BuildSnappy(uniform.Input,cells*8).Dictionary.Contains("minFaceWeight 0.05;"))
+            throw new InvalidOperationException("Uniform background self-test failed.");
+        foreach(var kind in new[]{"unequal","cap","grading","boxes","overrides"})
+        {
+            var invalid=JsonNode.Parse(uniformNode.ToJsonString())!.AsObject();
+            var sn=invalid["snappy"]!.AsObject();
+            if(kind=="unequal")sn["maxLevel"]=2;
+            if(kind=="cap")sn["maxCells"]=cells*8-1;
+            if(kind=="grading")invalid["axes"]![0]!["grading"]![0]=2.0;
+            if(kind=="boxes")sn["boxes"]=JsonNode.Parse("[{}]");
+            if(kind=="overrides")sn["surfaceSettings"]=JsonNode.Parse("[{}]");
+            bool rejected=false;
+            try{PrepareSnappyBackground(JsonSerializer.SerializeToElement(invalid));}catch(ArgumentException){rejected=true;}
+            if(!rejected)throw new InvalidOperationException("Incompatible uniform background accepted: "+kind);
+        }
+        var uniformLayers=JsonNode.Parse(uniformNode.ToJsonString())!.AsObject();
+        uniformLayers["snappy"]!["surfaceSettings"]=JsonNode.Parse("[{\"id\":1,\"minLevel\":1,\"maxLevel\":1,\"layers\":1}]");
+        var preparedLayers=PrepareSnappyBackground(JsonSerializer.SerializeToElement(uniformLayers));
+        var layerDict=BuildSnappy(preparedLayers.Input,cells*8).Dictionary;
+        var layerRequests=RequestedSurfaceLayers(preparedLayers.Input);
+        if(layerRequests.Count!=1||layerRequests.GetValueOrDefault("flSurface_001")!=1)throw new InvalidOperationException("Uniform layer request identity lost.");
+        if(!layerDict.Contains("level (0 0)")||!layerDict.Contains("addLayers true;")||!layerDict.Contains("nSurfaceLayers 1;"))
+            throw new InvalidOperationException("Uniform layer transform failed.");
+        foreach(var kind in new[]{"level","duplicate","disabled","id"}){
+            var invalid=JsonNode.Parse(uniformLayers.ToJsonString())!.AsObject();
+            var settings=invalid["snappy"]!.AsObject();var rows=settings["surfaceSettings"]!.AsArray();
+            if(kind=="level")rows[0]!["maxLevel"]=2;
+            if(kind=="duplicate")rows.Add(JsonNode.Parse(rows[0]!.ToJsonString()));
+            if(kind=="disabled")settings["snapEnabled"]=false;
+            if(kind=="id")rows[0]!["id"]=2;
+            bool rejected=false;try{PrepareSnappyBackground(JsonSerializer.SerializeToElement(invalid));}catch(ArgumentException){rejected=true;}
+            if(!rejected)throw new InvalidOperationException("Invalid uniform layers accepted: "+kind);
         }
         var advancedJson=snappyJson[..^2]+",\"boxes\":[{\"min\":[0.1,0.1,0.1],\"max\":[0.4,0.4,0.4],\"level\":3}],\"surfaceSettings\":[{\"id\":1,\"minLevel\":2,\"maxLevel\":3,\"layers\":2}],\"layerSettings\":{\"expansionRatio\":1.25,\"finalLayerThickness\":0.25,\"minThickness\":0.125}}}";
         using(var sn=JsonDocument.Parse(advancedJson)){
@@ -214,6 +441,57 @@ internal static class NativeCartesianMesh
             throw new ArgumentException("Split requires 2–12 nonempty explicit cell zones covering every cell, with distinct non-reserved region names.");
     }
 
+    // Explicit alternate mesh strategy: put the requested equal refinement
+    // into the background counts, not local octree transitions. Only uniform
+    // grading is supported; local boxes and unequal surface levels cannot be substituted.
+    internal static (JsonElement Input,int? UniformLevel,long? OriginalCells) PrepareSnappyBackground(JsonElement root)
+    {
+        if(!root.TryGetProperty("snappy",out var settings)||!settings.TryGetProperty("uniformBackground",out var flag)||!flag.GetBoolean())return(root,null,null);
+        var (_,baseCells)=Build(root);
+        int min=settings.GetProperty("minLevel").GetInt32(),max=settings.GetProperty("maxLevel").GetInt32(),cap=settings.GetProperty("maxCells").GetInt32();
+        if(min!=max||min<1||min>4)throw new ArgumentException("Uniform background requires equal requested refinement levels 1–4.");
+        if(root.GetProperty("zones").GetArrayLength()!=0||(root.TryGetProperty("splitRegions",out var split)&&split.GetBoolean())||
+           (settings.TryGetProperty("boxes",out var boxes)&&boxes.GetArrayLength()!=0))
+            throw new ArgumentException("Uniform background is an alternative without zones or local boxes.");
+        // Preserve requested layers only with identical refinement levels.
+        if(settings.TryGetProperty("surfaceSettings",out var overrides)){
+            int surfaceCount=settings.TryGetProperty("surfaces",out var list)?list.GetArrayLength():1;
+            var ids=new HashSet<int>();
+            bool snapping=!settings.TryGetProperty("snapEnabled",out var snap)||snap.GetBoolean();
+            foreach(var cfg in overrides.EnumerateArray()){
+                if(cfg.ValueKind!=JsonValueKind.Object||
+                   !cfg.TryGetProperty("id",out var idNode)||!idNode.TryGetInt32(out int id)||id<1||id>surfaceCount||!ids.Add(id)||
+                   !cfg.TryGetProperty("minLevel",out var lo)||!lo.TryGetInt32(out int low)||low!=min||
+                   !cfg.TryGetProperty("maxLevel",out var hi)||!hi.TryGetInt32(out int high)||high!=max||
+                   !cfg.TryGetProperty("layers",out var layerNode)||!layerNode.TryGetInt32(out int layers)||layers<0||layers>8||(!snapping&&layers>0))
+                    throw new ArgumentException("Uniform surface overrides require unique valid IDs, matching uniform levels, and snap for layers.");
+            }
+        }
+        if(cap<baseCells||cap>350000)throw new ArgumentException("Invalid maxGlobalCells for uniform background.");
+        var factor=1<<min;
+        long refined=checked(baseCells*factor*factor*factor);
+        if(refined>MaxCells||refined>cap)throw new ArgumentException("Uniform refined background exceeds native 200,000-cell or selected maxGlobalCells limit.");
+        var node=JsonNode.Parse(root.GetRawText())!.AsObject();
+        foreach(var axis in node["axes"]!.AsArray())
+        {
+            if(axis!["grading"]!.AsArray().Any(x=>x!.GetValue<double>()!=1))throw new ArgumentException("Uniform background requires unit grading in every interval.");
+            var counts=axis["counts"]!.AsArray();
+            for(int i=0;i<counts.Count;i++)
+            {
+                int count=checked(counts[i]!.GetValue<int>()*factor);
+                if(count>10000)throw new ArgumentException("Refined axis interval exceeds 10,000 cells.");
+                counts[i]=JsonValue.Create(count);
+            }
+        }
+        var sn=node["snappy"]!.AsObject();
+        sn["minLevel"]=0;sn["maxLevel"]=0;sn.Remove("uniformBackground");
+        if(sn["surfaceSettings"] is JsonArray uniformOverrides)
+            foreach(var cfg in uniformOverrides){cfg!["minLevel"]=0;cfg["maxLevel"]=0;}
+        var prepared=JsonSerializer.SerializeToElement(node);
+        if(Build(prepared).Cells!=refined)throw new InvalidOperationException("Uniform background cell accounting mismatch.");
+        return(prepared,min,baseCells);
+    }
+
     internal static (string Dictionary, Dictionary<string,byte[]> Surfaces) BuildSnappy(JsonElement root, long cells)
     {
         var settings=root.GetProperty("snappy");
@@ -296,7 +574,7 @@ internal static class NativeCartesianMesh
             }
             snapControls { nSmoothPatch 3; tolerance {{(explicitFeatures?"1":"2")}}; nSolveIter {{(explicitFeatures?300:30)}}; nRelaxIter 5; nFeatureSnapIter 10; implicitFeatureSnap {{(explicitFeatures?"false":"true")}}; explicitFeatureSnap {{(explicitFeatures?"true":"false")}}; multiRegionFeatureSnap {{(explicitFeatures?"true":"false")}}; }
             addLayersControls { relativeSizes true; layers { {{layerPatches.ToString()}} } expansionRatio {{Num(expansion)}}; finalLayerThickness {{Num(final)}}; minThickness {{Num(minThickness)}}; nGrow 0; featureAngle 60; nRelaxIter 5; nSmoothSurfaceNormals 1; nSmoothNormals 3; nSmoothThickness 10; maxFaceThicknessRatio 0.5; maxThicknessToMedialRatio 0.3; minMedialAxisAngle 90; nBufferCellsNoExtrude 0; nLayerIter 50; }
-            meshQualityControls { maxNonOrtho 65; maxBoundarySkewness 20; maxInternalSkewness 4; maxConcave 80; minVol 1e-20; minTetQuality 1e-15; minArea -1; minTwist 0.02; minDeterminant 0.001; minFaceWeight 0.02; minVolRatio 0.01; minTriangleTwist -1; nSmoothScale 4; errorReduction 0.75; }
+            meshQualityControls { maxNonOrtho 65; maxBoundarySkewness 20; maxInternalSkewness 4; maxConcave 80; minVol 1e-20; minTetQuality 1e-15; minArea -1; minTwist 0.02; minDeterminant 0.001; minFaceWeight 0.05; minVolRatio 0.01; minTriangleTwist -1; nSmoothScale 4; errorReduction 0.75; }
             singleRegionName true;
             debug 0;
             mergeTolerance 1e-6;
@@ -453,32 +731,124 @@ internal static class NativeCartesianMesh
         """;
     // Reuse the exact Foundation loader used by generation. No case directory,
     // mesher, solver, package install or arbitrary command is accepted here.
-    internal static string ProbeScript()
+    internal static string FoundationLoader()
     {
         const string marker = "if [ \"$3\" = gmshToFoam ]; then";
         int end=Script.IndexOf(marker,StringComparison.Ordinal);
         if(end<0)throw new InvalidOperationException("Foundation loader boundary missing.");
-        return Script[..end]+"""
+        return Script[..end];
+    }
+    internal static string ProbeScript()=>FoundationLoader()+"""
         printf 'project=%s\nversion=%s\n' "$WM_PROJECT" "$WM_PROJECT_VERSION"
         for tool in blockMesh checkMesh surfaceCheck gmshToFoam splitMeshRegions snappyHexMesh surfaceFeatures foamPostProcess wmake timeout; do
           if command -v "$tool" >/dev/null 2>&1; then printf '%s=available\n' "$tool"; else printf '%s=missing\n' "$tool"; fi
         done
         """;
-    }
 
-    internal static async Task<object> ProbeAsync(string version, CancellationToken token)
+    internal sealed record WslDistribution(string Name,bool IsDefault);
+    internal static WslDistribution[] InstalledDistributions()
+    {
+        if(!OperatingSystem.IsWindows())throw new NotSupportedException("WSL inventory requires Windows.");
+        using var root=Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Lxss");
+        if(root is null)return Array.Empty<WslDistribution>();
+        var defaultId=root.GetValue("DefaultDistribution") as string;
+        var result=new List<WslDistribution>();
+        foreach(string key in root.GetSubKeyNames())
+        {
+            if(!Guid.TryParse(key,out var id))continue;
+            using var entry=root.OpenSubKey(key);
+            if(entry?.GetValue("DistributionName") is string name&&ValidDistributionName(name))
+                result.Add(new WslDistribution(name,Guid.TryParse(defaultId,out var selected)&&selected==id));
+        }
+        return result.OrderByDescending(x=>x.IsDefault).ThenBy(x=>x.Name,StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+    internal static bool ValidDistributionName(string name)=>name.Length is >0 and <=256&&!name.StartsWith('-')&&!name.Any(char.IsControl);
+    internal static string ResolveDistribution(string? requested,IEnumerable<WslDistribution> inventory)
+    {
+        var all=inventory.ToArray();
+        var matches=string.IsNullOrEmpty(requested)?all.Where(x=>x.IsDefault):all.Where(x=>string.Equals(x.Name,requested,StringComparison.Ordinal));
+        var selected=matches.ToArray();
+        if(selected.Length!=1||!ValidDistributionName(selected[0].Name))throw new NotSupportedException("WSL distribution unavailable or ambiguous. Refresh the installed distribution list.");
+        return selected[0].Name;
+    }
+    internal static string? RequestedDistribution(JsonElement root)
+    {
+        if(!root.TryGetProperty("distribution",out var value)||value.ValueKind==JsonValueKind.Null)return null;
+        if(value.ValueKind!=JsonValueKind.String)throw new ArgumentException("Invalid WSL distribution.");
+        var name=value.GetString()!;
+        if(name.Length>0&&!ValidDistributionName(name))throw new ArgumentException("Invalid WSL distribution.");
+        return name;
+    }
+    internal static string[] WslArgs(string distribution,params string[] args)
+    {
+        if(!ValidDistributionName(distribution))throw new ArgumentException("Invalid WSL distribution.");
+        return new[]{"--distribution",distribution,"--exec"}.Concat(args).ToArray();
+    }
+    internal static string[] CommandPlan(string utility,bool split,bool features)
+    {
+        var commands=new List<string>{utility=="gmshToFoam"?"gmshToFoam -case <staging> <staging>/source.msh":"blockMesh -case <staging>"};
+        if(utility=="snappyHexMesh"){commands.Add("surfaceCheck -checkSelfIntersection <staged STL> (each surface)");if(features)commands.Add("surfaceFeatures -case <staging>");commands.Add("snappyHexMesh -case <staging>");}
+        commands.Add("checkMesh -case <staging> -allTopology -allGeometry -writeSets -writeSurfaces");
+        if(split){commands.Add("splitMeshRegions -case <staging> (Foundation-version-specific cellZones options)");commands.Add("checkMesh -case <staging> -region <region> (each region)");}
+        commands.Add("foamPostProcess writeCellVolumes; packaged wmake quality helper (when available)");
+        return commands.ToArray();
+    }
+    internal sealed record Preflight(bool Matched,Dictionary<string,bool> Tools,int ExitCode,bool OutputTruncated,string Stderr);
+    internal static Preflight ParsePreflight(NativeCadSurfaceCheck.ProcessOutput output,string version)
+    {
+        var names=new[]{"blockMesh","checkMesh","surfaceCheck","gmshToFoam","splitMeshRegions","snappyHexMesh","surfaceFeatures","foamPostProcess","wmake","timeout"};
+        var lines=output.Stdout.Split('\n',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries);
+        bool matched=output.ExitCode==0&&!output.Truncated&&lines.Count(x=>x=="project=OpenFOAM")==1&&lines.Count(x=>x=="version="+version)==1&&lines.Count(x=>x.StartsWith("version=",StringComparison.Ordinal))==1&&lines.Count(x=>x.StartsWith("project=",StringComparison.Ordinal))==1;
+        var tools=names.ToDictionary(n=>n,n=>matched&&lines.Count(x=>x==n+"=available")==1&&lines.Count(x=>x==n+"=missing")==0);
+        return new Preflight(matched,tools,output.ExitCode,output.Truncated,output.Stderr);
+    }
+    internal static string[] RequiredTools(string utility,bool split,bool features)
+    {
+        var required=new List<string>{"timeout"};
+        if(utility=="surfaceCheck")required.Add("surfaceCheck");
+        else
+        {
+            required.Add(utility=="gmshToFoam"?"gmshToFoam":"blockMesh");
+            required.Add("checkMesh");
+            if(utility=="snappyHexMesh"){required.Add("surfaceCheck");required.Add("snappyHexMesh");if(features)required.Add("surfaceFeatures");}
+            if(split)required.Add("splitMeshRegions");
+        }
+        return required.ToArray();
+    }
+    internal static void RequireTools(Preflight probe,string utility,bool split=false,bool features=false)
+    {
+        if(!probe.Matched)throw new NotSupportedException("Requested Foundation OpenFOAM environment could not be verified. No case staged.");
+        var missing=RequiredTools(utility,split,features).Where(t=>!probe.Tools.TryGetValue(t,out bool available)||!available).ToArray();
+        if(missing.Length>0)throw new NotSupportedException("Required native tools missing: "+string.Join(", ",missing)+". No case staged.");
+    }
+    internal static async Task<Preflight> ProbeSelectedAsync(string wsl,string distribution,string version,CancellationToken token)
+    {
+        if(version is not ("13" or "14"))throw new ArgumentException("Select Foundation OpenFOAM 13 or 14.");
+        var output=await NativeCadSurfaceCheck.RunProcessAsync(wsl,Path.GetTempPath(),WslArgs(distribution,"/bin/bash","-lc",ProbeScript(),"foamlens-wsl-probe","unused",version),TimeSpan.FromSeconds(30),token);
+        return ParsePreflight(output,version);
+    }
+    internal sealed record StagedInput(string Path,long Bytes,string Sha256);
+    internal static async Task<StagedInput[]> HashStagingInputs(string dir,CancellationToken token)
+    {
+        var entries=new List<StagedInput>();
+        foreach(string file in Directory.EnumerateFiles(dir,"*",SearchOption.AllDirectories).OrderBy(x=>x,StringComparer.Ordinal))
+        {
+            token.ThrowIfCancellationRequested();
+            var info=new FileInfo(file);if((info.Attributes&FileAttributes.ReparsePoint)!=0)throw new InvalidOperationException("Linked staging input rejected.");
+            using var stream=File.OpenRead(file);
+            entries.Add(new StagedInput(Path.GetRelativePath(dir,file).Replace('\\','/'),stream.Length,Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(stream,token)).ToLowerInvariant()));
+        }
+        return entries.ToArray();
+    }
+    internal static async Task<object> ProbeAsync(string version, CancellationToken token,string? requestedDistribution=null)
     {
         if(version is not ("13" or "14"))throw new ArgumentException("Select Foundation OpenFOAM 13 or 14.");
         var wsl=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"wsl.exe");
         if(!File.Exists(wsl))throw new NotSupportedException("WSL is unavailable.");
-        var output=await NativeCadSurfaceCheck.RunProcessAsync(wsl,Path.GetTempPath(),
-            new[]{"--exec","/bin/bash","-lc",ProbeScript(),"foamlens-wsl-probe","unused",version},TimeSpan.FromSeconds(30),token);
-        var names=new[]{"blockMesh","checkMesh","surfaceCheck","gmshToFoam","splitMeshRegions","snappyHexMesh","surfaceFeatures","foamPostProcess","wmake","timeout"};
-        var lines=output.Stdout.Split('\n',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries);
-        bool matched=output.ExitCode==0&&!output.Truncated&&lines.Count(x=>x=="project=OpenFOAM")==1&&lines.Count(x=>x=="version="+version)==1;
-        var tools=names.ToDictionary(n=>n,n=>matched&&lines.Count(x=>x==n+"=available")==1&&lines.Count(x=>x==n+"=missing")==0);
-        return new {schema="foamlens/wsl-foundation-preflight/1",requestedVersion=version,matched,
-            runner="default WSL distribution",tools,exitCode=output.ExitCode,outputTruncated=output.Truncated,stderr=output.Stderr,
+        var distribution=ResolveDistribution(requestedDistribution,InstalledDistributions());
+        var probe=await ProbeSelectedAsync(wsl,distribution,version,token);
+        return new {schema="foamlens/wsl-foundation-preflight/1",requestedVersion=version,matched=probe.Matched,
+            runner="selected local WSL distribution",distribution,tools=probe.Tools,exitCode=probe.ExitCode,outputTruncated=probe.OutputTruncated,stderr=probe.Stderr,
             originalCaseModified=false};
     }
     internal static async Task<object> RunAsync(JsonElement root, CancellationToken token, bool gmsh = false)
@@ -491,6 +861,8 @@ internal static class NativeCartesianMesh
         bool snappy=!gmsh&&root.TryGetProperty("snappy",out _);
         if(snappy&&split)throw new ArgumentException("Surface snappy and zone splitting are separate operations.");
         if(snappy&&(!root.TryGetProperty("snappyDiagnosticOnly",out var diagnostic)||diagnostic.ValueKind!=JsonValueKind.True))throw new ArgumentException("Snappy refinement is diagnostic-only until strict native quality acceptance; explicit acknowledgement required.");
+        var background=snappy?PrepareSnappyBackground(root):(Input:root,UniformLevel:(int?)null,OriginalCells:(long?)null);
+        root=background.Input;
         var expected=new Dictionary<string,long>(StringComparer.Ordinal);
         var (dict,cells)=gmsh?("",ValidateGmsh(msh!,split?expected:null)):Build(root);
         if(split){if(gmsh)ValidateSplit(expected,cells);else expected=CartesianZones(root,cells);}
@@ -499,6 +871,11 @@ internal static class NativeCartesianMesh
         long exportLimit=gmsh||snappy?48*1024*1024:MaxOutput;
         var wsl=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"wsl.exe");
         if(!File.Exists(wsl))throw new NotSupportedException("WSL is unavailable.");
+        var distribution=ResolveDistribution(RequestedDistribution(root),InstalledDistributions());
+        var features=snappy&&BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys) is not null;
+        var commands=CommandPlan(utility,split,features);
+        var preflight=await ProbeSelectedAsync(wsl,distribution,version,token);
+        RequireTools(preflight,utility,split,features);
         var dir=Path.Combine(Path.GetTempPath(),"foamlens-blockmesh-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(dir,"system"));Directory.CreateDirectory(Path.Combine(dir,"constant"));
         try
@@ -517,10 +894,13 @@ internal static class NativeCartesianMesh
                 var target=Path.Combine(sourceDir,asset);Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 using var file=File.Create(target);await stream.CopyToAsync(file,token);
             }
-            var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","wslpath","-a",dir},TimeSpan.FromSeconds(15),token);
+            var stagingInputs=await HashStagingInputs(dir,token);
+            var stagingControlDict=await File.ReadAllTextAsync(Path.Combine(dir,"system","controlDict"),token);
+            var expectedRegionInput=split?await File.ReadAllTextAsync(Path.Combine(dir,"expected-regions.txt"),token):null;
+            var translated=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,WslArgs(distribution,"wslpath","-a",dir),TimeSpan.FromSeconds(15),token);
             var linux=translated.Stdout.Trim();
             if(translated.ExitCode!=0 || !linux.StartsWith("/") || linux.Contains('\n') || linux.Contains('\r'))throw new NotSupportedException("WSL path mapping failed.");
-            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,new[]{"--exec","/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"},TimeSpan.FromSeconds(split?2600:snappy?1040:520),token);
+            var run=await NativeCadSurfaceCheck.RunProcessAsync(wsl,dir,WslArgs(distribution,"/bin/bash","-lc",Script,"foamlens-blockmesh",linux,version,utility,split?"split":"single"),TimeSpan.FromSeconds(split?2600:snappy?1040:520),token);
             string Clean(string s)=>s.Replace(linux,"<temporary case>",StringComparison.Ordinal).Replace(dir,"<temporary case>",StringComparison.OrdinalIgnoreCase);
             async Task<string?> Small(string file,int limit)
             {
@@ -532,13 +912,15 @@ internal static class NativeCartesianMesh
             // Determine quality from the complete bounded log, not the first
             // 48k characters returned for display. A truncated positive
             // marker can never certify the rest of the run.
-            async Task<string> ReportedQuality(string file,int? exit)
+            async Task<(string Status,long? ConcaveCells,long? Cells,Dictionary<string,double>? Summary)> ReportedQuality(string file,int? exit)
             {
-                if(exit is null)return "not-run";
-                if(exit!=0)return "command-failed";
+                if(exit is null)return ("not-run",null,null,null);
+                if(exit!=0)return ("command-failed",null,null,null);
                 var path=Path.Combine(dir,file);var info=new FileInfo(path);
-                if(!info.Exists||info.Length>16*1024*1024||(info.Attributes&FileAttributes.ReparsePoint)!=0)return "undetermined";
-                return QualityStatus(exit,await File.ReadAllTextAsync(path,token));
+                if(!info.Exists||info.Length>16*1024*1024||(info.Attributes&FileAttributes.ReparsePoint)!=0)return ("undetermined",null,null,null);
+                string log=await File.ReadAllTextAsync(path,token);
+                var evidence=QualityEvidence(exit,log);
+                return (evidence.Status,evidence.ConcaveCells,FinalMeshCellCount(exit,log),FinalMeshQuality(exit,log));
             }
             int? Exit(string name){var p=Path.Combine(dir,name);return File.Exists(p)&&new FileInfo(p).Length<32&&int.TryParse(File.ReadAllText(p),out var x)?x:null;}
             var bm=snappy?Exit("snappyHexMesh.exit"):Exit("generation.exit");var cm=Exit("checkMesh.exit");
@@ -618,7 +1000,8 @@ internal static class NativeCartesianMesh
                     if(splitError!=null)break;
                     var captured=await ReadSets(poly,64*1024*1024-splitBytes);splitBytes+=captured.Bytes;
                     var regionLog=await Small("checkMesh."+name+".log",48000);var volumes=await ReadVolumes(name,64*1024*1024-splitBytes);splitBytes+=volumes.Bytes;var quality=await ReadQuality(name,64*1024*1024-splitBytes);splitBytes+=quality.Bytes;
-                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit")),checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings,nativeQualityFields=volumes.Fields,nativeVolumeStatus=volumes.Status,nativeVolumeLog=await Small("nativeVolumes."+name+".log",12000),nativeMetrics=quality.Metrics,nativeMetricsStatus=quality.Status,nativeMetricsManifest=quality.Manifest,nativeMetricsLog=await Small("nativeQuality."+name+".log",12000) };
+                    var regionEvidence=await ReportedQuality("checkMesh."+name+".log",Exit("checkMesh."+name+".exit"));
+                    regions[name]=new { expectedCells,checkMeshExit=Exit("checkMesh."+name+".exit"),qualityStatus=regionEvidence.Status,nativeConcaveCells=regionEvidence.ConcaveCells,nativeFinalCells=regionEvidence.Cells,nativeQualitySummary=regionEvidence.Summary,checkMeshLog=regionLog,files=regionFiles,sets=captured.Sets,setWarnings=captured.Warnings,nativeQualityFields=volumes.Fields,nativeVolumeStatus=volumes.Status,nativeVolumeLog=await Small("nativeVolumes."+name+".log",12000),nativeMetrics=quality.Metrics,nativeMetricsStatus=quality.Status,nativeMetricsManifest=quality.Manifest,nativeMetricsLog=await Small("nativeQuality."+name+".log",12000) };
                 }
                 if(splitError!=null)regions.Clear();
                 // Combined and separated meshes are different snapshots. Do not
@@ -639,7 +1022,37 @@ internal static class NativeCartesianMesh
                 }
                 if(exportError!=null)files.Clear();else{var captured=await ReadSets(mesh,exportLimit-total);nativeSets=captured.Sets;setWarnings=captured.Warnings;total+=captured.Bytes;var volumes=await ReadVolumes(null,exportLimit-total);nativeQualityFields=volumes.Fields;nativeVolumeStatus=volumes.Status;total+=volumes.Bytes;var quality=await ReadQuality(null,exportLimit-total);nativeMetrics=quality.Metrics;nativeMetricsStatus=quality.Status;nativeMetricsManifest=quality.Manifest;}
             }
-            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=await ReportedQuality("checkMesh.log",cm),runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
+            // Optional same-snapshot levels; never discard primary mesh for diagnostics.
+            string refinementLevelStatus=snappy?"unavailable":"not-applicable";
+            if(snappy&&files.Count>0){
+                var levelFile=new FileInfo(Path.Combine(dir,"constant","polyMesh","cellLevel"));
+                if(levelFile.Exists){
+                    if((levelFile.Attributes&FileAttributes.ReparsePoint)!=0||levelFile.Length>exportLimit-total)
+                        refinementLevelStatus="transfer-budget-or-link";
+                    else{
+                        var data=await File.ReadAllTextAsync(levelFile.FullName,token);
+                        var header=data.Substring(0,Math.Min(data.Length,2048));
+                        if(data.Contains('\0')||!System.Text.RegularExpressions.Regex.IsMatch(header,@"\bformat\s+ascii\s*;")||
+                           !System.Text.RegularExpressions.Regex.IsMatch(header,@"\bclass\s+labelList\s*;")||
+                           !System.Text.RegularExpressions.Regex.IsMatch(header,@"\bobject\s+cellLevel\s*;"))
+                            refinementLevelStatus="unsupported-format";
+                        else{files["constant/polyMesh/cellLevel"]=data;total+=levelFile.Length;refinementLevelStatus="captured";}
+                    }
+                }
+            }
+            var combinedEvidence=await ReportedQuality("checkMesh.log",cm);
+            var requestedLayers=snappy?RequestedSurfaceLayers(root):null;
+            Dictionary<string,LayerPatchEvidence>? finalLayers=null;
+            long? layerPeakLowWeightFaces=null;
+            if(requestedLayers is {Count:>0}&&bm==0){
+                var generation=new FileInfo(Path.Combine(dir,"generation.log"));
+                if(generation.Exists&&generation.Length<=16*1024*1024&&(generation.Attributes&FileAttributes.ReparsePoint)==0){
+                    string generationLog=await File.ReadAllTextAsync(generation.FullName,token);
+                    finalLayers=FinalLayerEvidence(bm,generationLog,requestedLayers);
+                    layerPeakLowWeightFaces=LayerPeakLowWeightFaces(bm,generationLog);
+                }
+            }
+            return new { schema=gmsh?"foamlens/native-gmsh-mesh/1":snappy?"foamlens/native-snappy-mesh/1":"foamlens/native-cartesian-mesh/1",version=detected,requestedVersion=version,distribution,commandPlan=commands,preflightTools=preflight.Tools,stagingInputs,stagingControlDict,expectedRegionInput,stagingIsolated=true,uniformBackgroundLevel=background.UniformLevel,originalBackgroundCells=background.OriginalCells,plannedCells=cells,generationUtility=utility,generationExit=bm,blockMeshExit=gmsh?(int?)null:snappy?Exit("blockMesh.exit"):bm,checkMeshExit=cm,qualityStatus=combinedEvidence.Status,nativeConcaveCells=combinedEvidence.ConcaveCells,nativeFinalCells=combinedEvidence.Cells,nativeQualitySummary=combinedEvidence.Summary,refinementLevelStatus,requestedSurfaceLayers=requestedLayers,finalSurfaceLayerEvidence=finalLayers,layerPeakLowWeightFaces,runnerExit=run.ExitCode,stdout=Clean(run.Stdout),stderr=Clean(run.Stderr),blockMeshLog=gmsh?null:await Small(snappy?"blockMesh.log":"generation.log",48000),snappyLog=snappy?await Small("generation.log",48000):null,surfaceCheckLog=snappy?await Small("surfaceCheck.log",48000):null,surfaceCheckExit=snappy?Exit("surfaceCheck.exit"):null,snappyDictionary=snappy?snappyInput.Dictionary:null,surfaceFeaturesDictionary=snappy?BuildSurfaceFeatures(root,snappyInput.Surfaces!.Keys):null,surfaceFeaturesExit=Exit("surfaceFeatures.exit"),surfaceFeaturesLog=await Small("surfaceFeatures.log",24000),gmshLog=gmsh?await Small("generation.log",48000):null,checkMeshLog=await Small("checkMesh.log",48000),splitRequested=split,splitExit,splitLog=await Small("splitMeshRegions.log",48000),splitError,regions,files,sets=nativeSets,setWarnings,nativeQualityFields,nativeVolumeStatus,nativeVolumeLog=await Small("nativeVolumes.log",12000),nativeMetrics,nativeMetricsStatus,nativeMetricsManifest,nativeMetricsLog=await Small("nativeQuality.log",12000),nativeQualityBuildLog=await Small("nativeQualityBuild.log",24000),exportError,dictionary=dict,originalCaseModified=false,meshGenerated=bm==0,qualityCertified=false,snappyDiagnosticOnly=snappy };
         }
         finally{try{Directory.Delete(dir,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
     }
