@@ -110,7 +110,7 @@ for(const name of passed)console.log('  ✓ '+name);
 
 const fesStart=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_START */'),fesEnd=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_END */');
 assert(fesStart>=0&&fesEnd>fesStart);
-const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish,fesHeatFlux,fesFaceArea,fesPatchPower,fesPhaseVolumes,fesDerivedPreviewData};')();
+const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish,fesHeatFlux,fesFaceArea,fesPatchPower,fesPhaseVolumes,fesDerivedPreviewData,fesInventoryProperties,fesInventoryGeometry,fesInventory,fesInventoryHistory};')();
 const source={caseId:'a',region:'metal',field:'T',association:'volume',component:'value',unit:'K',time_s:0,paths:['0/metal/T'],dimensions:[0,0,0,1,0,0,0],meshId:'mesh-A'};
 const mesh={cellCount:4,cellCenters:[0,0,0,1,0,0,2,1,0,3,1,0]};
 const input={mesh,source,values:[0,100,200,null]};
@@ -222,4 +222,19 @@ test('phase volumes require explicit role, dimensionless field and valid fractio
 });
 test('derived preview samples display only and retains full measured extrema',()=>{
  const mesh={cellCount:5,cellCenters:[0,0,0,1,0,0,2,0,0,3,0,0,4,0,0]},values=[1,99,3,NaN,5],q=fes.fesDerivedPreviewData(mesh,values,2);assert.strictEqual(q.valid,4);assert.strictEqual(q.missing,1);assert.strictEqual(q.max,99);assert(q.points.length<=2);assert.strictEqual(values.length,5);
+});
+
+test('thermal inventory uses density, physical volume, explicit phase mass fraction and reference',()=>{
+ const a={mesh:cube(),values:[1100],source},rho={...a,values:[7000],source:{...source,field:'rho',dimensions:[1,-3,0,0,0,0,0]}},alpha={...a,values:[.25],source:{...source,field:'alpha',dimensions:[0,0,0,0,0,0,0]}},props={cp:500,reference_K:1000,latent:200000,role:'liquid-mass',estimate:true,solidDensity:7500,liquidDensity:7000},geo=fes.fesInventoryGeometry(a,250000),q=finishGenerator(fes.fesInventory(a,rho,alpha,props,geo));
+ assert(q.valid);assert.strictEqual(q.mass_kg,7000);assert.strictEqual(q.sensible_J,350000000);assert.strictEqual(q.latent_J,350000000);assert.strictEqual(q.total_J,700000000);assert.strictEqual(q.liquidMass_kg,1750);
+ assert(Math.abs(q.estimatedVolume_m3-(1750/7000+5250/7500))<1e-12);
+ assert(!finishGenerator(fes.fesInventory(a,{...rho,values:[0]},alpha,props,geo)).valid);assert(!finishGenerator(fes.fesInventory(a,rho,{...alpha,values:[null]},props,geo)).valid);
+ assert(!finishGenerator(fes.fesInventory(a,{...rho,source:{...rho.source,time_s:1}},alpha,props,geo)).valid);assert(!fes.fesInventoryProperties({...props,role:'none'}));
+ const v=finishGenerator(fes.fesInventory(a,rho,alpha,{...props,role:'liquid-volume'},geo));assert(v.valid);assert(Math.abs(v.liquidMass_kg-7000*(.25*7000)/(.25*7000+.75*7500))<1e-9);
+});
+test('transient closure integrates signed boundary heat over irregular time intervals, not frames',()=>{
+ const prop={cp:1},frame=(t,E,p,V=1,M=10)=>({valid:true,time_s:t,volume_m3:V,mass_kg:M,sensible_J:E,latent_J:0,total_J:E,properties:prop,sources:[{...source,time_s:t}],estimatedVolume_m3:V,cellCount:1,boundaryPower:{valid:true,source:{...source,time_s:t,field:'q'},outwardPower_W:p,inputKind:'face-power-W',signConvention:'outward-positive',patches:[{patch:'wall'}]}});
+ const frames=[frame(0,100,10),frame(2,70,20),frame(5,10,20,.9,9.5)],q=fes.fesInventoryHistory(frames,{closure:true,sourcePower_W:0});assert(q.valid);assert.strictEqual(q.rows[2].heatOut_J,90);assert.strictEqual(q.rows[2].residual_J,0);assert.strictEqual(q.rows[2].massChange_pct,-5);assert(Math.abs(q.rows[2].volumeChange_pct+10)<1e-12);assert(Math.abs(q.rows[2].estimatedShrinkage_pct-10)<1e-12);
+ assert(!fes.fesInventoryHistory(frames,{closure:true,sourcePower_W:''}).valid);assert(!fes.fesInventoryHistory([frames[0],{...frames[1],boundaryPower:null}],{closure:true,sourcePower_W:0}).valid);assert(!fes.fesInventoryHistory([frames[0],frames[0]]).valid);
+ const passive=fes.fesInventoryHistory(frames);assert(passive.valid);assert.strictEqual(passive.rows[2].residual_J,null);assert.strictEqual(passive.rows[2].heatOut_J,null);
 });

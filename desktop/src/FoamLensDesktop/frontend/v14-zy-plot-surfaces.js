@@ -509,6 +509,69 @@ function fesDerivedPreviewData(mesh,values,limit=6000){
  for(let i=0;i<n;i++){const v=values[i],p=fesXYZ(mesh.cellCenters,i);if(!Number.isFinite(v)||!p){missing++;continue}min=Math.min(min,v);max=Math.max(max,v);for(let k=0;k<3;k++){lo[k]=Math.min(lo[k],p[k]);hi[k]=Math.max(hi[k],p[k])}count++;if(i%stride===0)points.push({id:i,p,v})}
  return {points,min:count?min:null,max:count?max:null,valid:count,missing,total:n,lo,hi}
 }
+function fesInventoryCompatible(a,b,dim){
+ return fesDerivedInput(b)&&fesSameMesh(a.source,b.source)&&a.source.time_s===b.source.time_s&&a.values.length===b.values.length&&b.source.component==='value'&&fesDimIs(b.source.dimensions,dim)
+}
+function fesInventoryProperties(raw){
+ const cp=fesNum(raw?.cp),reference_K=fesNum(raw?.reference_K),latent=fesNum(raw?.latent??0),role=raw?.role||'none';
+ if(!(cp>0)||!(reference_K>=0)||!(latent>=0)||!['none','liquid-mass','solid-mass','liquid-volume','solid-volume'].includes(role)||(role==='none'&&latent!==0))return null;
+ const solidDensity=fesNum(raw?.solidDensity),liquidDensity=fesNum(raw?.liquidDensity),needs=role.endsWith('-volume'),estimate=raw?.estimate===true;
+ if((needs||estimate)&&(!(solidDensity>0)||!(liquidDensity>0)))return null;
+ if(estimate&&role==='none')return null;
+ return{cp,reference_K,latent,role,estimate,solidDensity:needs||estimate?solidDensity:null,liquidDensity:needs||estimate?liquidDensity:null}
+}
+function fesInventoryGeometry(a,limit){
+ if(!fesPhysicalBudget('integral',limit)||a.mesh.cellCount>limit)return null;
+ const volumes=new Float64Array(a.mesh.cellCount);let count=0;
+ const built=fesBuildCells(a.mesh,{limit,retain:false,onCell:c=>{volumes[c.id]=c.volume;count++}});
+ return built&&count===volumes.length?{mesh:a.mesh,meshId:a.source.meshId,volumes}:null
+}
+function* fesInventory(a,rho,alpha,raw,geometry){
+ const fail=reason=>({valid:false,reason}),props=fesInventoryProperties(raw);
+ if(!props||!fesDerivedInput(a)||a.source.component!=='value'||!fesDimIs(a.source.dimensions,[0,0,0,1,0,0,0]))return fail('temperature-and-material-properties-required');
+ if(!fesInventoryCompatible(a,rho,[1,-3,0,0,0,0,0]))return fail('density-field-mismatch');
+ if(props.role!=='none'&&!fesInventoryCompatible(a,alpha,[0,0,0,0,0,0,0]))return fail('phase-field-mismatch');
+ if(!geometry||geometry.mesh!==a.mesh||geometry.meshId!==a.source.meshId||geometry.volumes?.length!==a.values.length)return fail('unverified-inventory-geometry');
+ const sums=new Float64Array(6),correction=new Float64Array(6),add=(j,x)=>{const y=x-correction[j],v=sums[j]+y;correction[j]=(v-sums[j])-y;sums[j]=v};
+ const n=a.values.length;
+ for(let i=0;i<n;i++){
+  const V=geometry.volumes[i],T=a.values[i],d=rho.values[i],mass=d*V;
+  if(![V,T,d,mass].every(Number.isFinite)||!(V>0)||T<0||!(d>0)||!(mass>0))return{valid:false,reason:'invalid-cell-inventory',cell:i};
+  let f=0;
+  if(props.role!=='none'){
+   const rawFraction=alpha.values[i];if(!Number.isFinite(rawFraction)||rawFraction<0||rawFraction>1)return{valid:false,reason:'invalid-phase-fraction',cell:i};
+   f=props.role.startsWith('solid')?1-rawFraction:rawFraction;
+   if(props.role.endsWith('-volume')){const ml=f*props.liquidDensity,ms=(1-f)*props.solidDensity;f=ml/(ml+ms)}
+   if(!Number.isFinite(f)||f<0||f>1)return{valid:false,reason:'invalid-phase-mass-conversion',cell:i}
+  }
+  const sensible=mass*props.cp*(T-props.reference_K),latent=mass*props.latent*f;
+  if(!Number.isFinite(sensible)||!Number.isFinite(latent))return{valid:false,reason:'nonfinite-cell-energy',cell:i};
+  add(0,V);add(1,mass);add(2,sensible);add(3,latent);add(4,mass*f);
+  if(props.estimate)add(5,mass*(f/props.liquidDensity+(1-f)/props.solidDensity));
+  if((i+1)%16384===0)yield{done:i+1,total:n}
+ }
+ const [volume_m3,mass_kg,sensible_J,latent_J,liquidMass_kg,estimatedVolume_m3]=sums,total_J=sensible_J+latent_J;
+ if(![...sums,total_J].every(Number.isFinite)||!(volume_m3>0)||!(mass_kg>0))return fail('nonfinite-inventory');
+ return {valid:true,time_s:a.source.time_s,volume_m3,mass_kg,sensible_J,latent_J,total_J,liquidMass_kg:props.role==='none'?null:liquidMass_kg,estimatedVolume_m3:props.estimate?estimatedVolume_m3:null,properties:props,sources:[a.source,rho.source,...(props.role==='none'?[]:[alpha.source])],cellCount:n,method:'Cell density times geometric volume; constant Cp sensible enthalpy relative to stated Tref, constant latent heat times liquid mass fraction. Volume-fraction conversion uses explicitly supplied constant phase densities. Not solver total energy.'}
+}
+function fesInventoryHistory(frames,{closure=false,sourcePower_W=null}={}){
+ const fail=reason=>({valid:false,reason});
+ if(!Array.isArray(frames)||frames.length<2||frames.some(f=>!f?.valid||![f.time_s,f.volume_m3,f.mass_kg,f.sensible_J,f.latent_J,f.total_J].every(Number.isFinite)||f.volume_m3<=0||f.mass_kg<=0))return fail('complete-native-inventories-required');
+ const first=frames[0],props=JSON.stringify(first.properties),region=first.sources?.[0]?.region,caseId=first.sources?.[0]?.caseId,roles=JSON.stringify(first.sources?.map(x=>[x.field,x.component,x.association,x.dimensions]));
+ if(frames.some((f,i)=>i&&f.time_s<=frames[i-1].time_s||JSON.stringify(f.properties)!==props||f.sources?.[0]?.region!==region||f.sources?.[0]?.caseId!==caseId||JSON.stringify(f.sources?.map(x=>[x.field,x.component,x.association,x.dimensions]))!==roles))return fail('inconsistent-history-source');
+ const power=closure?fesNum(sourcePower_W):null;
+ if(closure&&(!Number.isFinite(power)||frames.some(f=>!f.boundaryPower?.valid||!Number.isFinite(f.boundaryPower.outwardPower_W)||f.boundaryPower.source?.time_s!==f.time_s||f.boundaryPower.source?.region!==region||f.boundaryPower.source?.caseId!==caseId||!f.boundaryPower.patches?.length)))return fail('complete-explicit-boundary-power-required');
+ if(closure){const identity=f=>JSON.stringify([f.boundaryPower.source.field,f.boundaryPower.inputKind,f.boundaryPower.signConvention,f.boundaryPower.patches.map(p=>p.patch).sort()]);if(frames.some(f=>identity(f)!==identity(first)))return fail('boundary-power-source-changed')}
+ let heatOut_J=0,source_J=0;const rows=[];
+ for(let i=0;i<frames.length;i++){
+  const f=frames[i],p=frames[i-1];if(i&&closure){const dt=f.time_s-p.time_s;heatOut_J+=(p.boundaryPower.outwardPower_W/2+f.boundaryPower.outwardPower_W/2)*dt;source_J+=power*dt}
+  const deltaEnergy_J=f.total_J-first.total_J,massChange_kg=f.mass_kg-first.mass_kg,volumeChange_pct=(f.volume_m3/first.volume_m3-1)*100,estimatedShrinkage_pct=Number.isFinite(f.estimatedVolume_m3)&&first.estimatedVolume_m3>0?(1-f.estimatedVolume_m3/first.estimatedVolume_m3)*100:null;
+  const residual_J=closure?deltaEnergy_J+heatOut_J-source_J:null,den=closure?Math.max(Math.abs(deltaEnergy_J),Math.abs(heatOut_J),Math.abs(source_J)):0,relativeResidual=closure&&den>0?residual_J/den:null;
+  if([deltaEnergy_J,massChange_kg,volumeChange_pct,heatOut_J,source_J,...[estimatedShrinkage_pct,residual_J,relativeResidual].filter(v=>v!==null)].some(v=>!Number.isFinite(v)))return fail('nonfinite-history');
+  rows.push({time_s:f.time_s,volume_m3:f.volume_m3,mass_kg:f.mass_kg,massChange_kg,massChange_pct:massChange_kg/first.mass_kg*100,volumeChange_pct,sensible_J:f.sensible_J,latent_J:f.latent_J,total_J:f.total_J,deltaEnergy_J,liquidMass_kg:f.liquidMass_kg,estimatedVolume_m3:f.estimatedVolume_m3,estimatedShrinkage_pct,outwardPower_W:closure?f.boundaryPower.outwardPower_W:null,heatOut_J:closure?heatOut_J:null,source_J:closure?source_J:null,residual_J,relativeResidual})
+ }
+ return{valid:true,schema:'foamlens/thermal-inventory-history/1',properties:first.properties,closure:{enabled:closure,sourcePower_W:power,assumptions:closure?'User declares all relevant external heat transfer included, closed mass system, no mechanical work or omitted energy terms. Constant Cp/L model; residual is diagnostic, not certified solver conservation.':'No energy closure inferred; mass/volume changes are observations, not conservation proof.'},rows,frames:frames.map(f=>({time_s:f.time_s,cellCount:f.cellCount,sources:f.sources,boundaryPower:f.boundaryPower||null})),method:'Original native times, trapezoidal boundary power integration, no extrapolation. Actual mesh volume change distinct from density-based theoretical phase-volume estimate.'}
+}
 /* FOAMLENS_ENTITY_SELECTION_CORE_END */
 let fesResult=null,fesPage=0,fesSelected=null,fesStages=[],fesStageSource=null,fesClipResult=null;
 const fesE=id=>document.getElementById(id);
@@ -705,6 +768,67 @@ function fesMountDerived(box){
  box.querySelector('.extSectionBody').append(el);const refresh=()=>{fesDerivedReset();fesDerivedGroups();fesDerivedTimes()};el.addEventListener('toggle',()=>{if(el.open)refresh()});fesE('fesDerivedRefresh').onclick=refresh;for(const id of ['fesDerivedOther','fesDerivedOp','fesDerivedPlane','fesDerivedStart','fesDerivedEnd'])fesE(id).onchange=fesDerivedReset;
  fesE('fesHeatRun').onclick=()=>fesDerivedRun('heat-flux');fesE('fesKMode').onchange=fesDerivedReset;fesE('fesKConstant').onchange=fesDerivedReset;fesE('fesDerivedColumn').onchange=fesDerivedDraw;fesE('fesDerivedYaw').oninput=fesDerivedDraw;fesE('fesDerivedPitch').oninput=fesDerivedDraw;fesE('fesCalcRun').onclick=()=>fesDerivedRun('calculator');fesE('fesGradRun').onclick=()=>fesDerivedRun('gradient');fesE('fesTemporalRun').onclick=()=>fesDerivedRun('temporal');fesE('fesDerivedCancel').onclick=()=>{fesDerivedReset();fesE('fesDerivedStatus').textContent=fesUi('Cancelled / cleared','Cancelado / limpiado')};fesE('fesDerivedCsv').onclick=()=>fesDerivedExport(true);fesE('fesDerivedMeta').onclick=()=>fesDerivedExport(false);fesDerivedReset()
 }
+let fesHistorySeq=0,fesHistoryResult=null;
+function fesHistoryClear(){fesHistorySeq++;fesHistoryResult=null;fesE('fesHistoryStatus').textContent='';fesE('fesHistoryCSV').disabled=true;fesE('fesHistoryJSON').disabled=true;fesE('fesHistoryTable').replaceChildren()}
+function fesHistoryRefresh(){
+ fesHistoryClear();const a=fesSource(),c=typeof fvCase==='function'?fvCase():null,g=typeof fvCurrentFieldGroup==='function'?fvCurrentFieldGroup():null;
+ for(const id of ['fesHistRho','fesHistAlpha','fesHistPower','fesHistFrom','fesHistTo','fesHistPatches'])fesE(id).replaceChildren();
+ if(!a||!c||!g)return;
+ for(const [id,storage] of [['fesHistRho','volume'],['fesHistAlpha','volume'],['fesHistPower','surface']]){
+  const el=fesE(id),empty=document.createElement('option');empty.value='';empty.textContent=fesUi('Choose field','Elige campo');el.append(empty);
+  for(const group of fvFieldGroups(c,a.source.region,'scalar',storage)){const o=document.createElement('option');o.value=group.name;o.textContent=group.name;el.append(o)}
+ }
+ const times=g.times.map(fesNum).filter(Number.isFinite).sort((a,b)=>a-b);
+ for(const [id,last] of [['fesHistFrom',false],['fesHistTo',true]]){const el=fesE(id);for(const time of times){const o=document.createElement('option');o.value=String(time);o.textContent=time+' s';el.append(o)}if(last&&times.length)el.selectedIndex=times.length-1}
+ for(const patch of a.mesh.boundaryPatches||[]){if(/^processor/i.test(patch.type||'')||/^processor/i.test(patch.name||''))continue;const o=document.createElement('option');o.value=patch.name;o.textContent=patch.name;fesE('fesHistPatches').append(o)}
+}
+function fesHistoryGroup(c,region,id,storage){
+ const name=fesE(id).value,groups=fvFieldGroups(c,region,'scalar',storage).filter(g=>g.name===name);if(!name||groups.length!==1)throw Error('missing-or-ambiguous-field: '+id);return groups[0]
+}
+async function fesHistoryRun(){
+ fesHistoryClear();const seq=fesHistorySeq,a=fesSource(),c=typeof fvCase==='function'?fvCase():null,g=typeof fvCurrentFieldGroup==='function'?fvCurrentFieldGroup():null,status=fesE('fesHistoryStatus');
+ const alive=()=>seq===fesHistorySeq,check=()=>{const now=fesSource();if(!alive()||!now||now.mesh!==a.mesh||now.values!==a.values||JSON.stringify(now.source)!==JSON.stringify(a.source))throw Error('cancelled-or-source-changed')};
+ const consume=async(gen)=>{for(;;){check();const r=gen.next();if(r.done)return r.value;status.textContent=r.value.done+'/'+r.value.total;await new Promise(r=>setTimeout(r,0))}};
+ try{
+ if(!a||!c||!g||g.kind!=='scalar'||a.source.component!=='value'||!fesDimIs(a.source.dimensions,[0,0,0,1,0,0,0]))throw Error('select-original-scalar-temperature-in-Field-A');
+ const props=fesInventoryProperties({cp:fesE('fesHistCp').value,reference_K:fesE('fesHistRef').value,latent:fesE('fesHistLatent').value,role:fesE('fesHistRole').value,solidDensity:fesE('fesHistSolidDensity').value,liquidDensity:fesE('fesHistLiquidDensity').value,estimate:fesE('fesHistEstimate').checked});
+ if(!props)throw Error('invalid-material-properties');
+ const closure=fesE('fesHistClosure').checked,sourcePower_W=fesE('fesHistSourceW').value,sign=fesE('fesHistSign').value,patches=[...fesE('fesHistPatches').selectedOptions].map(o=>o.value);
+ if(closure&&(!Number.isFinite(fesNum(sourcePower_W))||!sign||!patches.length))throw Error('explicit-closure-assumptions-power-sign-and-patches-required');
+ const rho=fesHistoryGroup(c,a.source.region,'fesHistRho','volume'),alpha=props.role==='none'?null:fesHistoryGroup(c,a.source.region,'fesHistAlpha','volume'),power=closure?fesHistoryGroup(c,a.source.region,'fesHistPower','surface'):null;
+ const lo=fesNum(fesE('fesHistFrom').value),hi=fesNum(fesE('fesHistTo').value),times=g.times.map(fesNum).filter(t=>Number.isFinite(t)&&t>=lo&&t<=hi).sort((x,y)=>x-y),limit=fesNum(fesE('fesIntegralBudget').value);
+ if(times.length<2||times[0]!==lo||times.at(-1)!==hi||new Set(times).size!==times.length)throw Error('select-two-exact-native-times');
+ if([rho,alpha,power].filter(Boolean).some(f=>times.some(t=>!f.times.some(v=>fesNum(v)===t))))throw Error('missing-exact-native-field-time');
+ let geometry=null;const frames=[];
+ const load=async(group,time,boundary=false)=>{check();const data=await fvLoadFrameData(c,group,a.source.region,time,'value',{includeBoundary:boundary});check();return {...fesDerivedData(c,group,a.source.region,time,'value',data),boundary:data.surfaceBoundary?.values}};
+ for(let i=0;i<times.length;i++){check();const time=times[i];status.textContent=fesUi('Native time','Tiempo nativo')+' '+(i+1)+'/'+times.length+' · '+time+' s';
+  const T=await load(g,time),d=await load(rho,time),f=alpha?await load(alpha,time):null;
+  if(!geometry||geometry.mesh!==T.mesh||geometry.meshId!==T.source.meshId)geometry=fesInventoryGeometry(T,limit);
+  const inventory=await consume(fesInventory(T,d,f,props,geometry));if(!inventory.valid)throw Error(inventory.reason+' · t='+time);
+  if(closure){const b=await load(power,time,true);if(b.source.meshId!==T.source.meshId)throw Error('boundary-mesh-mismatch');const q=await consume(fesPatchPower(b,patches,sign));if(!q.valid)throw Error(q.reason+' · t='+time);inventory.boundaryPower=q}
+  frames.push(inventory);await new Promise(r=>setTimeout(r,0))
+ }
+ check();const result=fesInventoryHistory(frames,{closure,sourcePower_W});if(!result.valid)throw Error(result.reason);fesHistoryResult=result;fesE('fesHistoryCSV').disabled=false;fesE('fesHistoryJSON').disabled=false;
+ const last=result.rows.at(-1);status.textContent=result.rows.length+' '+fesUi('native frames','tiempos nativos')+' · ΔM '+last.massChange_pct.toPrecision(5)+'% · ΔV '+last.volumeChange_pct.toPrecision(5)+'% · ΔH '+last.deltaEnergy_J.toPrecision(6)+' J'+(closure?' · R '+last.residual_J.toPrecision(6)+' J':'');fesHistoryDraw()
+ }catch(e){if(alive())status.textContent=String(e?.message||e)}
+}
+function fesHistoryDraw(){
+ const host=fesE('fesHistoryTable'),r=fesHistoryResult;host.replaceChildren();if(!r)return;
+ const table=document.createElement('table');table.style.cssText='width:100%;font-size:11px';const head=document.createElement('tr');for(const h of ['t [s]','M [kg]','ΔV [%]','ΔH [J]','R [J]']){const cell=document.createElement('th');cell.textContent=h;head.append(cell)}table.append(head);
+ for(const x of fesPreview(r.rows,50)){const tr=document.createElement('tr');for(const v of [x.time_s,x.mass_kg,x.volumeChange_pct,x.deltaEnergy_J,x.residual_J]){const cell=document.createElement('td');cell.textContent=Number.isFinite(v)?v.toPrecision(6):'—';tr.append(cell)}table.append(tr)}host.append(table);
+ const note=document.createElement('p');note.className='smallnote';note.textContent=Math.min(50,r.rows.length)+'/'+r.rows.length+' '+fesUi('preview rows; full CSV unchanged.','filas de vista previa; CSV completo intacto.');host.append(note)
+}
+function fesHistoryExport(csv){const r=fesHistoryResult;if(!r)return;if(!csv){downloadText('FoamLens_thermal_inventory.json',JSON.stringify(r,null,2),'application/json');return}const keys=Object.keys(r.rows[0]),lines=[keys.join(','),...r.rows.map(x=>keys.map(k=>Number.isFinite(x[k])?x[k]:'').join(','))];downloadText('FoamLens_thermal_inventory.csv',lines.join('\n')+'\n','text/csv')}
+function fesMountHistory(box){
+ const el=document.createElement('details');el.className='analysisExt';el.innerHTML='<summary><strong data-fl-en="Transient mass / energy / shrinkage" data-fl-es="Masa / energía / contracción transitoria">Transient mass / energy / shrinkage</strong></summary><p class="smallnote" data-fl-en="Load original scalar temperature in Field A. Exact native times, original density field, constant Cp and latent heat. Diagnostic enthalpy inventory, not solver total energy." data-fl-es="Carga temperatura escalar original en Field A. Tiempos nativos exactos, campo de densidad original, Cp y calor latente constantes. Inventario diagnóstico de entalpía, no energía total del solver.">Load original scalar temperature in Field A. Exact native times, original density field, constant Cp and latent heat. Diagnostic enthalpy inventory, not solver total energy.</p><button class="btn soft" type="button" id="fesHistRefresh" data-fl-en="Refresh source" data-fl-es="Actualizar fuente">Refresh source</button>'+
+ '<div class="field"><label>ρ [kg/m³]</label><select id="fesHistRho"></select></div><div class="row2"><div class="field"><label>Cp [J/(kg·K)]</label><input id="fesHistCp" type="number" step="any"></div><div class="field"><label>Tref [K]</label><input id="fesHistRef" type="number" step="any"></div></div>'+
+ '<div class="field"><label data-fl-en="Phase fraction field" data-fl-es="Campo de fracción de fase">Phase fraction field</label><select id="fesHistAlpha"></select></div><div class="field"><label data-fl-en="Fraction interpretation" data-fl-es="Interpretación de fracción">Fraction interpretation</label><select id="fesHistRole"><option value="none" data-fl-en="No latent term" data-fl-es="Sin término latente">No latent term</option><option value="liquid-mass" data-fl-en="Liquid mass fraction" data-fl-es="Fracción másica líquida">Liquid mass fraction</option><option value="solid-mass" data-fl-en="Solid mass fraction" data-fl-es="Fracción másica sólida">Solid mass fraction</option><option value="liquid-volume" data-fl-en="Liquid volume fraction" data-fl-es="Fracción volumétrica líquida">Liquid volume fraction</option><option value="solid-volume" data-fl-en="Solid volume fraction" data-fl-es="Fracción volumétrica sólida">Solid volume fraction</option></select></div><div class="field"><label>L [J/kg]</label><input id="fesHistLatent" type="number" step="any" value="0"></div>'+
+ '<div class="row2"><div class="field"><label>ρ solid [kg/m³]</label><input id="fesHistSolidDensity" type="number" step="any"></div><div class="field"><label>ρ liquid [kg/m³]</label><input id="fesHistLiquidDensity" type="number" step="any"></div></div><label class="inlineCheck"><input id="fesHistEstimate" type="checkbox"> <span data-fl-en="Estimate phase-density volume (not mesh motion)" data-fl-es="Estimar volumen por densidades (no movimiento de malla)">Estimate phase-density volume (not mesh motion)</span></label>'+
+ '<div class="row2"><div class="field"><label data-fl-en="From" data-fl-es="Desde">From</label><select id="fesHistFrom"></select></div><div class="field"><label data-fl-en="To" data-fl-es="Hasta">To</label><select id="fesHistTo"></select></div></div>'+
+ '<label class="inlineCheck"><input id="fesHistClosure" type="checkbox"> <span data-fl-en="Diagnostic closure: I declare closed mass, all relevant heat boundaries, no omitted work/energy terms" data-fl-es="Cierre diagnóstico: declaro masa cerrada, todas las fronteras térmicas relevantes y ausencia de trabajo/términos omitidos">Diagnostic closure: I declare closed mass, all relevant heat boundaries, no omitted work/energy terms</span></label><div class="field"><label data-fl-en="Boundary heat flux / power field" data-fl-es="Campo de flujo / potencia térmica de frontera">Boundary heat flux / power field</label><select id="fesHistPower"></select></div><div class="field"><label data-fl-en="External heat patches" data-fl-es="Fronteras térmicas externas">External heat patches</label><select id="fesHistPatches" multiple size="4"></select></div><div class="field"><label data-fl-en="Original sign" data-fl-es="Signo original">Original sign</label><select id="fesHistSign"><option value="">—</option><option value="outward-positive" data-fl-en="Outward positive" data-fl-es="Salida positiva">Outward positive</option><option value="inward-positive" data-fl-en="Inward positive" data-fl-es="Entrada positiva">Inward positive</option></select></div><div class="field"><label data-fl-en="Constant net internal heat source [W], explicitly enter 0 if absent" data-fl-es="Fuente interna neta constante [W], escribe 0 si no existe">Constant net internal heat source [W], explicitly enter 0 if absent</label><input id="fesHistSourceW" type="number" step="any"></div>'+
+ '<div class="extActions"><button class="btn primary" id="fesHistRun" type="button" data-fl-en="Run history" data-fl-es="Calcular historia">Run history</button><button class="btn soft" id="fesHistCancel" type="button" data-fl-en="Cancel / clear" data-fl-es="Cancelar / limpiar">Cancel / clear</button><button class="btn soft" id="fesHistoryCSV" type="button">CSV</button><button class="btn soft" id="fesHistoryJSON" type="button">JSON</button></div><p class="smallnote" id="fesHistoryStatus" aria-live="polite"></p><div id="fesHistoryTable" style="overflow:auto"></div>';
+ box.querySelector('.extSectionBody').append(el);el.addEventListener('toggle',()=>{if(el.open)fesHistoryRefresh()});fesE('fesHistRefresh').onclick=fesHistoryRefresh;for(const e of el.querySelectorAll('select,input'))e.onchange=fesHistoryClear;fesE('fesHistRun').onclick=fesHistoryRun;fesE('fesHistCancel').onclick=fesHistoryClear;fesE('fesHistoryCSV').onclick=()=>fesHistoryExport(true);fesE('fesHistoryJSON').onclick=()=>fesHistoryExport(false);fesHistoryClear()
+}
 function fesMount(){
  if(fesE('fesPanel'))return true;const host=fesE('fieldViewControls');if(!host)return false;
  const box=document.createElement('details');box.className='analysisExt';box.id='fesPanel';
@@ -720,7 +844,7 @@ function fesMount(){
  '<div class="field"><label data-fl-en="Projection" data-fl-es="Proyección">Projection</label><select id="fesProjection"><option value="xy">XY</option><option value="xz">XZ</option><option value="yz">YZ</option></select></div><div id="fesPlot"></div><div class="extActions"><button class="btn tiny" id="fesPrev" type="button">←</button><span id="fesPageText"></span><button class="btn tiny" id="fesNext" type="button">→</button></div><div id="fesRows" style="display:grid;gap:4px;max-height:320px;overflow:auto"></div></div>';
  host.append(box);for(const el of box.querySelectorAll('input,textarea,select'))if(el.id!=='fesProjection')el.addEventListener('input',()=>{fesControls();fesClear(fesUi('Filter changed; extract again.','Cambió el filtro; extrae otra vez.'))});
  fesE('fesDefaults').onclick=fesDefaults;fesE('fesRun').onclick=fesRun;fesE('fesJson').onclick=()=>fesExport('json');fesE('fesCsv').onclick=()=>fesExport('csv');fesE('fesProjection').onchange=fesDraw;fesE('fesPrev').onclick=()=>{fesPage--;fesDraw()};fesE('fesNext').onclick=()=>{fesPage++;fesDraw()};
- fesMountExtra(box);fesMountPhysical(box);fesMountDerived(box);fesMountThermal(box);try{flApplyBilingualText(box)}catch{}fesControls();fesClear();return true
+ fesMountExtra(box);fesMountPhysical(box);fesMountDerived(box);fesMountThermal(box);fesMountHistory(box);try{flApplyBilingualText(box)}catch{}fesControls();fesClear();return true
 }
 function fesInstall(){if(fesMount())return;const watch=new MutationObserver(()=>{if(fesMount())watch.disconnect()});watch.observe(document.body,{childList:true,subtree:true})}
 fesInstall();
