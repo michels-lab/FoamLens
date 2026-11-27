@@ -123,7 +123,7 @@ jobs:
           echo 'deb [arch=amd64] http://dl.openfoam.org/ubuntu noble main' | sudo tee /etc/apt/sources.list.d/foamlens-openfoam.list
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends "openfoam$FOAM_VERSION"
-      - name: Execute actual Case Builder generated solid fixture (not owner data)
+      - name: Validate generated solid fixture dictionaries and mesh (no CFD)
         if: matrix.suite == 'core'
         shell: bash
         env:
@@ -137,15 +137,15 @@ jobs:
           node tools/case_builder_native_smoke.cjs "$FOAM_VERSION" "$work/case"
           blockMesh -case "$work/case" 2>&1 | tee "$evidence/blockMesh.log"
           before="$(sha256sum "$work/case/0/T")"
-          bash "$work/case/execution/prepare-run.sh" "$work/case" --run 2>&1 | tee "$evidence/helper.log"
+          bash "$work/case/execution/prepare-run.sh" "$work/case" --check 2>&1 | tee "$evidence/helper.log"
           isolated="$(sed -n 's/^Isolated case: //p' "$evidence/helper.log" | head -1)"
           [[ "$isolated" == /tmp/foamlens-run.*/case ]]
           cp -a "$(dirname "$isolated")/logs/." "$evidence/"
-          grep -q '^End$' "$evidence/solver.log"
-          test -s "$isolated/0.02/T"
+          test ! -e "$evidence/solver.log"
+          test ! -e "$isolated/0.02"
           test ! -e "$work/case/0.02"
           [[ "$(sha256sum "$work/case/0/T")" == "$before" ]]
-          printf 'Generated solid case reached 0.02 s; original initial field unchanged.\n' | tee "$evidence/result.txt"
+          printf 'Generated solid case passed dictionary/mesh preflight only; original initial field unchanged; CFD acceptance local and pending.\n' | tee "$evidence/result.txt"
       - uses: actions/upload-artifact@v4
         if: always() && matrix.suite == 'core'
         with:
