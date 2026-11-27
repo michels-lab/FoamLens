@@ -21,6 +21,7 @@ function evDetectDelimiter(lines){
 function evParseNumber(value,delimiter='whitespace'){
   let s=String(value??'').trim().replace(/^["']|["']$/g,'');if(!s)return NaN;
   if(delimiter===';'&&/^[-+]?\d+(?:,\d+)?(?:[eE][-+]?\d+)?$/.test(s))s=s.replace(',','.');
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(s))return NaN;
   const v=Number(s);return Number.isFinite(v)?v:NaN
 }
 function evParseTable(text){
@@ -42,6 +43,7 @@ function evStrictNumber(raw){
   // Number('')/Number(null)/Number(false) all equal zero, but none is a measurement.
   if(typeof raw==='number')return Number.isFinite(raw)?raw:NaN;
   if(typeof raw!=='string'||!raw.trim())return NaN;
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(raw.trim()))return NaN;
   const value=Number(raw.trim());return Number.isFinite(value)?value:NaN
 }
 function evExtractColumns(table,timeIndex,tempIndex){
@@ -73,20 +75,77 @@ function evFinitePairs(t,y){
   }
   return distinct
 }
-function evInterpolate(t,y,x){
-  const p=evFinitePairs(t,y);x=evStrictNumber(x);if(!p.length||!Number.isFinite(x)||x<p[0][0]||x>p.at(-1)[0])return NaN;
-  let lo=0,hi=p.length-1;while(lo<=hi){const m=(lo+hi)>>1;if(p[m][0]<x)lo=m+1;else if(p[m][0]>x)hi=m-1;else return p[m][1]}
-  if(lo<=0||lo>=p.length)return NaN;const a=p[lo-1],b=p[lo],f=(x-a[0])/(b[0]-a[0]);return a[1]+f*(b[1]-a[1])
+function evSampleSorted(p,x,cursor){
+  if(!p.length||!Number.isFinite(x)||x<p[0][0]||x>p.at(-1)[0])return NaN;
+  let lo=0,hi=p.length-1;
+  if(cursor){
+    lo=cursor.index;while(lo+1<p.length&&p[lo+1][0]<=x)lo++;
+    cursor.index=lo;
+    if(p[lo][0]===x)return p[lo][1];
+    lo++;
+  }else{
+    while(lo<=hi){const m=lo+Math.floor((hi-lo)/2);if(p[m][0]<x)lo=m+1;else if(p[m][0]>x)hi=m-1;else return p[m][1]}
+  }
+  if(lo<=0||lo>=p.length)return NaN;
+  const a=p[lo-1],b=p[lo],dt=b[0]-a[0];
+  if(!(dt>0)||!Number.isFinite(dt))return NaN;
+  const f=(x-a[0])/dt;return (1-f)*a[1]+f*b[1]
+}
+function evInterpolate(t,y,x){return evSampleSorted(evFinitePairs(t,y),evStrictNumber(x))}
+function evDurationMetrics(st,ep,start,end){
+  const span=end-start;if(!(span>0)||!Number.isFinite(span))return null;
+  const sc={index:0},ec={index:0};
+  let i=0,j=0,prevT=start,prev=evSampleSorted(st,start,sc)-evSampleSorted(ep,start,ec),max=Math.abs(prev),maxTime=start,knots=1;
+  if(!Number.isFinite(prev))return null;
+  // First pass finds the scale and all exact union knots; second pass integrates
+  // normalized residuals without building an additional aligned data matrix.
+  function visit(fn){
+    i=0;j=0;sc.index=0;ec.index=0;
+    while(i<st.length&&st[i][0]<=start)i++;
+    while(j<ep.length&&ep[j][0]<=start)j++;
+    let x=start;
+    for(;;){
+      const d=evSampleSorted(st,x,sc)-evSampleSorted(ep,x,ec);if(!Number.isFinite(d))return false;
+      fn(x,d);if(x===end)return true;
+      x=Math.min(end,st[i]?.[0]??Infinity,ep[j]?.[0]??Infinity);
+      while(i<st.length&&st[i][0]===x)i++;
+      while(j<ep.length&&ep[j][0]===x)j++;
+    }
+  }
+  knots=0;if(!visit((x,d)=>{knots++;if(Math.abs(d)>max){max=Math.abs(d);maxTime=x}}))return null;
+  if(max===0)return{duration:span,knots,mae:0,rmse:0,bias:0,maxAbs:0,maxAbsTime:start,method:'piecewise-linear union of source knots'};
+  let abs=0,square=0,bias=0,first=true;
+  if(!visit((x,d)=>{
+    const b=d/max;if(first){first=false;prev=b;prevT=x;return}
+    const a=prev,w=(x-prevT)/span,aa=Math.abs(a),bb=Math.abs(b);
+    bias+=w*(a+b)/2;square+=w*(a*a+a*b+b*b)/3;
+    abs+=w*((a<0&&b>0||a>0&&b<0)?(aa*aa+bb*bb)/(2*(aa+bb)):(aa+bb)/2);
+    prev=b;prevT=x;
+  }))return null;
+  return{duration:span,knots,mae:max*Math.min(1,Math.max(0,abs)),rmse:max*Math.sqrt(Math.min(1,Math.max(0,square))),bias:max*Math.max(-1,Math.min(1,bias)),maxAbs:max,maxAbsTime:maxTime,method:'piecewise-linear union of source knots'}
 }
 function evCompareCurves(simT,simY,expT,expY,expShift=0){
-  const shift=evStrictNumber(expShift);if(!Number.isFinite(shift))return{valid:false,n:0};
-  const st=evFinitePairs(simT,simY),ep=evFinitePairs(expT,expY).map(([t,y])=>[t+shift,y]);if(st.length<2||ep.length<2)return{valid:false,n:0};
-  const tt=[],sim=[],exp=[],diff=[];
-  for(const [t,e] of ep){const s=evInterpolate(st.map(q=>q[0]),st.map(q=>q[1]),t);if(!Number.isFinite(s))continue;tt.push(t);sim.push(s);exp.push(e);diff.push(s-e)}
-  // A singleton or repeated instant cannot establish cooling-curve agreement.
-  if(diff.length<2||tt[0]>=tt.at(-1))return{valid:false,n:0};
-  const abs=diff.map(Math.abs),mae=abs.reduce((a,b)=>a+b,0)/abs.length,rmse=Math.sqrt(diff.reduce((a,b)=>a+b*b,0)/diff.length),bias=diff.reduce((a,b)=>a+b,0)/diff.length;
-  return{valid:true,n:diff.length,t:tt,sim,exp,diff,mae,rmse,bias,maxAbs:Math.max(...abs),range:{start:tt[0],end:tt.at(-1)},noExtrapolation:true}
+  const invalid=reason=>({valid:false,n:0,reason});
+  const shift=evStrictNumber(expShift);if(!Number.isFinite(shift))return invalid('invalid-shift');
+  const st=evFinitePairs(simT,simY),ep=evFinitePairs(expT,expY).map(([t,y])=>[t+shift,y]);if(st.length<2||ep.length<2)return invalid('insufficient-or-conflicting-samples');
+  if(ep.some((p,i)=>!Number.isFinite(p[0])||(i>0&&p[0]<=ep[i-1][0])))return invalid('shift-collapsed-or-overflowed-times');
+  const tt=[],sim=[],exp=[],diff=[],cursor={index:0};let maxAbs=0,maxAbsTime=null;
+  for(const [t,e] of ep){
+    if(t<st[0][0]||t>st.at(-1)[0])continue;
+    const s=evSampleSorted(st,t,cursor),d=s-e;if(!Number.isFinite(s)||!Number.isFinite(d))return invalid('nonfinite-comparison');
+    tt.push(t);sim.push(s);exp.push(e);diff.push(d);
+    if(maxAbsTime===null||Math.abs(d)>maxAbs){maxAbs=Math.abs(d);maxAbsTime=t}
+  }
+  if(diff.length<2||tt[0]>=tt.at(-1))return invalid('insufficient-overlap');
+  let absolute=0,squares=0,signed=0;
+  if(maxAbs>0)for(const d of diff){const v=d/maxAbs;absolute+=Math.abs(v);squares+=v*v;signed+=v}
+  const n=diff.length,mae=maxAbs*(absolute/n),rmse=maxAbs*Math.sqrt(squares/n),bias=maxAbs*(signed/n);
+  const start=Math.max(st[0][0],ep[0][0]),end=Math.min(st.at(-1)[0],ep.at(-1)[0]);
+  const timeWeighted=evDurationMetrics(st,ep,start,end);
+  if(!timeWeighted||![mae,rmse,bias,timeWeighted.mae,timeWeighted.rmse,timeWeighted.bias].every(Number.isFinite))return invalid('nonfinite-duration-metrics');
+  return{valid:true,n,t:tt,sim,exp,diff,mae,rmse,bias,maxAbs,maxAbsTime,range:{start:tt[0],end:tt.at(-1)},timeWeighted,
+    physicalOverlap:{start,end},coverage:{simulationSamples:st.length,experimentSamples:ep.length,experimentSamplesCompared:n,excludedExperimentSamples:ep.length-n,
+      simulationInputRows:simT?.length??0,experimentInputRows:expT?.length??0},noExtrapolation:true}
 }
 function evDerivative(t,y){
   const p=evFinitePairs(t,y),tt=p.map(q=>q[0]),out=new Array(p.length).fill(NaN);if(p.length<2)return{t:tt,y:out};
@@ -104,7 +163,7 @@ function evThermalRebound(t,y,{slopeThreshold=0.05,minDuration=.05,minAmplitude=
     const duration=tt[j]-tt[start];if(duration>=minDuration){
       let minI=Math.max(0,start-1);for(let k=Math.max(0,start-3);k<=start;k++)if(yy[k]<yy[minI])minI=k;
       let peakI=start;for(let k=start;k<=Math.min(yy.length-1,j+2);k++)if(yy[k]>yy[peakI])peakI=k;
-      const amplitude=yy[peakI]-yy[minI],maxSlope=Math.max(...d.slice(start,j+1).filter(Number.isFinite));
+      const amplitude=yy[peakI]-yy[minI];let maxSlope=-Infinity;for(let k=start;k<=j;k++)if(Number.isFinite(d[k]))maxSlope=Math.max(maxSlope,d[k]);
       if(amplitude>=minAmplitude)candidates.push({startIndex:start,endIndex:j,tMin:tt[minI],Tmin:yy[minI],tPeak:tt[peakI],Tpeak:yy[peakI],amplitude,maxSlope,duration})
     }
     i=Math.max(i+1,j+1)
@@ -138,7 +197,7 @@ function evPhaseEvidenceAtRebound(phaseT,phaseY,rebound,tolerance=1e-4){
 }
 /* FOAMLENS_EXPERIMENTAL_VALIDATION_CORE_END */
 
-const evState={table:null,fileName:'',experimental:null,last:null};
+const evState={table:null,fileName:'',experimental:null,last:null,importGeneration:0};
 function evUi(en,es){try{return typeof flUi==='function'?flUi(en,es):(diagEs()?es:en)}catch{return en}}
 function evEsc(v){try{return typeof esc==='function'?esc(String(v??'')):String(v??'')}catch{return String(v??'')}}
 function evFmt(v,d=6){return Number.isFinite(Number(v))?Number(v).toLocaleString(undefined,{maximumSignificantDigits:d}):'—'}
@@ -175,10 +234,16 @@ function evPopulateColumns(){
   const meta=document.getElementById('evFileMeta');if(meta)meta.textContent=evState.fileName+' · '+table.rows.length.toLocaleString()+' '+evUi('rows','filas')+' · '+evUi('delimiter','delimitador')+' '+(table.delimiter==='\t'?'TAB':table.delimiter)
 }
 async function evImportFile(file){
-  if(!file)return;const text=await file.text(),table=evParseTable(text);if(table.headers.length<2||table.rows.length<2){flSetIssue('evStatus','experimental-table-invalid',{analysis:'Experimental Validation',sourcePath:file.name});return}
+  if(!file)return;const generation=++evState.importGeneration;
+  evState.table=null;evState.experimental=null;evState.last=null;evState.fileName='';window.FoamLensLastExperimentalValidation=null;evRender(null);evRefreshSelectors();
+  const meta=document.getElementById('evFileMeta');if(meta)meta.textContent='';
+  let table;try{table=evParseTable(await file.text())}catch{if(generation===evState.importGeneration)flSetIssue('evStatus','experimental-table-invalid',{analysis:'Experimental Validation',sourcePath:file.name});return}
+  if(generation!==evState.importGeneration)return;
+  if(table.headers.length<2||table.rows.length<2){flSetIssue('evStatus','experimental-table-invalid',{analysis:'Experimental Validation',sourcePath:file.name});return}
   evState.table=table;evState.fileName=file.name;evPopulateColumns();document.getElementById('evStatus').textContent=evUi('Experimental table loaded. Confirm time, temperature and unit before running validation.','Tabla experimental cargada. Confirma tiempo, temperatura y unidad antes de ejecutar la validación.')
 }
 function evRunValidation(){
+  evState.last=null;window.FoamLensLastExperimentalValidation=null;evRender(null);
   const sim=evSelectedSimulation(),exp=evExperimentalData(),status=document.getElementById('evStatus');if(!exp){flSetIssue(status,'experimental-data-missing',{analysis:'Experimental Validation'});return null}if(!sim){flSetIssue(status,'simulation-temperature-missing',{analysis:'Experimental Validation'});return null}flClearIssue(status)
   evState.experimental=exp;const simYK=evTemperatureToKelvin(sim.y,evSimUnit(sim)),shift=evStrictNumber(document.getElementById('evTimeShift')?.value??'0');
   if(!Number.isFinite(shift)){flSetIssue(status,'invalid-experimental-time-shift',{analysis:'Experimental Validation'});return null}
@@ -229,10 +294,12 @@ function evRender(r){
       'Un intervalo con dT/dt positivo se reporta únicamente como candidato de rebote térmico. FoamLens no etiqueta automáticamente recalescencia; la evolución de fase se muestra por separado como evidencia.'
     )+'</div>'+
     '<div class="extTableWrap" style="margin-top:8px"><table class="extTable"><thead><tr><th>N</th><th>RMSE [K]</th><th>MAE [K]</th><th>'+evUi('Bias sim−exp [K]','Sesgo sim−exp [K]')+'</th><th>Max |ΔT| [K]</th><th>'+evUi('Common range','Rango común')+'</th></tr></thead><tbody><tr><td>'+c.n+'</td><td>'+evFmt(c.rmse)+'</td><td>'+evFmt(c.mae)+'</td><td>'+evFmt(c.bias)+'</td><td>'+evFmt(c.maxAbs)+'</td><td>'+evFmt(c.range.start)+'–'+evFmt(c.range.end)+' s</td></tr></tbody></table></div>'+
+    '<div class="extNote">'+evUi('Duration-weighted metrics (linear interpolation over all original knots; not measured intermediate observations).','Métricas ponderadas por duración (interpolación lineal sobre todos los tiempos originales; no son mediciones intermedias).')+' '+evUi('Overlap','Solapamiento')+': '+evFmt(c.physicalOverlap.start)+'–'+evFmt(c.physicalOverlap.end)+' s · '+c.timeWeighted.knots+' '+evUi('time knots','tiempos')+' · '+evUi('Measured experiment samples used','Muestras experimentales utilizadas')+': '+c.n+'/'+c.coverage.experimentSamples+'</div>'+
+    '<div class="extTableWrap"><table class="extTable"><thead><tr><th>RMSE [K]</th><th>MAE [K]</th><th>'+evUi('Bias [K]','Sesgo [K]')+'</th><th>Max |ΔT| [K]</th><th>t [s]</th></tr></thead><tbody><tr><td>'+evFmt(c.timeWeighted.rmse)+'</td><td>'+evFmt(c.timeWeighted.mae)+'</td><td>'+evFmt(c.timeWeighted.bias)+'</td><td>'+evFmt(c.timeWeighted.maxAbs)+'</td><td>'+evFmt(c.timeWeighted.maxAbsTime)+'</td></tr></tbody></table></div>'+
     '<div class="extTableWrap" style="margin-top:8px"><table class="extTable"><thead><tr><th>'+evUi('Curve','Curva')+'</th><th>Tmin</th><th>t(Tmin)</th><th>'+evUi('Rebound amplitude','Amplitud de rebote')+'</th><th>'+evUi('Rebound peak time','Tiempo de pico del rebote')+'</th><th>max dT/dt</th></tr></thead><tbody>'+eventRow(evUi('Simulation','Simulación'),simEv)+eventRow(evUi('Experiment','Experimento'),expEv)+'</tbody></table></div>'+phase
 }
 function evAddCurves(){
-  const r=evState.last||evRunValidation();if(!r)return;const sim=r.simulation,c=r.comparison,key='experimentalValidation|'+String(sim.id)+'|'+evState.fileName;
+  const r=evRunValidation();if(!r)return;const sim=r.simulation,c=r.comparison,key='experimentalValidation|'+String(sim.id)+'|'+evState.fileName;
   series=series.filter(s=>s.experimentalValidationKey!==key);
   const expField={canonical:'T_experimental',display:evUi('Experimental temperature','Temperatura experimental'),unit:'K',quantity:'temperature',original:evState.fileName};
   const expSeries={id:nextId++,datasetType:'timeseries',caseId:null,caseName:evUi('Experimental','Experimental'),fileName:evState.fileName,sourcePath:'experimental:'+evState.fileName,field:expField,probe:null,location:'',t:c.t.slice(),y:c.exp.slice(),visible:true,color:variableColor(expField),width:2.2,dash:'dash',opacity:1,axis:'Auto',customLabel:'',derived:false,derivedKind:'experimentalValidationInput',experimentalValidationKey:key,experimentalValidation:{role:'experiment',timeShift:r.settings.timeShift}};
@@ -254,10 +321,10 @@ function evBuildUi(){
   '<div class="extActions"><button class="btn primary" id="evRun" type="button" data-fl-en="Run validation" data-fl-es="Ejecutar validación">Run validation</button><button class="btn" id="evAddCurves" type="button" data-fl-en="Add experiment + residual to chart" data-fl-es="Agregar experimento + residual a la gráfica">Add experiment + residual to chart</button></div><div class="extStatus" id="evStatus"></div><div id="evResult"></div>';
   host.appendChild(box);try{flApplyBilingualText(box)}catch{}
   document.getElementById('evImport').onclick=()=>document.getElementById('evFileInput').click();document.getElementById('evFileInput').onchange=e=>evImportFile(e.target.files?.[0]);document.getElementById('evRun').onclick=evRunValidation;document.getElementById('evAddCurves').onclick=evAddCurves;
-  for(const id of ['evTimeColumn','evTempColumn','evExpUnit'])document.getElementById(id).addEventListener('change',()=>{evState.experimental=evExperimentalData();evState.last=null;evRender(null);evRefreshSelectors()});
-  document.getElementById('evSimulation').addEventListener('change',()=>{document.getElementById('evPhaseRole').value='';evRefreshSelectors();evState.last=null;evRender(null)});
-  document.getElementById('evPhase').addEventListener('change',()=>{document.getElementById('evPhaseRole').value='';evState.last=null;evRender(null)});
-  for(const id of ['evPhaseRole','evTimeShift','evSlopeThreshold','evMinAmplitude','evMinDuration','evAlphaOnset','evAlphaComplete'])document.getElementById(id).addEventListener('change',()=>{evState.last=null;evRender(null)});
+  for(const id of ['evTimeColumn','evTempColumn','evExpUnit'])document.getElementById(id).addEventListener('change',()=>{evState.experimental=evExperimentalData();evState.last=null;window.FoamLensLastExperimentalValidation=null;evRender(null);evRefreshSelectors()});
+  document.getElementById('evSimulation').addEventListener('change',()=>{document.getElementById('evPhaseRole').value='';evRefreshSelectors();evState.last=null;window.FoamLensLastExperimentalValidation=null;evRender(null)});
+  document.getElementById('evPhase').addEventListener('change',()=>{document.getElementById('evPhaseRole').value='';evState.last=null;window.FoamLensLastExperimentalValidation=null;evRender(null)});
+  for(const id of ['evPhaseRole','evTimeShift','evSlopeThreshold','evMinAmplitude','evMinDuration','evAlphaOnset','evAlphaComplete'])document.getElementById(id).addEventListener('change',()=>{evState.last=null;window.FoamLensLastExperimentalValidation=null;evRender(null)});
   evRefreshSelectors();return true
 }
 function evInstall(){

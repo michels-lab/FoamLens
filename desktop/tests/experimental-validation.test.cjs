@@ -196,3 +196,28 @@ test('product wiring keeps thermal rebound and phase evidence separate',()=>{
 
 console.log('FoamLens experimental validation regression suite passed: '+passed.length+' checks.');
 for(const name of passed)console.log('  ✓ '+name);
+
+test('duration metrics detect simulation peak missed by experimental timestamps',()=>{
+ const r=api.evCompareCurves([0,1,2],[100,110,100],[0,2],[100,100]);
+ assert(r.valid);near(r.rmse,0);near(r.timeWeighted.rmse,10/Math.sqrt(3));near(r.timeWeighted.mae,5);
+ near(r.timeWeighted.bias,5);near(r.timeWeighted.maxAbs,10);near(r.timeWeighted.maxAbsTime,1);
+ assert.equal(r.timeWeighted.knots,3);
+});
+test('signed crossing is split exactly for time weighted absolute error',()=>{
+ const r=api.evCompareCurves([0,4],[98,102],[0,4],[100,100]);
+ assert(r.valid);near(r.timeWeighted.mae,1);near(r.timeWeighted.rmse,2/Math.sqrt(3));near(r.timeWeighted.bias,0);
+});
+test('duration overlap includes interpolated endpoints and records experimental coverage',()=>{
+ const r=api.evCompareCurves([1,3,4],[100,100,100],[0,2,3,5],[100,100,100,100]);
+ assert(r.valid);assert.deepEqual(r.physicalOverlap,{start:1,end:4});assert.deepEqual(r.range,{start:2,end:3});assert.equal(r.coverage.excludedExperimentSamples,2);
+});
+test('numeric text and shifted-time precision fail closed',()=>{
+ assert(Number.isNaN(api.evParseNumber('0x10')));assert(Number.isNaN(api.evParseNumber('0b10')));
+ const r=api.evCompareCurves([1e16,1e16+4],[100,101],[0,1,4],[100,100,101],1e16);
+ assert(!r.valid);
+ const overflow=api.evCompareCurves([0,1],[1e308,1e308],[0,1],[-1e308,-1e308]);assert(!overflow.valid);
+});
+test('large source sweep retains all exact time knots without repeated sorting',()=>{
+ const n=120001,t=Array.from({length:n},(_,i)=>i),y=t.map(i=>i/1000+100);
+ const r=api.evCompareCurves(t,y,t,y);assert(r.valid);assert.equal(r.n,n);assert.equal(r.timeWeighted.knots,n);near(r.timeWeighted.rmse,0);
+});
