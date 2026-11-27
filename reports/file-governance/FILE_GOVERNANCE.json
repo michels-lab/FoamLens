@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "audit_kind": "deterministic_full_tracked_tree",
-  "tracked_files_total": 547,
-  "classified_files_total": 543,
-  "docs_content_inspected": 128,
+  "tracked_files_total": 548,
+  "classified_files_total": 544,
+  "docs_content_inspected": 129,
   "large_docs_skipped": 1,
   "excluded_reports": 4,
   "roles": {
@@ -12,7 +12,7 @@
     "bitacora": 2,
     "build_script": 10,
     "config": 8,
-    "document": 121,
+    "document": 122,
     "index": 6,
     "installer_metadata": 1,
     "license": 1,
@@ -28,8 +28,8 @@
     "UNKNOWN_PURPOSE": 2
   },
   "finding_total": 3,
-  "inventory_fingerprint": "57e13fe870fa3d04954479cdc9fb114fc35a205e58ce72fba28adfb94bdf69e7",
-  "evidence_fingerprint": "b323aff3c3ca0c4ea8be25ba78cb02645e9cb27dd0aeb0beb5fd405fc0f011e8",
+  "inventory_fingerprint": "1910add989764adfd63edae1f55435b8ac4781146e2be958c9b02ba82425df42",
+  "evidence_fingerprint": "26dd8543003a62b067766ab1573661346479e0080eafbb62e34518053dc50dd5",
   "files": [
     {
       "path": ".github/ISSUE_TEMPLATE/chatgpt-task.yml",
@@ -904,7 +904,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "2571578c3431290c06cf7e034ef0eb05b78e3b5d"
+      "blob": "5f1e2bd30600de98c236c9a9ffd9ae5946281849"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v13-thermal-analysis.js",
@@ -946,7 +946,7 @@
       "role": "source",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "8c6955bd51ae13d3992ab763d29b85cb7ff042a5"
+      "blob": "a91738e38c4c8b2e526a3ed3c102283dd75189ee"
     },
     {
       "path": "desktop/src/FoamLensDesktop/frontend/v14-experimental-validation.js",
@@ -1506,7 +1506,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "50c40606a23aabca5d6bfe6ef6ad404540de7d2d"
+      "blob": "332b882585c2fdcfac5f222a4791a45af1676438"
     },
     {
       "path": "desktop/tests/equivalent-observables.test.cjs",
@@ -2087,7 +2087,7 @@
       "role": "test",
       "purpose": "code/test implementation",
       "certainty": "rule",
-      "blob": "5a5cde50514ab3de813fb6dafab6ed509778d057"
+      "blob": "aaba0e64f86834f9d63e329b3d5e2c1805333843"
     },
     {
       "path": "desktop/tests/test-suite-manifest.test.cjs",
@@ -2522,6 +2522,13 @@
       "purpose": "manual/decision/report/historical note",
       "certainty": "inferred",
       "blob": "b729297473e1e014ad7a8a8b6b3998ac468de07a"
+    },
+    {
+      "path": "docs/GRANADA_FULL_TEMPORAL_ALIGNMENT_2026-11-27.md",
+      "role": "document",
+      "purpose": "manual/decision/report/historical note",
+      "certainty": "inferred",
+      "blob": "0802af93089f813eda2cc80ddb3635cd0272e920"
     },
     {
       "path": "docs/GRANADA_G12_FIELD_RIBBON_LAPTOP_2026-10-22.md",
@@ -3835,11 +3842,11 @@
   ],
   "findings": [
     {
-      "id": "3778204bcaea00a8",
+      "id": "438b8a8e2601442d",
       "code": "POTENTIAL_UNLOGGED_CHANGES",
       "severity": "review",
       "path": "docs/GIT_AUDIT_LOG.md",
-      "observation": "12 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v14-experimental-validation.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js, desktop/src/FoamLensDesktop/frontend/v14-zy-plot-surfaces.js, desktop/src/FoamLensDesktop/frontend/v24-multiregion-energy.js",
+      "observation": "16 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v13-temporal-alignment.js, desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js, desktop/src/FoamLensDesktop/frontend/v14-experimental-validation.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js",
       "recommendation": "Inspect diffs and reconcile only meaningful decisions/results in the canonical log",
       "state": "REVIEW_REQUIRED"
     },
