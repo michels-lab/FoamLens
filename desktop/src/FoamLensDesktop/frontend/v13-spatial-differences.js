@@ -31,7 +31,12 @@ function sdGrid(A,B,mode='common',maxPoints=Infinity){
   if(va.some(v=>!Number.isFinite(v))||vb.some(v=>!Number.isFinite(v)))return fail('nonfinite-interpolation');
   return{valid:true,start,end,grid,A:va,B:vb,mode,subsampled:false}
 }
-function sdPearson(a,b){const p=[];for(let i=0;i<Math.min(a.length,b.length);i++){const x=sdMNumber(a[i]),y=sdMNumber(b[i]);if(Number.isFinite(x)&&Number.isFinite(y))p.push([x,y])}if(p.length<2)return NaN;const mx=p.reduce((s,q)=>s+q[0],0)/p.length,my=p.reduce((s,q)=>s+q[1],0)/p.length;let n=0,dx=0,dy=0;for(const [x,y] of p){const ax=x-mx,ay=y-my;n+=ax*ay;dx+=ax*ax;dy+=ay*ay}return dx>0&&dy>0?n/Math.sqrt(dx*dy):NaN}
+function sdPearson(a,b){
+ let sx=0,sy=0,n=0;for(let i=0;i<Math.min(a.length,b.length);i++){const x=sdMNumber(a[i]),y=sdMNumber(b[i]);if(Number.isFinite(x)&&Number.isFinite(y)){sx=Math.max(sx,Math.abs(x));sy=Math.max(sy,Math.abs(y));n++}}
+ if(n<2||!sx||!sy)return NaN;let mx=0,my=0,dx=0,dy=0,c=0,k=0;
+ for(let i=0;i<Math.min(a.length,b.length);i++){const x=sdMNumber(a[i])/sx,y=sdMNumber(b[i])/sy;if(!Number.isFinite(x)||!Number.isFinite(y))continue;k++;const ax=x-mx,ay=y-my;mx+=ax/k;my+=ay/k;dx+=ax*(x-mx);dy+=ay*(y-my);c+=ax*(y-my)}
+ return dx>0&&dy>0?Math.max(-1,Math.min(1,c/Math.sqrt(dx)/Math.sqrt(dy))):NaN
+}
 function sdLengthMetrics(grid,delta){
  const span=grid.at(-1)-grid[0];if(!(span>0)||!Number.isFinite(span)||grid.length!==delta.length)return null;
  let scale=0,peak=0;for(let i=0;i<delta.length;i++){if(!Number.isFinite(delta[i])||(i>0&&!(grid[i]>grid[i-1])))return null;if(Math.abs(delta[i])>scale){scale=Math.abs(delta[i]);peak=i}}
@@ -132,13 +137,14 @@ function sdSamePhysicalKind(A,B){
 }
 
 let sdMResult=null,sdMBound=null;
+const sdMPlotCache=new WeakMap();
 const sdMColors=['#38bdf8','#fbbf24','#5eead4','#f472b6','#a78bfa','#fb923c','#a3e635','#f87171'];
 function sdME(id){return document.getElementById(id)}
 function sdMX(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function sdMClear(msg=''){sdMResult=null;sdMBound=null;if(sdME('sdMOut'))sdME('sdMOut').innerHTML='';if(sdME('sdMStatus'))sdME('sdMStatus').textContent=msg;for(const id of ['sdMJson','sdMCsv'])if(sdME(id))sdME(id).disabled=true}
 function sdMConfig(){return{confirmed:sdME('sdMConfirm').checked,mapping:sdME('sdMMapping').value,limit:sdME('sdMLimit').value,sampleBudget:sdME('sdMSampleBudget').value}}
 function sdMSelected(){const ids=[sdME('sdA').value,...Array.from(sdME('sdMChoices').querySelectorAll('input:checked'),x=>x.value)];return [...new Set(ids)].map(sdFind)}
-function sdMFingerprint(s){return JSON.stringify({caseId:s?.caseId,id:s?.id,source:s?.sourcePath||s?.fileName,field:s?.field,axis:s?.profileAxis,coordinateUnit:s?.profileCoordUnit,line:s?.profileLineKey,time:s?.profileTime,meta:s?.playbackMeta,t:s?.t,y:s?.y})}
+function sdMFingerprint(s){return JSON.stringify({caseId:s?.caseId,id:s?.id,source:s?.sourcePath||s?.fileName,field:s?.field,component:s?.component||s?.profileComponent||'',axis:s?.profileAxis,coordinateUnit:s?.profileCoordUnit,line:s?.profileLineKey,time:s?.profileTime,meta:s?.playbackMeta,t:s?.t,y:s?.y})}
 function sdMRefresh(src=sdProfileSources()){
  const host=sdME('sdMChoices');if(!host)return;
  const ref=sdME('sdA').value,old=new Set(Array.from(host.querySelectorAll('input:checked'),x=>x.value));
@@ -183,15 +189,21 @@ function sdPreviewIndices(grid,values,width=704){
  flush();if(out.at(-1)!==grid.length-1)out.push(grid.length-1);return out
 }
 function sdMColor(i){return sdMColors[i%sdMColors.length]}
+function sdPlotPrepared(cache,r,delta,width=704){
+ let modes=cache.get(r);if(!modes){modes=new Map();cache.set(r,modes)}if(modes.has(delta))return modes.get(delta);
+ const curves=delta?r.comparisons.map(c=>({i:c.target,y:c.delta})):r.values.map((v,i)=>({i,y:v.map(p=>p.value)}));
+ let min=delta?0:Infinity,max=delta?0:-Infinity;for(const c of curves){for(const v of c.y){min=Math.min(min,v);max=Math.max(max,v)}c.preview=sdPreviewIndices(r.grid,c.y,width)}
+ const prepared={curves,min,max};modes.set(delta,prepared);return prepared
+}
 function sdMDraw(){
- const r=sdMResult;if(!r)return;const cursor=Number(sdME('sdMCursor').value),delta=sdME('sdMPlotKind').value==='delta',curves=delta?r.comparisons.map(c=>({i:c.target,y:c.delta})):r.values.map((v,i)=>({i,y:v.map(p=>p.value)}));
- const W=820,H=280,L=91,R=25,T=28,B=48;let min=delta?0:Infinity,max=delta?0:-Infinity;for(const c of curves)for(const v of c.y){min=Math.min(min,v);max=Math.max(max,v)}
+ const r=sdMResult;if(!r)return;const cursor=Number(sdME('sdMCursor').value),delta=sdME('sdMPlotKind').value==='delta',{curves,min,max}=sdPlotPrepared(sdMPlotCache,r,delta);
+ const W=820,H=280,L=91,R=25,T=28,B=48;
  const scale=Math.max(Math.abs(min),Math.abs(max),Number.MIN_VALUE),mn=min/scale,mx=max/scale,x=v=>L+(v-r.range.start)/(r.range.end-r.range.start)*(W-L-R),y=v=>T+(mn===mx?.5:(mx-v/scale)/(mx-mn))*(H-T-B);
  let ticks='';for(let i=0;i<=4;i++){const q=i/4,px=L+(W-L-R)*q,py=T+(H-T-B)*q;ticks+='<path d="M '+L+' '+py+' H '+(W-R)+' M '+px+' '+T+' V '+(H-B)+'" stroke="#8e9aac" opacity=".22" fill="none"/><text x="'+(L-8)+'" y="'+(py+4)+'" text-anchor="end">'+sdMX(sdFmt(max*(1-q)+min*q))+'</text><text x="'+px+'" y="'+(H-B+17)+'" text-anchor="middle">'+sdMX(sdFmt(r.range.start*(1-q)+r.range.end*q))+'</text>'}
  const at=r.grid[cursor],cx=x(at);
  sdME('sdMPlot').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+sdMX(r.field)+'" style="display:block;width:100%;height:auto;max-height:350px;background:#111827;border-radius:9px" fill="#dbe5ef" font-family="system-ui,sans-serif" font-size="11">'+ticks+'<text x="'+L+'" y="16" font-weight="700">'+sdMX((delta?'Δ ':'')+r.field+' ['+r.unit+']')+'</text>'+
  (delta?'<path d="M '+L+' '+y(0)+' H '+(W-R)+'" stroke="#d1d5db" stroke-dasharray="5 4"/>':'')+
- curves.map(c=>'<polyline fill="none" stroke="'+sdMColor(c.i)+'" stroke-width="2" points="'+sdPreviewIndices(r.grid,c.y).map(j=>x(r.grid[j]).toFixed(3)+','+y(c.y[j]).toFixed(3)).join(' ')+'"/>').join('')+
+ curves.map(c=>'<polyline fill="none" stroke="'+sdMColor(c.i)+'" stroke-width="2" points="'+c.preview.map(j=>x(r.grid[j]).toFixed(3)+','+y(c.y[j]).toFixed(3)).join(' ')+'"/>').join('')+
  '<path d="M '+cx+' '+T+' V '+(H-B)+'" stroke="#e2e8f0" stroke-dasharray="4 4"/>'+curves.map(c=>'<circle cx="'+cx+'" cy="'+y(c.y[cursor])+'" r="4" fill="'+sdMColor(c.i)+'"/>').join('')+'<text x="'+(W/2)+'" y="'+(H-6)+'" text-anchor="middle">'+sdMX(r.axis+' ['+r.coordinateUnit+']')+'</text></svg><div class="smallnote">'+flUi('Display envelope only; metrics, cursor and export retain all coordinates.','Envolvente solo visual; métricas, cursor y exportación conservan todas las coordenadas.')+'</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+curves.map(c=>'<span style="font-size:12px;overflow-wrap:anywhere"><span style="color:'+sdMColor(c.i)+'">●</span> '+sdMX(r.sources[c.i].caseName)+'</span>').join('')+'</div>';
  sdME('sdMReadout').innerHTML='<b>'+sdMX(r.axis)+' = '+sdMX(at)+' '+sdMX(r.coordinateUnit)+'</b>'+r.sources.map((src,i)=>{const p=r.values[i][cursor];return '<div style="border:1px solid var(--line);border-radius:7px;padding:7px;margin-top:5px;overflow-wrap:anywhere"><b>'+sdMX(src.caseName)+'</b> · '+sdMX(p.value)+' '+sdMX(r.unit)+(i?' · Δ '+sdMX(r.comparisons[i-1].delta[cursor]):' · '+flUi('Reference','Referencia'))+'<div class="smallnote">'+sdMX(p.kind)+' · '+sdMX(src.kind)+' · '+sdMX(src.support.join(' / '))+' s</div></div>'}).join('')
 }
@@ -243,7 +255,7 @@ function sdRun(){
 }
 function sdDownload(name,text){if(typeof downloadText==='function'){downloadText(name,text,'application/json');return}const blob=new Blob([text],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function sdExport(){
-  const r=sdLast;if(!r){flSetIssue('sdStatus','analysis-not-run',{analysis:'Spatial Difference',expected:'Run the spatial comparison first'});return}const {mode,epsilon,budget}=sdPairSettings(),A=sdFind(document.getElementById('sdA')?.value),B=sdFind(document.getElementById('sdB')?.value);if(r.binding!==sdPairBinding(A,B,mode,epsilon,budget)){sdPairReset();flSetIssue('sdStatus','analysis-not-run',{analysis:'Spatial Difference',expected:'Run the spatial comparison first'});return}const p={generatedBy:flBuildIdentity(),analysis:'spatial-profile-difference',metricWeighting:'sample metrics and separate length-weighted metrics on selected grid (reference mode may omit other source knots)',sourcePaths:{A:r.A.sourcePath||r.A.fileName,B:r.B.sourcePath||r.B.fileName},fieldUnit:r.A.field?.unit,sourceA:sdProfileLabel(r.A),sourceB:sdProfileLabel(r.B),variable:r.A.field?.canonical||r.A.field?.raw||'',profileAxis:r.A.profileAxis||'',coordinateUnit:r.A.profileCoordUnit||'',physicalTime:r.time,spatialAlignment:{mode:r.aligned.mode,sharedRange:{start:r.aligned.start,end:r.aligned.end},epsilon:r.epsilon,operationalBudget:budget,subsampled:false,noIndexAlignment:true,noExtrapolation:true},temporalProvenance:{A:r.A.playbackMeta||null,B:r.B.playbackMeta||null},metrics:r.metrics,points:r.aligned.grid.map((x,i)=>({x,A:r.aligned.A[i],B:r.aligned.B[i],difference:r.metrics.difference[i],absoluteDifference:r.metrics.absoluteDifference[i],relativeDifference:Number.isFinite(r.metrics.relativeDifference[i])?r.metrics.relativeDifference[i]:null,percentDifference:Number.isFinite(r.metrics.percentDifference[i])?r.metrics.percentDifference[i]:null}))};sdDownload('FoamLens_spatial_comparison.json',JSON.stringify(p,null,2))
+  const r=sdLast;if(!r){flSetIssue('sdStatus','analysis-not-run',{analysis:'Spatial Difference',expected:'Run the spatial comparison first'});return}const {mode,epsilon,budget}=sdPairSettings(),A=sdFind(document.getElementById('sdA')?.value),B=sdFind(document.getElementById('sdB')?.value);if(r.binding!==sdPairBinding(A,B,mode,epsilon,budget)){sdPairReset();flSetIssue('sdStatus','analysis-not-run',{analysis:'Spatial Difference',expected:'Run the spatial comparison first'});return}const p={generatedBy:flBuildIdentity(),analysis:'spatial-profile-difference',metricWeighting:'sample metrics and separate length-weighted metrics on selected grid (reference mode may omit other source knots)',sourcePaths:{A:r.A.sourcePath||r.A.fileName,B:r.B.sourcePath||r.B.fileName},components:{A:sdMSource(r.A)?.component,B:sdMSource(r.B)?.component},fieldUnit:r.A.field?.unit,sourceA:sdProfileLabel(r.A),sourceB:sdProfileLabel(r.B),variable:r.A.field?.canonical||r.A.field?.raw||'',profileAxis:r.A.profileAxis||'',coordinateUnit:r.A.profileCoordUnit||'',physicalTime:r.time,spatialAlignment:{mode:r.aligned.mode,sharedRange:{start:r.aligned.start,end:r.aligned.end},epsilon:r.epsilon,operationalBudget:budget,subsampled:false,noIndexAlignment:true,noExtrapolation:true},temporalProvenance:{A:r.A.playbackMeta||null,B:r.B.playbackMeta||null},metrics:r.metrics,points:r.aligned.grid.map((x,i)=>({x,A:r.aligned.A[i],B:r.aligned.B[i],difference:r.metrics.difference[i],absoluteDifference:r.metrics.absoluteDifference[i],relativeDifference:Number.isFinite(r.metrics.relativeDifference[i])?r.metrics.relativeDifference[i]:null,percentDifference:Number.isFinite(r.metrics.percentDifference[i])?r.metrics.percentDifference[i]:null}))};sdDownload('FoamLens_spatial_comparison.json',JSON.stringify(p,null,2))
 }
 document.addEventListener('foamlens-language-change',()=>{const box=document.getElementById('sdTools');if(box)flApplyBilingualText(box);if(sdLast)sdRun();else sdRefresh()});
 function sdInit(){

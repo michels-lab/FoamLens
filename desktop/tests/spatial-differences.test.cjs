@@ -112,3 +112,17 @@ test('display envelope retains narrow peaks while scientific arrays remain untou
  const grid=Array.from({length:20001},(_,i)=>i),y=grid.map(i=>i===12345?100:i===12346?-100:0);
  const ids=preview(grid,y,700);assert(ids.length<=1402);assert(ids.includes(12345)&&ids.includes(12346));assert.equal(ids[0],0);assert.equal(ids.at(-1),20000);assert.equal(y.length,20001);
 });
+
+test('scaled online Pearson remains finite for high magnitude and excludes missing samples',()=>{
+ assert(near(api.sdPearson([1e200,2e200,3e200],[3e200,2e200,1e200]),-1));
+ assert(near(api.sdPearson([1,2,null,4],[2,4,9,8]),1));
+ assert(Number.isNaN(api.sdPearson([1,1],[2,3])));
+});
+test('prepared display cache reuses extrema and envelope across cursor updates',()=>{
+ const start=js.indexOf('function sdPreviewIndices('),end=js.indexOf('function sdMDraw()',start);
+ const prep=new Function(js.slice(start,end)+';return sdPlotPrepared;')();
+ const cache=new WeakMap(),grid=[0,1,2],r={grid,values:[[{value:1},{value:2},{value:3}]],comparisons:[{target:1,delta:[0,5,0]}]};
+ const x=prep(cache,r,false);assert.strictEqual(prep(cache,r,false),x);assert.equal(x.max,3);assert.equal(x.min,1);
+ const y=prep(cache,r,true);assert(y!==x);assert.equal(y.max,5);assert.strictEqual(prep(cache,r,true),y);
+ assert(prep(cache,{...r},true)!==y);
+});
