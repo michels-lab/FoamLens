@@ -9,31 +9,45 @@ function sdPairs(s){
   out.sort((a,b)=>a[0]-b[0]);for(let i=1;i<out.length;i++)if(!(out[i][0]>out[i-1][0]))return [];return out
 }
 function sdValueAt(p,x){return Number.isFinite(x)?(sdMAt(p,x)?.value??NaN):NaN}
-function sdGrid(A,B,mode='common',maxPoints=3000){
+function sdUnion(points,start,end,budget,reference=null){
+ const grid=[],append=x=>{if(grid.at(-1)===x)return true;if(grid.length>=budget)return false;grid.push(x);return true};
+ if(reference!==null){for(const p of points[reference])if(p[0]>=start&&p[0]<=end&&!append(p[0]))return null;return grid}
+ const cursors=points.map(p=>{let i=0,j=p.length;while(i<j){const m=i+Math.floor((j-i)/2);if(p[m][0]<start)i=m+1;else j=m}return i});
+ if(!append(start))return null;
+ for(;;){let next=end;for(let i=0;i<points.length;i++){const x=points[i][cursors[i]]?.[0];if(x!==undefined&&x<next)next=x}
+ if(!append(next))return null;if(next===end)return grid;
+ for(let i=0;i<points.length;i++)while(points[i][cursors[i]]?.[0]===next)cursors[i]++}
+}
+function sdGrid(A,B,mode='common',maxPoints=Infinity){
   const fail=reason=>({valid:false,reason,grid:[]});
   if(!['common','referenceA','referenceB'].includes(mode))return fail('invalid-grid-mode');
-  if(!Number.isSafeInteger(maxPoints)||maxPoints<2||maxPoints>100000)return fail('invalid-grid-limit');
+  if(maxPoints!==Infinity&&(!Number.isSafeInteger(maxPoints)||maxPoints<2))return fail('invalid-grid-limit');
   const a=sdPairs(A),b=sdPairs(B);if(a.length<2||b.length<2)return fail('invalid-profile-samples');
   const start=Math.max(a[0][0],b[0][0]),end=Math.min(a.at(-1)[0],b.at(-1)[0]);if(!(end>start)||!Number.isFinite(end-start))return fail('no-spatial-overlap');
-  const inRange=p=>p[0]>=start&&p[0]<=end;
-  let grid;
-  if(mode==='referenceA')grid=a.filter(inRange).map(p=>p[0]);
-  else if(mode==='referenceB')grid=b.filter(inRange).map(p=>p[0]);
-  else grid=[...new Set([start,end,...a.filter(inRange).map(p=>p[0]),...b.filter(inRange).map(p=>p[0])])].sort((x,y)=>x-y);
-  if(grid.length>maxPoints)return fail('grid-limit-exceeded');
+  const grid=sdUnion([a,b],start,end,maxPoints,mode==='referenceA'?0:mode==='referenceB'?1:null);
+  if(!grid)return fail('grid-limit-exceeded');
   if(grid.length<2)return fail('insufficient-shared-coordinates');
-  const va=grid.map(x=>sdValueAt(a,x)),vb=grid.map(x=>sdValueAt(b,x));
+  const va=sdMSampleGrid(a,grid).map(q=>q?.value),vb=sdMSampleGrid(b,grid).map(q=>q?.value);
   if(va.some(v=>!Number.isFinite(v))||vb.some(v=>!Number.isFinite(v)))return fail('nonfinite-interpolation');
-  return{valid:true,start,end,grid,A:va,B:vb,mode}
+  return{valid:true,start,end,grid,A:va,B:vb,mode,subsampled:false}
 }
 function sdPearson(a,b){const p=[];for(let i=0;i<Math.min(a.length,b.length);i++){const x=sdMNumber(a[i]),y=sdMNumber(b[i]);if(Number.isFinite(x)&&Number.isFinite(y))p.push([x,y])}if(p.length<2)return NaN;const mx=p.reduce((s,q)=>s+q[0],0)/p.length,my=p.reduce((s,q)=>s+q[1],0)/p.length;let n=0,dx=0,dy=0;for(const [x,y] of p){const ax=x-mx,ay=y-my;n+=ax*ay;dx+=ax*ax;dy+=ay*ay}return dx>0&&dy>0?n/Math.sqrt(dx*dy):NaN}
-function sdMetrics(aligned,epsilon=1e-12){
-  if(!aligned?.valid)return{count:0};const d=[],abs=[],rel=[],pct=[],eps=Math.max(0,Number(epsilon)||0);
-  for(let i=0;i<aligned.grid.length;i++){const q=aligned.A[i]-aligned.B[i];d.push(q);abs.push(Math.abs(q));if(Math.abs(aligned.B[i])>eps){rel.push(q/aligned.B[i]);pct.push(100*q/aligned.B[i])}}
-  if(!d.length)return{count:0};let im=0;for(let i=1;i<abs.length;i++)if(abs[i]>abs[im])im=i;
-  return{count:d.length,rmse:Math.sqrt(d.reduce((s,v)=>s+v*v,0)/d.length),mae:abs.reduce((s,v)=>s+v,0)/abs.length,maxAbs:abs[im],maxAbsX:aligned.grid[im],meanDifference:d.reduce((s,v)=>s+v,0)/d.length,meanRelative:rel.length?rel.reduce((s,v)=>s+v,0)/rel.length:NaN,meanPercent:pct.length?pct.reduce((s,v)=>s+v,0)/pct.length:NaN,correlation:sdPearson(aligned.A,aligned.B),difference:d,absoluteDifference:abs,relativeDifference:aligned.grid.map((_,i)=>Math.abs(aligned.B[i])>eps?(aligned.A[i]-aligned.B[i])/aligned.B[i]:NaN),percentDifference:aligned.grid.map((_,i)=>Math.abs(aligned.B[i])>eps?100*(aligned.A[i]-aligned.B[i])/aligned.B[i]:NaN)}
+function sdLengthMetrics(grid,delta){
+ const span=grid.at(-1)-grid[0];if(!(span>0)||!Number.isFinite(span)||grid.length!==delta.length)return null;
+ let scale=0,peak=0;for(let i=0;i<delta.length;i++){if(!Number.isFinite(delta[i])||(i>0&&!(grid[i]>grid[i-1])))return null;if(Math.abs(delta[i])>scale){scale=Math.abs(delta[i]);peak=i}}
+ let abs=0,sq=0,bias=0;
+ for(let i=1;i<grid.length;i++){const w=(grid[i]-grid[i-1])/span,a=scale?delta[i-1]/scale:0,b=scale?delta[i]/scale:0,aa=Math.abs(a),bb=Math.abs(b);
+ bias+=w*(a+b)/2;sq+=w*(a*a+a*b+b*b)/3;abs+=w*((a<0&&b>0||a>0&&b<0)?(aa*aa+bb*bb)/(2*(aa+bb)):(aa+bb)/2)}
+ return{length:span,mae:Math.min(1,abs)*scale,rmse:Math.sqrt(Math.min(1,Math.max(0,sq)))*scale,bias:Math.max(-1,Math.min(1,bias))*scale,maxAbs:scale,maxAbsX:grid[peak],knots:grid.length,method:'piecewise-linear length weighting on selected grid'}
 }
-
+function sdMetrics(aligned,epsilon=1e-12){
+ if(!aligned?.valid)return{count:0};const d=[],abs=[],relative=[],percent=[],eps=sdMNumber(epsilon);
+ if(!Number.isFinite(eps)||eps<0||aligned.A.length!==aligned.grid.length||aligned.B.length!==aligned.grid.length)return{count:0};
+ let max=0,im=0;for(let i=0;i<aligned.grid.length;i++){const x=aligned.A[i],y=aligned.B[i],q=x-y;if(![x,y,q,aligned.grid[i]].every(Number.isFinite))return{count:0};d.push(q);abs.push(Math.abs(q));if(Math.abs(q)>max){max=Math.abs(q);im=i}const ratio=Math.abs(y)>eps?q/y:NaN;relative.push(Number.isFinite(ratio)?ratio:NaN);percent.push(Number.isFinite(100*ratio)?100*ratio:NaN)}
+ if(!d.length)return{count:0};let sq=0,ma=0,mean=0;for(const v of d){const q=max?v/max:0;sq+=q*q;ma+=Math.abs(q);mean+=q}
+ const finiteMean=vs=>{let n=0,scale=0;for(const v of vs)if(Number.isFinite(v)){n++;scale=Math.max(scale,Math.abs(v))}if(!n)return NaN;if(!scale)return 0;let sum=0;for(const v of vs)if(Number.isFinite(v))sum+=v/scale;return scale*(sum/n)};
+ return{count:d.length,rmse:max*Math.sqrt(sq/d.length),mae:max*(ma/d.length),maxAbs:max,maxAbsX:aligned.grid[im],meanDifference:max*(mean/d.length),meanRelative:finiteMean(relative),meanPercent:finiteMean(percent),correlation:sdPearson(aligned.A,aligned.B),difference:d,absoluteDifference:abs,relativeDifference:relative,percentDifference:percent,lengthWeighted:sdLengthMetrics(aligned.grid,d)}
+}
 function sdMNumber(v){if(typeof v==='number')return Number.isFinite(v)?v:NaN;if(typeof v!=='string'||!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(v.trim()))return NaN;return Number.isFinite(Number(v))?Number(v):NaN}
 function sdMSource(s){
  if(!s||s.derived||s.derivedKind||s.caseId==null||!String(s.caseId).trim()||!Array.isArray(s.t)||!Array.isArray(s.y)||s.t.length!==s.y.length||s.t.length<2)return null;
@@ -45,38 +59,42 @@ function sdMSource(s){
  if(!Number.isFinite(time)||!support.every(Number.isFinite))return null;
  const points=s.t.map((x,i)=>[sdMNumber(x),sdMNumber(s.y[i])]);if(points.some(p=>p.some(v=>!Number.isFinite(v))))return null;
  points.sort((a,b)=>a[0]-b[0]);for(let i=1;i<points.length;i++)if(!(points[i][0]>points[i-1][0]))return null;
- return{points,field,unit,axis,coordinateUnit,source,caseId:String(s.caseId),caseName:String(s.caseName||s.caseId),line:String(s.profileLine||s.profileLineKey||''),dimensions:String(s.field?.dimensions||''),time,kind,support}
+ return{points,field,unit,axis,coordinateUnit,source,caseId:String(s.caseId),caseName:String(s.caseName||s.caseId),line:String(s.profileLine||s.profileLineKey||''),dimensions:String(s.field?.dimensions||''),component:String(s.component||s.field?.component||s.profileComponent||''),time,kind,support}
 }
-function sdMCompatible(a,b){return !!a&&!!b&&a.field===b.field&&a.unit===b.unit&&a.axis===b.axis&&a.coordinateUnit===b.coordinateUnit&&a.time===b.time&&(!a.dimensions||!b.dimensions||a.dimensions===b.dimensions)}
+function sdMCompatible(a,b){return !!a&&!!b&&a.field===b.field&&a.component===b.component&&a.unit===b.unit&&a.axis===b.axis&&a.coordinateUnit===b.coordinateUnit&&a.time===b.time&&(!a.dimensions||!b.dimensions||a.dimensions===b.dimensions)}
 function sdMAt(points,x){
- let lo=0,hi=points.length-1;while(lo<=hi){const m=(lo+hi)>>1;if(points[m][0]===x)return{value:points[m][1],kind:'source-coordinate'};if(points[m][0]<x)lo=m+1;else hi=m-1}
+ let lo=0,hi=points.length-1;while(lo<=hi){const m=lo+Math.floor((hi-lo)/2);if(points[m][0]===x)return{value:points[m][1],kind:'source-coordinate'};if(points[m][0]<x)lo=m+1;else hi=m-1}
  if(!lo||lo===points.length)return null;const a=points[lo-1],b=points[lo],span=b[0]-a[0];if(!(span>0)||!Number.isFinite(span))return null;
  const q=(x-a[0])/span,v=a[1]*(1-q)+b[1]*q;return Number.isFinite(v)?{value:v,kind:'spatial-interpolation'}:null
 }
+function sdMSampleGrid(points,grid){
+ let i=0;return grid.map(x=>{while(i+1<points.length&&points[i+1][0]<=x)i++;
+ const a=points[i],b=points[i+1];if(a[0]===x)return{value:a[1],kind:'source-coordinate'};
+ if(!b||x<a[0])return null;const span=b[0]-a[0];if(!(span>0)||!Number.isFinite(span))return null;
+ const q=(x-a[0])/span,v=a[1]*(1-q)+b[1]*q;return Number.isFinite(v)?{value:v,kind:'spatial-interpolation'}:null})
+}
 function sdMCompare(sources,config={}){
  const fail=reason=>({valid:false,reason});
- if(!Array.isArray(sources)||sources.length<2||sources.length>8)return fail('Choose 2–8 distinct cases.');
+ if(!Array.isArray(sources)||sources.length<2)return fail('Choose at least two distinct cases.');
  if(config.confirmed!==true||String(config.mapping||'').trim().length<8)return fail('Confirm and describe equivalent physical lines and coordinate origin.');
  const items=sources.map(sdMSource);if(items.some(x=>!x))return fail('Each source requires complete finite unique coordinates, field/coordinate units, source path and physical time.');
  const ref=items[0];if(new Set(items.map(x=>x.caseId)).size!==items.length)return fail('Select only one profile per case.');
  if(items.some(x=>!sdMCompatible(ref,x)))return fail('Field, component, coordinate axis, units and actual used times must match. Nearest samples from other times are not equivalent.');
- const lo=Math.max(...items.map(x=>x.points[0][0])),hi=Math.min(...items.map(x=>x.points.at(-1)[0]));if(!(hi>lo)||!Number.isFinite(hi-lo))return fail('No positive shared spatial interval.');
- const coords=new Set([lo,hi]);for(const item of items)for(const [x] of item.points)if(x>=lo&&x<=hi)coords.add(x);
- const grid=Array.from(coords).sort((a,b)=>a-b),limit=sdMNumber(config.limit??20000);
- if(!Number.isSafeInteger(limit)||limit<2||limit>100000)return fail('Coordinate limit must be 2–100000.');
- if(grid.length>limit)return fail(grid.length+' original coordinates exceed the limit; raise it. No coordinates discarded.');
- const values=items.map(item=>grid.map(x=>sdMAt(item.points,x)));if(values.some(v=>v.some(p=>!p)))return fail('Nonfinite spatial interpolation; no omitted values.');
+ let lo=-Infinity,hi=Infinity;for(const item of items){lo=Math.max(lo,item.points[0][0]);hi=Math.min(hi,item.points.at(-1)[0])}if(!(hi>lo)||!Number.isFinite(hi-lo))return fail('No positive shared spatial interval.');
+ const limit=sdMNumber(config.limit??20000),sampleBudget=sdMNumber(config.sampleBudget??1000000);
+ if(!Number.isSafeInteger(limit)||limit<2||!Number.isSafeInteger(sampleBudget)||sampleBudget<2)return fail('Invalid operational coordinate or aligned-value budget.');
+ const budget=Math.min(limit,Math.floor(sampleBudget/items.length));
+ if(budget<2)return fail('Aligned-value budget insufficient; raise it. No coordinates discarded.');
+ const grid=sdUnion(items.map(x=>x.points),lo,hi,budget);
+ if(!grid)return fail('Original coordinates exceed the operational budget; raise it. No coordinates discarded.');
+ const values=items.map(item=>sdMSampleGrid(item.points,grid));if(values.some(v=>v.some(p=>!p)))return fail('Nonfinite spatial interpolation; no omitted values.');
  const comparisons=values.slice(1).map((target,i)=>{
-  const delta=target.map((p,j)=>p.value-values[0][j].value);if(delta.some(v=>!Number.isFinite(v)))return null;
-  let scale=0,peak=0;for(let j=0;j<delta.length;j++){scale=Math.max(scale,Math.abs(delta[j]));if(Math.abs(delta[j])>Math.abs(delta[peak]))peak=j}
-  let abs=0,sq=0,bias=0;
-  for(let j=1;j<grid.length;j++){const w=(grid[j]-grid[j-1])/(hi-lo),a=scale?delta[j-1]/scale:0,b=scale?delta[j]/scale:0;
-   bias+=w*(a+b)/2;sq+=w*(a*a+a*b+b*b)/3;
-   if((a>=0&&b>=0)||(a<=0&&b<=0))abs+=w*(Math.abs(a)+Math.abs(b))/2;else{const q=Math.abs(a)/(Math.abs(a)+Math.abs(b));abs+=w*(Math.abs(a)*q+Math.abs(b)*(1-q))/2}}
-  return{target:i+1,delta,mae:abs*scale,rmse:Math.sqrt(Math.max(0,sq))*scale,bias:bias*scale,maxAbs:Math.abs(delta[peak]),maxAbsX:grid[peak],nativePairs:target.filter((p,j)=>p.kind==='source-coordinate'&&values[0][j].kind==='source-coordinate').length}
+ const delta=target.map((p,j)=>p.value-values[0][j].value),m=sdLengthMetrics(grid,delta);if(!m)return null;
+ let nativePairs=0;for(let j=0;j<grid.length;j++)if(target[j].kind==='source-coordinate'&&values[0][j].kind==='source-coordinate')nativePairs++;
+ return{target:i+1,delta,...m,nativePairs}
  });
  if(comparisons.some(c=>!c||![c.mae,c.rmse,c.bias].every(Number.isFinite)))return fail('Nonfinite error metrics.');
- return{valid:true,schema:'foamlens/multicase-spatial-comparison/1',field:ref.field,unit:ref.unit,axis:ref.axis,coordinateUnit:ref.coordinateUnit,time_s:ref.time,range:{start:lo,end:hi},grid,values,comparisons,sources:items.map(({points,...m})=>({...m,sampleCount:points.length})),mapping:String(config.mapping).trim(),method:'Union of original coordinates within shared domain; linear spatial interpolation; exact length-weighted piecewise-linear errors; target minus reference.',limitations:'User-confirmed line equivalence; temporal support explicitly attributed. No extrapolation, decimation, mesh-cell subtraction or physical-model certification.'}
+ return{valid:true,schema:'foamlens/multicase-spatial-comparison/1',field:ref.field,unit:ref.unit,axis:ref.axis,coordinateUnit:ref.coordinateUnit,time_s:ref.time,range:{start:lo,end:hi},grid,values,comparisons,subsampled:false,operationalBudget:{coordinates:limit,alignedValues:sampleBudget},sources:items.map(({points,...m})=>({...m,sampleCount:points.length})),mapping:String(config.mapping).trim(),method:'Union of original coordinates within shared domain; linear spatial interpolation; exact length-weighted piecewise-linear errors; target minus reference.',limitations:'User-confirmed line equivalence; temporal support explicitly attributed. No extrapolation, decimation, mesh-cell subtraction or physical-model certification.'}
 }
 
 /* FOAMLENS_SPATIAL_DIFFERENCE_CORE_END */
@@ -98,9 +116,9 @@ function sdReasonUi(reason){
   return diagEs()?(m[String(reason)]||String(reason)):String(reason)
 }
 let sdLast=null;
-function sdPairBinding(A,B,mode,epsilon){return JSON.stringify({A:sdMFingerprint(A),B:sdMFingerprint(B),mode,epsilon})}
+function sdPairBinding(A,B,mode,epsilon,budget){return JSON.stringify({A:sdMFingerprint(A),B:sdMFingerprint(B),mode,epsilon,budget})}
 function sdPairReset(){sdLast=null;const ex=document.getElementById('sdExport'),out=document.getElementById('sdResult');if(ex)ex.disabled=true;if(out)out.innerHTML=''}
-function sdPairSettings(){return{mode:document.getElementById('sdMode')?.value||'common',epsilon:sdMNumber(document.getElementById('sdEpsilon')?.value)}}
+function sdPairSettings(){return{mode:document.getElementById('sdMode')?.value||'common',epsilon:sdMNumber(document.getElementById('sdEpsilon')?.value),budget:sdMNumber(document.getElementById('sdPairLimit')?.value)}}
 function sdSamePhysicalKind(A,B){
   if(!A||!B)return{ok:false,reason:'missing profile'};
   if(String(A.profileAxis||'')!==String(B.profileAxis||''))return{ok:false,reason:'profile axes differ'};
@@ -118,7 +136,7 @@ const sdMColors=['#38bdf8','#fbbf24','#5eead4','#f472b6','#a78bfa','#fb923c','#a
 function sdME(id){return document.getElementById(id)}
 function sdMX(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function sdMClear(msg=''){sdMResult=null;sdMBound=null;if(sdME('sdMOut'))sdME('sdMOut').innerHTML='';if(sdME('sdMStatus'))sdME('sdMStatus').textContent=msg;for(const id of ['sdMJson','sdMCsv'])if(sdME(id))sdME(id).disabled=true}
-function sdMConfig(){return{confirmed:sdME('sdMConfirm').checked,mapping:sdME('sdMMapping').value,limit:sdME('sdMLimit').value}}
+function sdMConfig(){return{confirmed:sdME('sdMConfirm').checked,mapping:sdME('sdMMapping').value,limit:sdME('sdMLimit').value,sampleBudget:sdME('sdMSampleBudget').value}}
 function sdMSelected(){const ids=[sdME('sdA').value,...Array.from(sdME('sdMChoices').querySelectorAll('input:checked'),x=>x.value)];return [...new Set(ids)].map(sdFind)}
 function sdMFingerprint(s){return JSON.stringify({caseId:s?.caseId,id:s?.id,source:s?.sourcePath||s?.fileName,field:s?.field,axis:s?.profileAxis,coordinateUnit:s?.profileCoordUnit,line:s?.profileLineKey,time:s?.profileTime,meta:s?.playbackMeta,t:s?.t,y:s?.y})}
 function sdMRefresh(src=sdProfileSources()){
@@ -130,19 +148,20 @@ function sdMRefresh(src=sdProfileSources()){
 function sdMMount(box){
  const el=document.createElement('details');el.id='sdMPanel';el.style.marginTop='12px';
  el.innerHTML='<summary><b data-fl-en="Multi-case spatial comparison" data-fl-es="Comparación espacial multicaso">Multi-case spatial comparison</b></summary>'+
- '<p class="smallnote" data-fl-en="Profile A above is the reference; choose 1–7 additional distinct cases at the same actual physical time." data-fl-es="El perfil A de arriba es la referencia; elige 1–7 casos distintos adicionales al mismo tiempo físico real.">Profile A above is the reference; choose 1–7 additional distinct cases at the same actual physical time.</p>'+
+ '<p class="smallnote" data-fl-en="Profile A above is the reference; choose additional distinct cases at the same actual physical time." data-fl-es="El perfil A de arriba es la referencia; elige casos distintos adicionales al mismo tiempo físico real.">Profile A above is the reference; choose additional distinct cases at the same actual physical time.</p>'+
  '<div id="sdMChoices" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));gap:6px"></div>'+
  '<div class="extActions"><button id="sdMAuto" class="btn soft" type="button" data-fl-en="Select compatible cases" data-fl-es="Seleccionar casos compatibles">Select compatible cases</button><button id="sdMReset" class="btn soft" type="button" data-fl-en="Clear" data-fl-es="Limpiar">Clear</button></div>'+
  '<div class="field"><label data-fl-en="Physical line/location mapping" data-fl-es="Equivalencia de ubicación y línea física">Physical line/location mapping</label><textarea id="sdMMapping" rows="2" maxlength="500"></textarea></div>'+
  '<label class="extCheck"><input type="checkbox" id="sdMConfirm"><span data-fl-en="I confirm equivalent physical lines and coordinate origin." data-fl-es="Confirmo líneas físicas y origen de coordenadas equivalentes.">I confirm equivalent physical lines and coordinate origin.</span></label>'+
- '<div class="field"><label data-fl-en="Maximum coordinates (no decimation)" data-fl-es="Máximo de coordenadas (sin reducir muestras)">Maximum coordinates (no decimation)</label><input id="sdMLimit" type="number" min="2" max="100000" value="20000"></div>'+
+ '<div class="field"><label data-fl-en="Maximum coordinates (no decimation)" data-fl-es="Máximo de coordenadas (sin reducir muestras)">Maximum coordinates (no decimation)</label><input id="sdMLimit" type="number" min="2" step="1" value="20000"></div>'+
+ '<div class="field"><label data-fl-en="Aligned-value budget (cases × coordinates)" data-fl-es="Presupuesto de valores (casos × coordenadas)">Aligned-value budget (cases × coordinates)</label><input id="sdMSampleBudget" type="number" min="2" step="1" value="1000000"></div>'+
  '<div class="extActions"><button id="sdMRun" class="btn primary" type="button" data-fl-en="Compare all selected cases" data-fl-es="Comparar todos los casos">Compare all selected cases</button><button id="sdMJson" class="btn soft" type="button" disabled>JSON</button><button id="sdMCsv" class="btn soft" type="button" disabled>CSV</button></div>'+
  '<p id="sdMStatus" class="smallnote" aria-live="polite"></p><div id="sdMOut"></div>';
  box.append(el);el.addEventListener('toggle',()=>{if(el.open)sdMRefresh()});
  sdME('sdA').addEventListener('change',()=>sdMRefresh());
  sdME('sdMChoices').addEventListener('change',()=>sdMClear());
- for(const id of ['sdMMapping','sdMConfirm','sdMLimit'])sdME(id).addEventListener(id==='sdMConfirm'?'change':'input',()=>sdMClear());
- sdME('sdMAuto').onclick=()=>{const a=sdMSource(sdFind(sdME('sdA').value));if(!a)return;const ids=new Set([a.caseId]);for(const el of sdME('sdMChoices').querySelectorAll('input')){const b=sdMSource(sdFind(el.value));el.checked=!el.disabled&&sdMCompatible(a,b)&&ids.size<8&&!ids.has(b.caseId);if(el.checked)ids.add(b.caseId)}sdMClear()};
+ for(const id of ['sdMMapping','sdMConfirm','sdMLimit','sdMSampleBudget'])sdME(id).addEventListener(id==='sdMConfirm'?'change':'input',()=>sdMClear());
+ sdME('sdMAuto').onclick=()=>{const a=sdMSource(sdFind(sdME('sdA').value));if(!a)return;const ids=new Set([a.caseId]);for(const el of sdME('sdMChoices').querySelectorAll('input')){const b=sdMSource(sdFind(el.value));el.checked=!el.disabled&&sdMCompatible(a,b)&&!ids.has(b.caseId);if(el.checked)ids.add(b.caseId)}sdMClear()};
  sdME('sdMReset').onclick=()=>{for(const el of sdME('sdMChoices').querySelectorAll('input'))el.checked=false;sdMClear()};
  sdME('sdMRun').onclick=sdMRun;sdME('sdMJson').onclick=()=>sdMExport('json');sdME('sdMCsv').onclick=()=>sdMExport('csv')
 }
@@ -156,6 +175,14 @@ function sdMRun(){
  '<div style="display:grid;gap:7px;margin-top:8px">'+r.comparisons.map(c=>'<div style="border:1px solid var(--line);border-radius:8px;padding:8px;overflow-wrap:anywhere"><b>'+sdMX(r.sources[c.target].caseName)+'</b><div class="smallnote">'+tr('Length-weighted errors','Errores ponderados por longitud')+' · MAE '+sdFmt(c.mae)+' · RMSE '+sdFmt(c.rmse)+' · '+tr('Bias','Sesgo')+' '+sdFmt(c.bias)+' '+sdMX(r.unit)+'</div><div class="smallnote">Max |Δ| '+sdFmt(c.maxAbs)+' @ '+sdFmt(c.maxAbsX)+' '+sdMX(r.coordinateUnit)+' · '+tr('Native coordinate pairs','Pares de coordenadas nativas')+' '+c.nativePairs+'/'+r.grid.length+'</div></div>').join('')+'</div><p class="smallnote">'+sdMX(r.limitations)+'</p>';
  sdME('sdMPlotKind').onchange=sdMDraw;sdME('sdMCursor').oninput=sdMDraw;sdME('sdMJson').disabled=false;sdME('sdMCsv').disabled=false;sdMDraw()
 }
+function sdPreviewIndices(grid,values,width=704){
+ if(grid.length<=width*2)return grid.map((_,i)=>i);
+ const first=grid[0],span=grid.at(-1)-first,out=[0];let bucket=-1,lo=0,hi=0;
+ const flush=()=>{for(const i of lo<hi?[lo,hi]:[hi,lo])if(i>out.at(-1))out.push(i)};
+ for(let i=0;i<grid.length;i++){const b=Math.min(width-1,Math.floor((grid[i]-first)/span*width));if(b!==bucket){if(bucket>=0)flush();bucket=b;lo=i;hi=i}else{if(values[i]<values[lo])lo=i;if(values[i]>values[hi])hi=i}}
+ flush();if(out.at(-1)!==grid.length-1)out.push(grid.length-1);return out
+}
+function sdMColor(i){return sdMColors[i%sdMColors.length]}
 function sdMDraw(){
  const r=sdMResult;if(!r)return;const cursor=Number(sdME('sdMCursor').value),delta=sdME('sdMPlotKind').value==='delta',curves=delta?r.comparisons.map(c=>({i:c.target,y:c.delta})):r.values.map((v,i)=>({i,y:v.map(p=>p.value)}));
  const W=820,H=280,L=91,R=25,T=28,B=48;let min=delta?0:Infinity,max=delta?0:-Infinity;for(const c of curves)for(const v of c.y){min=Math.min(min,v);max=Math.max(max,v)}
@@ -164,8 +191,8 @@ function sdMDraw(){
  const at=r.grid[cursor],cx=x(at);
  sdME('sdMPlot').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+sdMX(r.field)+'" style="display:block;width:100%;height:auto;max-height:350px;background:#111827;border-radius:9px" fill="#dbe5ef" font-family="system-ui,sans-serif" font-size="11">'+ticks+'<text x="'+L+'" y="16" font-weight="700">'+sdMX((delta?'Δ ':'')+r.field+' ['+r.unit+']')+'</text>'+
  (delta?'<path d="M '+L+' '+y(0)+' H '+(W-R)+'" stroke="#d1d5db" stroke-dasharray="5 4"/>':'')+
- curves.map(c=>'<polyline fill="none" stroke="'+sdMColors[c.i]+'" stroke-width="2" points="'+c.y.map((v,j)=>x(r.grid[j]).toFixed(3)+','+y(v).toFixed(3)).join(' ')+'"/>').join('')+
- '<path d="M '+cx+' '+T+' V '+(H-B)+'" stroke="#e2e8f0" stroke-dasharray="4 4"/>'+curves.map(c=>'<circle cx="'+cx+'" cy="'+y(c.y[cursor])+'" r="4" fill="'+sdMColors[c.i]+'"/>').join('')+'<text x="'+(W/2)+'" y="'+(H-6)+'" text-anchor="middle">'+sdMX(r.axis+' ['+r.coordinateUnit+']')+'</text></svg><div style="display:flex;flex-wrap:wrap;gap:8px">'+curves.map(c=>'<span style="font-size:12px;overflow-wrap:anywhere"><span style="color:'+sdMColors[c.i]+'">●</span> '+sdMX(r.sources[c.i].caseName)+'</span>').join('')+'</div>';
+ curves.map(c=>'<polyline fill="none" stroke="'+sdMColor(c.i)+'" stroke-width="2" points="'+sdPreviewIndices(r.grid,c.y).map(j=>x(r.grid[j]).toFixed(3)+','+y(c.y[j]).toFixed(3)).join(' ')+'"/>').join('')+
+ '<path d="M '+cx+' '+T+' V '+(H-B)+'" stroke="#e2e8f0" stroke-dasharray="4 4"/>'+curves.map(c=>'<circle cx="'+cx+'" cy="'+y(c.y[cursor])+'" r="4" fill="'+sdMColor(c.i)+'"/>').join('')+'<text x="'+(W/2)+'" y="'+(H-6)+'" text-anchor="middle">'+sdMX(r.axis+' ['+r.coordinateUnit+']')+'</text></svg><div class="smallnote">'+flUi('Display envelope only; metrics, cursor and export retain all coordinates.','Envolvente solo visual; métricas, cursor y exportación conservan todas las coordenadas.')+'</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+curves.map(c=>'<span style="font-size:12px;overflow-wrap:anywhere"><span style="color:'+sdMColor(c.i)+'">●</span> '+sdMX(r.sources[c.i].caseName)+'</span>').join('')+'</div>';
  sdME('sdMReadout').innerHTML='<b>'+sdMX(r.axis)+' = '+sdMX(at)+' '+sdMX(r.coordinateUnit)+'</b>'+r.sources.map((src,i)=>{const p=r.values[i][cursor];return '<div style="border:1px solid var(--line);border-radius:7px;padding:7px;margin-top:5px;overflow-wrap:anywhere"><b>'+sdMX(src.caseName)+'</b> · '+sdMX(p.value)+' '+sdMX(r.unit)+(i?' · Δ '+sdMX(r.comparisons[i-1].delta[cursor]):' · '+flUi('Reference','Referencia'))+'<div class="smallnote">'+sdMX(p.kind)+' · '+sdMX(src.kind)+' · '+sdMX(src.support.join(' / '))+' s</div></div>'}).join('')
 }
 function sdMExport(kind){
@@ -185,10 +212,11 @@ function sdBuildUi(){
   <div class="field" style="margin-top:8px"><label data-fl-en="Profile A" data-fl-es="Perfil A">Profile A</label><select id="sdA"></select></div>
   <div class="field"><label data-fl-en="Profile B" data-fl-es="Perfil B">Profile B</label><select id="sdB"></select></div>
   <div class="row2"><div class="field"><label data-fl-en="Spatial grid" data-fl-es="Malla espacial">Spatial grid</label><select id="sdMode"><option value="common" selected data-fl-en="Common spatial grid" data-fl-es="Malla espacial común">Common spatial grid</option><option value="referenceA" data-fl-en="Reference A grid" data-fl-es="Malla de referencia A">Reference A grid</option><option value="referenceB" data-fl-en="Reference B grid" data-fl-es="Malla de referencia B">Reference B grid</option></select></div><div class="field"><label data-fl-en="Relative epsilon" data-fl-es="Epsilon relativo">Relative epsilon</label><input id="sdEpsilon" type="number" min="0" step="any" value="1e-12"></div></div>
+  <div class="field"><label data-fl-en="Operational coordinate budget (no decimation)" data-fl-es="Presupuesto operativo de coordenadas (sin reducción)">Operational coordinate budget (no decimation)</label><input id="sdPairLimit" type="number" min="2" step="1" value="100000"></div>
   <button class="btn primary" id="sdRun" type="button" data-fl-en="Compare profiles" data-fl-es="Comparar perfiles">Compare profiles</button>
   <button class="btn" id="sdExport" type="button" disabled data-fl-en="Export JSON" data-fl-es="Exportar JSON">Export JSON</button>
   <div class="smallnote" id="sdStatus" style="margin-top:7px"></div><div id="sdResult" style="margin-top:8px"></div>`;
-  host.appendChild(box);sdMMount(box);flApplyBilingualText(box);document.getElementById('sdRun').onclick=sdRun;document.getElementById('sdExport').onclick=sdExport;for(const id of ['sdA','sdB','sdMode','sdEpsilon'])document.getElementById(id).addEventListener(id==='sdEpsilon'?'input':'change',sdPairReset);sdRefresh()
+  host.appendChild(box);sdMMount(box);flApplyBilingualText(box);document.getElementById('sdRun').onclick=sdRun;document.getElementById('sdExport').onclick=sdExport;for(const id of ['sdA','sdB','sdMode','sdEpsilon','sdPairLimit'])document.getElementById(id).addEventListener(id==='sdEpsilon'?'input':'change',sdPairReset);sdRefresh()
 }
 function sdRefresh(){
   const src=sdProfileSources(),box=document.getElementById('sdTools'),a=document.getElementById('sdA'),b=document.getElementById('sdB');if(box)box.style.display='';if(!a||!b)return;
@@ -200,12 +228,13 @@ function sdRun(){
   sdPairReset();
   const A=sdFind(document.getElementById('sdA')?.value),B=sdFind(document.getElementById('sdB')?.value),st=document.getElementById('sdStatus'),out=document.getElementById('sdResult');if(!A||!B||A===B){flSetIssue(st,'selection-missing',{analysis:'Spatial Difference'});return}flClearIssue(st)
   const compatible=sdSamePhysicalKind(A,B);if(!compatible.ok){flSetIssue(st,compatible.reason,{analysis:'Spatial Difference',field:A?.field?.canonical||''});out.innerHTML='';return}
-  const {mode,epsilon}=sdPairSettings();if(!Number.isFinite(epsilon)||epsilon<0){flSetIssue(st,'invalid-relative-epsilon',{analysis:'Spatial Difference'});return}const aligned=sdGrid(A,B,mode,100000);if(!aligned.valid){flSetIssue(st,aligned.reason,{analysis:'Spatial Difference',field:A?.field?.canonical||''});out.innerHTML='';return}
-  const m=sdMetrics(aligned,epsilon);if(![m.rmse,m.mae,m.maxAbs,m.meanDifference].every(Number.isFinite)){flSetIssue(st,'nonfinite-error-metrics',{analysis:'Spatial Difference'});return}sdLast={A,B,aligned,metrics:m,epsilon,time:compatible.time,binding:sdPairBinding(A,B,mode,epsilon)};
+  const {mode,epsilon,budget}=sdPairSettings();if(!Number.isFinite(epsilon)||epsilon<0){flSetIssue(st,'invalid-relative-epsilon',{analysis:'Spatial Difference'});return}const aligned=sdGrid(A,B,mode,budget);if(!aligned.valid){flSetIssue(st,aligned.reason,{analysis:'Spatial Difference',field:A?.field?.canonical||''});out.innerHTML='';return}
+  const m=sdMetrics(aligned,epsilon);if(![m.rmse,m.mae,m.maxAbs,m.meanDifference].every(Number.isFinite)){flSetIssue(st,'nonfinite-error-metrics',{analysis:'Spatial Difference'});return}sdLast={A,B,aligned,metrics:m,epsilon,time:compatible.time,binding:sdPairBinding(A,B,mode,epsilon,budget)};
   const unit=sdMX(A.profileCoordUnit||''),time=compatible.time;
   st.textContent=diagEs()?`Rango espacial compartido ${sdFmt(aligned.start)}–${sdFmt(aligned.end)} ${unit} · ${m.count} muestras alineadas · t ${Number.isFinite(time)?sdFmt(time)+' s':'—'}.`:`Shared spatial range ${sdFmt(aligned.start)}–${sdFmt(aligned.end)} ${unit} · ${m.count} aligned samples · t ${Number.isFinite(time)?sdFmt(time)+' s':'—'}.`;
   out.innerHTML=`<div class="dataCatalogTableWrap"><table class="dataCatalogTable" style="min-width:0"><tbody>
   <tr><th>RMSE (${flUi('sample','muestral')})</th><td>${sdFmt(m.rmse)}</td><th>MAE</th><td>${sdFmt(m.mae)}</td></tr>
+  <tr><th>RMSE (${flUi('length-weighted selected grid','ponderado por longitud de malla seleccionada')})</th><td>${sdFmt(m.lengthWeighted?.rmse)}</td><th>MAE (${flUi('length-weighted','ponderado por longitud')})</th><td>${sdFmt(m.lengthWeighted?.mae)}</td></tr>
   <tr><th>Max |A−B|</th><td>${sdFmt(m.maxAbs)}</td><th>${flUi('at X','en X')}</th><td>${sdFmt(m.maxAbsX)} ${unit}</td></tr>
   <tr><th>${flUi('Mean A−B','Media A−B')}</th><td>${sdFmt(m.meanDifference)}</td><th>${flUi('Correlation','Correlación')}</th><td>${sdFmt(m.correlation)}</td></tr>
   <tr><th>${flUi('Mean % difference','Diferencia % media')}</th><td>${sdFmt(m.meanPercent)}%</td><th>${flUi('Grid','Malla')}</th><td>${mode==='common'?flUi('Common spatial grid','Malla espacial común'):mode==='referenceA'?flUi('Reference A','Referencia A'):flUi('Reference B','Referencia B')}</td></tr>
@@ -214,7 +243,7 @@ function sdRun(){
 }
 function sdDownload(name,text){if(typeof downloadText==='function'){downloadText(name,text,'application/json');return}const blob=new Blob([text],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function sdExport(){
-  const r=sdLast;if(!r){flSetIssue('sdStatus','analysis-not-run',{analysis:'Spatial Difference',expected:'Run the spatial comparison first'});return}const {mode,epsilon}=sdPairSettings(),A=sdFind(document.getElementById('sdA')?.value),B=sdFind(document.getElementById('sdB')?.value);if(r.binding!==sdPairBinding(A,B,mode,epsilon)){sdPairReset();flSetIssue('sdStatus','analysis-not-run',{analysis:'Spatial Difference',expected:'Run the spatial comparison first'});return}const p={generatedBy:flBuildIdentity(),analysis:'spatial-profile-difference',metricWeighting:'equal aligned samples (not length-weighted)',sourcePaths:{A:r.A.sourcePath||r.A.fileName,B:r.B.sourcePath||r.B.fileName},fieldUnit:r.A.field?.unit,sourceA:sdProfileLabel(r.A),sourceB:sdProfileLabel(r.B),variable:r.A.field?.canonical||r.A.field?.raw||'',profileAxis:r.A.profileAxis||'',coordinateUnit:r.A.profileCoordUnit||'',physicalTime:r.time,spatialAlignment:{mode:r.aligned.mode,sharedRange:{start:r.aligned.start,end:r.aligned.end},epsilon:r.epsilon,noIndexAlignment:true,noExtrapolation:true},temporalProvenance:{A:r.A.playbackMeta||null,B:r.B.playbackMeta||null},metrics:r.metrics,points:r.aligned.grid.map((x,i)=>({x,A:r.aligned.A[i],B:r.aligned.B[i],difference:r.metrics.difference[i],absoluteDifference:r.metrics.absoluteDifference[i],relativeDifference:Number.isFinite(r.metrics.relativeDifference[i])?r.metrics.relativeDifference[i]:null,percentDifference:Number.isFinite(r.metrics.percentDifference[i])?r.metrics.percentDifference[i]:null}))};sdDownload('FoamLens_spatial_comparison.json',JSON.stringify(p,null,2))
+  const r=sdLast;if(!r){flSetIssue('sdStatus','analysis-not-run',{analysis:'Spatial Difference',expected:'Run the spatial comparison first'});return}const {mode,epsilon,budget}=sdPairSettings(),A=sdFind(document.getElementById('sdA')?.value),B=sdFind(document.getElementById('sdB')?.value);if(r.binding!==sdPairBinding(A,B,mode,epsilon,budget)){sdPairReset();flSetIssue('sdStatus','analysis-not-run',{analysis:'Spatial Difference',expected:'Run the spatial comparison first'});return}const p={generatedBy:flBuildIdentity(),analysis:'spatial-profile-difference',metricWeighting:'sample metrics and separate length-weighted metrics on selected grid (reference mode may omit other source knots)',sourcePaths:{A:r.A.sourcePath||r.A.fileName,B:r.B.sourcePath||r.B.fileName},fieldUnit:r.A.field?.unit,sourceA:sdProfileLabel(r.A),sourceB:sdProfileLabel(r.B),variable:r.A.field?.canonical||r.A.field?.raw||'',profileAxis:r.A.profileAxis||'',coordinateUnit:r.A.profileCoordUnit||'',physicalTime:r.time,spatialAlignment:{mode:r.aligned.mode,sharedRange:{start:r.aligned.start,end:r.aligned.end},epsilon:r.epsilon,operationalBudget:budget,subsampled:false,noIndexAlignment:true,noExtrapolation:true},temporalProvenance:{A:r.A.playbackMeta||null,B:r.B.playbackMeta||null},metrics:r.metrics,points:r.aligned.grid.map((x,i)=>({x,A:r.aligned.A[i],B:r.aligned.B[i],difference:r.metrics.difference[i],absoluteDifference:r.metrics.absoluteDifference[i],relativeDifference:Number.isFinite(r.metrics.relativeDifference[i])?r.metrics.relativeDifference[i]:null,percentDifference:Number.isFinite(r.metrics.percentDifference[i])?r.metrics.percentDifference[i]:null}))};sdDownload('FoamLens_spatial_comparison.json',JSON.stringify(p,null,2))
 }
 document.addEventListener('foamlens-language-change',()=>{const box=document.getElementById('sdTools');if(box)flApplyBilingualText(box);if(sdLast)sdRun();else sdRefresh()});
 function sdInit(){
