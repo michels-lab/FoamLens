@@ -110,7 +110,7 @@ for(const name of passed)console.log('  ✓ '+name);
 
 const fesStart=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_START */'),fesEnd=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_END */');
 assert(fesStart>=0&&fesEnd>fesStart);
-const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish,fesHeatFlux,fesFaceArea,fesPatchPower,fesPhaseVolumes,fesDerivedPreviewData,fesInventoryProperties,fesInventoryGeometry,fesInventory,fesInventoryHistory,fesMaterial,fesParseMaterialCSV,fesMaterialAt,fesMaterialCpPrefix,fesMaterialH,fesMaterialField,fesInterfaceConfig,fesInterface,fesInterfaceHistory,fesMaterialFoamPairs};')();
+const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish,fesHeatFlux,fesFaceArea,fesPatchPower,fesPhaseVolumes,fesDerivedPreviewData,fesInventoryProperties,fesInventoryGeometry,fesInventory,fesInventoryHistory,fesMaterial,fesParseMaterialCSV,fesMaterialAt,fesMaterialCpPrefix,fesMaterialH,fesMaterialField,fesInterfaceConfig,fesInterface,fesInterfaceHistory,fesMaterialFoamPairs,fesReportSnapshot,fesReportManifest,fesReportHtml};')();
 const source={caseId:'a',region:'metal',field:'T',association:'volume',component:'value',unit:'K',time_s:0,paths:['0/metal/T'],dimensions:[0,0,0,1,0,0,0],meshId:'mesh-A'};
 const mesh={cellCount:4,cellCenters:[0,0,0,1,0,0,2,1,0,3,1,0]};
 const input={mesh,source,values:[0,100,200,null]};
@@ -276,4 +276,15 @@ test('occupancy components distinguish declared open gas and disconnected cavity
 });
 test('material table pairs use exact SI temperatures and values without solver syntax claims',()=>{
  const m=fes.fesParseMaterialCSV(materialCSV,materialOptions).material,txt=fes.fesMaterialFoamPairs(m,'cp');assert(txt.includes('(373.15 100)'));assert(txt.includes('(573.15 400)'));assert(txt.includes('Data fragment only'));assert.strictEqual(fes.fesMaterialFoamPairs(m,'not-a-property'),null)
+});
+
+test('report captures original provenance, excludes cell payloads and rejects cross-case capture',()=>{
+ const a={mesh:{cellCount:2},values:[1,2],source},r=finishGenerator(fes.fesCalculate(a,a,'add')),snap=fes.fesReportSnapshot(r,source);
+ assert(snap);assert.strictEqual(snap.label,'Derived field · calculator');assert.strictEqual(snap.sources.length,2);assert.deepStrictEqual(snap.parameters.columns,['add']);assert.strictEqual(snap.rawPayloadIncluded,false);assert(!Object.hasOwn(snap,'columns'));assert.strictEqual(snap.metrics.coverage.valid,2);
+ assert.strictEqual(fes.fesReportSnapshot(r,{...source,caseId:'wrong'}),null);assert.strictEqual(fes.fesReportSnapshot({...r,sources:[{...source,paths:[]}]},source),null);
+ r.sources[0]={...source,field:'mutated'};assert.strictEqual(snap.sources[0].field,'T');
+ const manifest=fes.fesReportManifest(source,[snap],'<script>alert(1)</script>','<img src=x onerror=alert(1)>','2026-11-27T00:00:00Z');assert(manifest);const html=fes.fesReportHtml(manifest);assert(html.includes('&lt;script&gt;'));assert(!html.includes('<script>'));assert(!html.includes('<img src=x'));assert(html.includes('0/metal/T'));assert.strictEqual(fes.fesReportManifest({...source,region:'other'},[snap],'','',''),null);
+});
+test('report keeps comparison case B separate and refuses unavailable schemas',()=>{
+ const a={mesh:cube(),values:[10],source},b={...a,source:{...source,caseId:'B'}},r=fes.fesResample(a,b),snap=fes.fesReportSnapshot(r,source);assert(snap);assert.strictEqual(snap.sources[0].caseId,'a');assert.strictEqual(snap.sources[1].caseId,'B');assert.strictEqual(snap.metrics.rowCount,1);assert(!Object.hasOwn(snap,'rows'));assert.strictEqual(fes.fesReportSnapshot({schema:'unsupported'},source),null);assert.deepStrictEqual(fes.fesPreview([1,2,3],1),[2]);
 });
