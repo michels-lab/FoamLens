@@ -220,3 +220,23 @@ assert.equal(v.plan.meshGenerated,false);
 assert.equal(spacingCore.bands(fixture,bounds,.0625,.25,0,false,false).plan.cellCount,1000);
 console.log('Conformal band spacing: monotone refinement, ratio propagation, exact CAD planes, explicit budget PASS');
 }
+
+{
+const cmp=new Function(src.slice(src.indexOf('function cmbFinalLayerSummary('),src.indexOf('function cmbSnappySettings('))+';return {snapshot:cmbExperimentSnapshot,compare:cmbCompareExperiments}')();
+const payload={axes:[{points:[0,1],counts:[8],grading:[1]},{points:[0,1],counts:[8],grading:[1]},{points:[0,1],counts:[8],grading:[1]}],patches:input.patches,snappy:{inside:[.1,.1,.1],surfaces:[{stlBase64:'large'}],minLevel:0,maxLevel:0}};
+const report={schema:'foamlens/native-snappy-mesh/1',stagingIsolated:true,originalCaseModified:false,version:'14',distribution:'Ubuntu',plannedCells:1728,nativeFinalCells:1216,qualityStatus:'mesh-ok-reported',stagingInputs:[{path:'constant/geometry/surface_001.stl',bytes:684,sha256:'a'.repeat(64)}],files:{'constant/polyMesh/points':'large'}};
+const x=cmp.snapshot(report,payload),y=cmp.snapshot({...report,plannedCells:4096,nativeFinalCells:3584,qualityStatus:'checks-failed',nativeConcaveCells:144},payload);
+assert.equal(x.finalCells,1216);assert.equal(x.concaveCells,null);assert.equal(x.qualityCertified,false);
+assert(!JSON.stringify(x).includes('large'));assert.equal(x.source[0].bytes,684);
+const q=cmp.compare(x,y);assert.equal(q.sameSource,true);assert.equal(q.sameContext,true);assert.equal(q.plannedDelta,2368);assert.equal(q.finalDelta,2368);assert.equal(q.concaveDelta,null);
+assert.equal(cmp.compare(x,{...y,version:'13'}).finalDelta,null);
+assert.equal(cmp.compare(x,{...y,settings:{...y.settings,inside:[.2,.1,.1]}}).sameContext,false);
+assert.equal(cmp.compare(x,{...y,source:[{...y.source[0],sha256:'b'.repeat(64)}]}).sameSource,false);
+assert.equal(cmp.compare(x,{...y,source:null}).sameSource,null);
+assert.equal(cmp.snapshot({...report,stagingInputs:[...report.stagingInputs,...report.stagingInputs]},payload).source,null);
+assert.equal(cmp.snapshot({...report,nativeFinalCells:0},payload).finalCells,null);
+assert.equal(cmp.snapshot({...report,originalCaseModified:true},payload),null);
+assert.equal(cmp.compare(x,null),null);
+payload.snappy.inside[0]=.5;assert.equal(x.settings.inside[0],.1);
+console.log('Compact native A/B receipts: exact CAD identity, recorded context, final cells, no retained mesh bytes PASS');
+}
