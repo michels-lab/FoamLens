@@ -112,6 +112,22 @@ function pfConnectedCrossingFaces(mesh,geometry,crossed,axis){
   }));
   return{status:'available',count:components.length,components,nonManifoldEdges,method:'original crossing faces connected by shared source mesh edge; identifiers local to each snapshot',temporalIdentityVerified:false}
 }
+function pfReconstructedMetrics(geom){
+  const p=geom?.positions,n=geom?.triangleCount;
+  const bad=reason=>({status:'unavailable',reason,areaM2:null,centroidM:null,triangleCount:null});
+  if(!Number.isSafeInteger(n)||n<0||n>1000000||!p||p.length!==n*9)return bad('Invalid or oversized reconstructed triangle buffer');
+  if(!n)return{status:'no-triangles',areaM2:0,centroidM:null,triangleCount:0};
+  let area=0;const c=[0,0,0],lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<p.length;i+=9){
+    const a=[p[i],p[i+1],p[i+2]],b=[p[i+3],p[i+4],p[i+5]],d=[p[i+6],p[i+7],p[i+8]];
+    if(![...a,...b,...d].every(Number.isFinite))return bad('Nonfinite reconstructed triangle');
+    const weight=.5*Math.hypot(...pfCross(b.map((x,j)=>x-a[j]),d.map((x,j)=>x-a[j])));
+    if(!(weight>0)||!Number.isFinite(weight))return bad('Degenerate reconstructed triangle (including Float32 precision loss)');
+    area+=weight;for(let j=0;j<3;j++){c[j]+=weight*(a[j]+b[j]+d[j])/3;lo[j]=Math.min(lo[j],a[j],b[j],d[j]);hi[j]=Math.max(hi[j],a[j],b[j],d[j])}
+  }
+  if(!Number.isFinite(area)||!c.every(Number.isFinite))return bad('Nonfinite reconstructed area or centroid');
+  return{status:'available',areaM2:area,centroidM:c.map(x=>x/area),boundsMinM:lo,boundsMaxM:hi,triangleCount:n,method:'existing Field cell-to-point reconstruction and marching tetrahedra; Float32 triangle coordinates',physicalInterfaceVerified:false}
+}
 function pfSnapshot(mesh,geometry,alpha,config={}){
   const fail=reason=>({ok:false,reason});
   if(!geometry?.ok)return fail('Physical polyMesh cell volumes unavailable: '+(geometry?.reason||'unknown'));
@@ -281,6 +297,7 @@ function pfParams(){
   return{c,region,g,low:pfEl('pfLow')?.value,high:pfEl('pfHigh')?.value,iso:pfEl('pfIso')?.value,
     axis:pfEl('pfAxis')?.value,role:pfEl('pfRole')?.value,
     from:pfEl('pfFrom')?.value,to:pfEl('pfTo')?.value,
+    reconstruct:pfEl('pfReconstruct')?.checked===true,
     phaseRoleConfirmed:pfEl('pfConfirmAlpha')?.checked===true}
 }
 function pfPlot(report){
@@ -302,7 +319,7 @@ function pfPlot(report){
 }
 async function pfRun(){
   pfInvalidate('Computing measured cell volumes and threshold-crossing face proxies…');
-  const token=pfToken,{c,region,g,low,high,iso,axis,role,from,to,phaseRoleConfirmed}=pfParams(),status=pfEl('pfStatus');
+  const token=pfToken,{c,region,g,low,high,iso,axis,role,from,to,phaseRoleConfirmed,reconstruct}=pfParams(),status=pfEl('pfStatus');
   if(!c||!g){status.textContent='Choose an original dimensionless phase field.';return}
   if(!['liquidFraction','solidFraction'].includes(role)){
     status.textContent='Declare source role alphaL or alphaS explicitly.';return
@@ -315,6 +332,7 @@ async function pfRun(){
   const timeWindow=pfSourceTimeWindow(g.times,from,to,120);
   if(!timeWindow.ok){status.textContent=timeWindow.reason;return}
   const times=timeWindow.times;
+  if(reconstruct&&times.length>20){status.textContent='Optional reconstructed surface metrics require at most 20 original frames; narrow the time window.';return}
   const cancel=pfEl('pfCancel');if(cancel)cancel.disabled=false;
   const excluded=[],frames=[],sourceFrames=[];
   const inventory=c.volumeFieldInventory,discovery=c.discoveryModel,meshInventory=c.meshInventory;
@@ -333,6 +351,15 @@ async function pfRun(){
         meshIdentity:pfRuntimeMeshIdentity(mesh)
       });
       if(!current.ok)throw new Error(current.reason);
+      if(reconstruct){
+        if(mesh.cellCount>20000||mesh.faceCount>120000||mesh.facePoints.length>600000)current.reconstruction={status:'unavailable',reason:'Reconstruction exceeds bounded mesh size; no subsampling',areaM2:null};
+        else if(typeof fvBuildIsoSurfaceGeometry!=='function')current.reconstruction={status:'unavailable',reason:'Existing Field reconstruction unavailable',areaM2:null};
+        else {
+          const values=Float64Array.from(frame.fieldValues,x=>role==='solidFraction'?1-Number(x):Number(x));
+          if(values.some(x=>x===cut))current.reconstruction={status:'unavailable',reason:'Exact threshold cell value; plateau ambiguity',areaM2:null};
+          else try{current.reconstruction=pfReconstructedMetrics(fvBuildIsoSurfaceGeometry(mesh,values,cut))}catch(e){current.reconstruction={status:'unavailable',reason:'Field reconstruction failed: '+String(e?.message||e),areaM2:null}}
+        }
+      }else current.reconstruction={status:'not-requested',areaM2:null};
       frames.push(current);
       sourceFrames.push({timeS:t,sourcePaths:(g.records||[]).filter(r=>String(r.region||'')===region&&Math.abs(Number(r.time)-t)<1e-10*Math.max(1,Math.abs(t))).map(r=>r.sourcePath),
         meshSnapshotTime:frame.meshInfo?.snapshot?.time??mesh.meshTime??null,
@@ -357,27 +384,27 @@ async function pfRun(){
     timeWindow:{fromIndex:timeWindow.fromIndex,toExclusive:timeWindow.toExclusive,
       sourceTimesAvailable:timeWindow.sourceTimesAvailable,selectedOriginalTimes:timeWindow.times,
       explicitlyExcludedTimes:timeWindow.explicitlyExcludedTimes,method:timeWindow.method},
-    parameters:{low:lo,high:hi,iso:cut},
+    parameters:{low:lo,high:hi,iso:cut,reconstruct},
     sourceFrames,evolution,excluded,completion:excluded.length?'partial-evidence':'source-backed-evidence',
     interpretations:{automaticNucleation:false,automaticRecalescence:false,automaticMicrostructure:false},
     caveats:[
       'Each phase volume comes from verified geometric polyMesh signed cell volumes, not percentages of equally-sized cells.',
       'Front area and coordinate are a FACE-CROSSING PROXY, not a genuine interpolated isosurface or independently measured solidification front.',
       'The reported apparent centroid velocity is not local front speed, especially during front splitting, topology changes or dynamic meshing.',
-      'Crossing-face components share original mesh edges. IDs are snapshot-local; component counts cannot establish split/merge events or temporal identity. Phase category volume rates are finite differences, not metallurgical transformation kinetics.',
+      'Optional reconstructed area uses the existing cell-to-point/marching tetrahedra Field engine; Float32 geometry and interpolation are approximate, not measured physical interface. Crossing-face components share original mesh edges. IDs are snapshot-local; component counts cannot establish split/merge events or temporal identity. Phase category volume rates are finite differences, not metallurgical transformation kinetics.',
       'Only selected original output times were analyzed. Omitted/missing times are disclosed, never imputed.',
       'Solid-phase fraction alphaS is normalized to alphaL=1-alphaS only after source-role confirmation; the physical model is not independently certified.'
     ]};
   pfBinding={c,inventory,discovery,meshInventory,g,fieldName:g.name,region,
     role,fromIndex:timeWindow.fromIndex,toExclusive:timeWindow.toExclusive,
-    low:lo,high:hi,iso:cut,axis};
+    low:lo,high:hi,iso:cut,axis,reconstruct};
   const fmt=n=>n===null||!Number.isFinite(n)?'not available':n.toLocaleString(undefined,{maximumSignificantDigits:6});
   pfEl('pfResult').innerHTML='<div class="extTableWrap"><table class="extTable"><thead><tr>'+
-    ['Time [s]','Solid [m³]','Mushy [m³]','Liquid [m³]','Volume-weighted αL','Front face area [m²]','Connected proxies','Centroid ['+axis+', m]','Apparent centroid speed [m/s]','Solid-category volume rate [m³/s]']
+    ['Time [s]','Solid [m³]','Mushy [m³]','Liquid [m³]','Volume-weighted αL','Front face area [m²]','Connected proxies','Reconstructed area [m²]','Centroid ['+axis+', m]','Apparent centroid speed [m/s]','Solid-category volume rate [m³/s]']
       .map(x=>'<th>'+pfEsc(x)+'</th>').join('')+'</tr></thead><tbody>'+
     evolution.rows.map(r=>'<tr>'+[
       r.timeS,r.volumesM3.solid,r.volumesM3.mushy,r.volumesM3.liquid,
-      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.connectivity.count,r.front.coordinateProxyM,r.frontCentroidVelocityProxyMPerS,r.phaseVolumeRateM3PerS?.solid??null
+      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.connectivity.count,r.reconstruction?.areaM2??null,r.front.coordinateProxyM,r.frontCentroidVelocityProxyMPerS,r.phaseVolumeRateM3PerS?.solid??null
     ].map(x=>'<td>'+pfEsc(fmt(x))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+
     '<p class="smallnote">Front = face-crossing proxy, NOT true continuous isosurface or local propagation speed. '+pfEsc(pfLast.caveats.join(' '))+'</p>'+
     '<details><summary>'+pfUi('Spatial front components by snapshot','Componentes espaciales del frente por instante')+'</summary>'+evolution.rows.map(r=>{const q=r.front.connectivity;return '<details><summary>t = '+pfEsc(r.timeS)+' s · '+pfEsc(q.count??q.status)+'</summary><p class="smallnote">'+pfEsc(q.method??q.reason??'')+' · '+pfEsc(r.frontConnectivityChange)+'</p>'+(q.components.length?'<div class="extTableWrap"><table class="extTable"><thead><tr>'+['ID (frame only)','Faces','Area proxy [m²]','Axis min [m]','Axis max [m]','Centroid [m]'].map(h=>'<th>'+pfEsc(h)+'</th>').join('')+'</tr></thead><tbody>'+q.components.slice(0,100).map(g=>'<tr>'+[g.frameComponent,g.faceCount,fmt(g.areaProxyM2),fmt(g.axisMinM),fmt(g.axisMaxM),g.centroidM.map(fmt).join(', ')].map(v=>'<td>'+pfEsc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'')+(q.components.length>100?'<p class="smallnote">First 100 shown; full component evidence in JSON/CSV.</p>':'')+'</details>'}).join('')+'</details>'+
@@ -399,7 +426,7 @@ function pfExport(kind){
   const c=pfParams().c,b=pfBinding,params=pfParams();
   if(c!==b.c||c.volumeFieldInventory!==b.inventory||c.discoveryModel!==b.discovery||
     c.meshInventory!==b.meshInventory||params.g!==b.g||params.region!==b.region||
-    params.role!==b.role||!params.phaseRoleConfirmed||
+    params.role!==b.role||params.reconstruct!==b.reconstruct||!params.phaseRoleConfirmed||
     pfNumber(params.from)!==b.fromIndex||pfNumber(params.to)!==b.toExclusive||
     pfNumber(params.low)!==b.low||pfNumber(params.high)!==b.high||
     pfNumber(params.iso)!==b.iso||params.axis!==b.axis){
@@ -412,9 +439,9 @@ function pfExport(kind){
     const rows=pfLast.evolution.rows.flatMap(r=>r.front.connectivity.components.map(g=>[r.timeS,g.frameComponent,g.firstSourceFace,g.faceCount,g.areaProxyM2,...g.centroidM,g.axisMinM,g.axisMaxM].join(',')));
     pfDownload('FoamLens_front_components.csv',[h,...rows].join('\n')+'\n','text/csv')
   }else{
-    const h='time_s,solid_m3,mushy_m3,liquid_m3,mean_alpha_volume_weighted,front_proxy_area_m2,front_centroid_axis_m,apparent_centroid_velocity_m_per_s,connected_face_components,solid_category_rate_m3_per_s,mushy_category_rate_m3_per_s,liquid_category_rate_m3_per_s';
+    const h='time_s,solid_m3,mushy_m3,liquid_m3,mean_alpha_volume_weighted,front_proxy_area_m2,front_centroid_axis_m,apparent_centroid_velocity_m_per_s,connected_face_components,reconstructed_area_m2,reconstruction_status,solid_category_rate_m3_per_s,mushy_category_rate_m3_per_s,liquid_category_rate_m3_per_s';
     const rows=pfLast.evolution.rows.map(r=>[r.timeS,r.volumesM3.solid,r.volumesM3.mushy,r.volumesM3.liquid,
-      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.coordinateProxyM??'',r.frontCentroidVelocityProxyMPerS??'',r.front.connectivity.count??'',r.phaseVolumeRateM3PerS?.solid??'',r.phaseVolumeRateM3PerS?.mushy??'',r.phaseVolumeRateM3PerS?.liquid??''].join(','));
+      r.volumeWeightedLiquidFraction,r.front.areaProxyM2,r.front.coordinateProxyM??'',r.frontCentroidVelocityProxyMPerS??'',r.front.connectivity.count??'',r.reconstruction?.areaM2??'',r.reconstruction?.status??'not-requested',r.phaseVolumeRateM3PerS?.solid??'',r.phaseVolumeRateM3PerS?.mushy??'',r.phaseVolumeRateM3PerS?.liquid??''].join(','));
     pfDownload('FoamLens_solidification_front_proxy.csv',[h,...rows].join('\n')+'\n','text/csv')
   }
 }
@@ -436,6 +463,7 @@ function pfInstall(){
   '<div class="field"><label>End original time index, exclusive</label><input id="pfTo" type="number" min="1" step="1" value="0"></div>'+
   '</div><p id="pfTimeCount" class="smallnote">Original time range, maximum 120 existing frames per run; no decimation.</p>'+
   '<label class="extCheck"><input id="pfConfirmAlpha" type="checkbox"> I verified the ORIGINAL phase field represents the physical role chosen above for this material; names alone are insufficient.</label>'+
+  '<label class="extCheck"><input id="pfReconstruct" type="checkbox"> '+pfUi('Optional reconstructed iso-surface area (20 frames / 20k cells max; approximate, not physical interface validation)','Área reconstruida opcional de isosuperficie (máx. 20 tiempos / 20 mil celdas; aproximada, no validación física)')+'</label>'+
   '<div class="extActions"><button id="pfRefresh" class="btn soft" type="button">Refresh original source fields</button>'+
   '<button id="pfRun" class="btn primary" type="button">Measure source phases and front proxy</button>'+
   '<button id="pfCancel" class="btn soft" type="button" disabled>Cancel source analysis</button>'+
@@ -454,7 +482,7 @@ function pfInstall(){
     pfEl('pfConfirmAlpha').checked=false;
     pfInvalidate('Original phase role changed; reconfirm its physical meaning before analysis.');
   });
-  for(const id of ['pfLow','pfHigh','pfIso','pfAxis','pfFrom','pfTo','pfConfirmAlpha'])
+  for(const id of ['pfLow','pfHigh','pfIso','pfAxis','pfFrom','pfTo','pfConfirmAlpha','pfReconstruct'])
     for(const type of ['input','change'])
       pfEl(id).addEventListener(type,
         ()=>pfInvalidate('Source parameters changed. Re-run before exporting physical evidence.'));
