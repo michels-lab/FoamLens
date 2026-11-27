@@ -631,6 +631,75 @@ function* fesMaterialField(a,raw,key){
  for(let i=0;i<n;i++){const v=fesMaterialAt(m,key,a.values[i]);values[i]=v;if(Number.isFinite(v))valid++;if((i+1)%16384===0)yield{done:i+1,total:n}}
  return{valid:true,schema:'foamlens/derived-field/1',kind:'material-'+key,sources:[a.source],material:m,dimensions,columns:[{name:key+'(T)',values}],coverage:{total:n,valid,missing:n-valid},method:'Piecewise linear table lookup in kelvin; no extrapolation. Model property, not an original solver field.'}
 }
+function fesInterfaceConfig(raw){
+ const role=raw?.role,threshold=fesNum(raw?.threshold),patches=raw?.patches;
+ if(!['metal-volume','gas-volume','liquid-fraction','solid-fraction'].includes(role)||!(threshold>0&&threshold<1)||!Array.isArray(patches)||new Set(patches).size!==patches.length||patches.some(p=>typeof p!=='string'||!p))return null;
+ const occupancy=role.endsWith('-volume');if(occupancy&&!patches.length&&raw.sealed!==true)return null;
+ return{role,threshold,patches:occupancy?patches.slice().sort():[],sealed:occupancy&&raw.sealed===true&&!patches.length,occupancy}
+}
+function fesInterfacePatches(mesh,cfg){
+ const n=mesh.cellCount,o=mesh.owners,q=mesh.neighbours,patches=mesh.boundaryPatches||[];
+ if(!o||!q||q.length!==mesh.internalFaceCount||o.length!==mesh.faceCount||q.length>o.length)return null;
+ const open=new Uint8Array(n),boundary=new Uint8Array(n),coverage=new Uint8Array(o.length-q.length),selected=new Set(cfg.patches),found=new Set();
+ for(const p of patches){
+  if(typeof p.name!=='string'||!p.name||found.has(p.name)||/^processor/i.test(p.name)||/^processor/i.test(p.type||'')||/cyclic|ami|mapped|overset/i.test(p.type||''))return null;
+  found.add(p.name);const start=p.startFace,end=start+p.nFaces;if(!Number.isSafeInteger(start)||!Number.isSafeInteger(p.nFaces)||p.nFaces<0||start<q.length||end>o.length)return null;
+  for(let f=start;f<end;f++){const i=o[f];if(coverage[f-q.length]||!Number.isSafeInteger(i)||i<0||i>=n)return null;coverage[f-q.length]=1;boundary[i]=1;if(selected.has(p.name))open[i]=1}
+ }
+ if(coverage.some(x=>!x)||[...selected].some(p=>!found.has(p)))return null;
+ return {open,boundary}
+}
+function* fesInterface(a,raw,geometry){
+ const fail=reason=>({valid:false,reason}),cfg=fesInterfaceConfig(raw);
+ if(!cfg||!fesDerivedInput(a)||a.source.component!=='value'||!fesDimIs(a.source.dimensions,[0,0,0,0,0,0,0]))return fail('explicit-dimensionless-fraction-role-and-threshold-required');
+ const m=a.mesh,n=m.cellCount;if(m.decomposed||a.source.decomposed)return fail('reconstructed-mesh-required');
+ if(!geometry||geometry.mesh!==m||geometry.meshId!==a.source.meshId||geometry.volumes?.length!==n)return fail('verified-cell-volumes-required');
+ const adjacency=fesAdjacency(m),boundary=fesInterfacePatches(m,cfg);if(!adjacency||!boundary)return fail('invalid-or-coupled-boundary-topology');
+ const high=new Uint8Array(n),label=new Uint32Array(n),queue=new Uint32Array(n),comps=[];
+ let total=0,phaseVolume=0,thresholdVolume=0,interfaceArea=0,faceCount=0,areaX=0,areaY=0,areaZ=0;
+ const reverse=cfg.role==='metal-volume'||cfg.role==='solid-fraction'; // normalized to gas or liquid
+ for(let i=0;i<n;i++){
+  const v=a.values[i],V=geometry.volumes[i];if(!Number.isFinite(v)||v<0||v>1||!(V>0)||!Number.isFinite(V))return{valid:false,reason:'invalid-fraction-or-volume',cell:i};
+  const f=reverse?1-v:v;high[i]=f>=cfg.threshold?1:0;total+=V;phaseVolume+=f*V;if(high[i])thresholdVolume+=V;
+  if((i+1)%16384===0)yield{done:i+1,total:n}
+ }
+ let next=0,connected=0,isolated=0,connectedVolume=0,isolatedVolume=0,connectedPhase=0,isolatedPhase=0;
+ if(cfg.occupancy)for(let i=0;i<n;i++){
+  if(high[i]&&!label[i]){
+   let head=0,tail=1,id=++next,touchOpen=false,touchBoundary=false,V=0,gas=0;queue[0]=i;label[i]=id;
+   while(head<tail){const j=queue[head++],v=geometry.volumes[j],f=reverse?1-a.values[j]:a.values[j];V+=v;gas+=f*v;touchOpen||=!!boundary.open[j];touchBoundary||=!!boundary.boundary[j];
+    for(let k=adjacency.offsets[j];k<adjacency.offsets[j+1];k++){const q=adjacency.ids[k];if(high[q]&&!label[q]){label[q]=id;queue[tail++]=q}}
+    if(head%16384===0)yield{done:head,total:n}
+   }
+   if(!Number.isFinite(V)||!Number.isFinite(gas))return fail('nonfinite-component-volume');
+   if(touchOpen){connected++;connectedVolume+=V;connectedPhase+=gas}else{isolated++;isolatedVolume+=V;isolatedPhase+=gas}
+   comps.push({id,cells:tail,thresholdVolume_m3:V,gasVolume_m3:gas,connectedToDeclaredOpening:touchOpen,touchesPhysicalBoundary:touchBoundary})
+  }
+  if((i+1)%16384===0)yield{done:i+1,total:n}
+ }
+ const owners=m.owners,neighbours=m.neighbours;
+ for(let f=0;f<neighbours.length;f++){
+  const i=owners[f],j=neighbours[f];if(high[i]!==high[j]){
+   const A=fesFaceArea(m,f),p=fesFacePoint(m,f);if(!(A>0)||!p)return{valid:false,reason:'invalid-interface-face',face:f};
+   interfaceArea+=A;faceCount++;areaX+=A*p[0];areaY+=A*p[1];areaZ+=A*p[2];
+  }
+  if((f+1)%16384===0)yield{done:f+1,total:neighbours.length}
+ }
+ if(![total,phaseVolume,thresholdVolume,interfaceArea,areaX,areaY,areaZ,connectedVolume,isolatedVolume,connectedPhase,isolatedPhase].every(Number.isFinite)||!(total>0))return fail('nonfinite-interface-metrics');
+ const centroid=interfaceArea>0?[areaX/interfaceArea,areaY/interfaceArea,areaZ/interfaceArea]:null;
+ return{valid:true,schema:'foamlens/interface-topology/1',source:a.source,config:cfg,metrics:{meshVolume_m3:total,phaseVolume_m3:cfg.occupancy?phaseVolume:null,fractionVolumeIntegral_m3:phaseVolume,thresholdVolume_m3:thresholdVolume,interfaceFaceCount:faceCount,interfaceArea_m2:interfaceArea,interfaceCentroid_m:centroid,connectedComponents:cfg.occupancy?connected:null,isolatedComponents:cfg.occupancy?isolated:null,connectedThresholdVolume_m3:cfg.occupancy?connectedVolume:null,isolatedThresholdVolume_m3:cfg.occupancy?isolatedVolume:null,connectedGasVolume_m3:cfg.occupancy?connectedPhase:null,isolatedGasVolume_m3:cfg.occupancy?isolatedPhase:null},components:comps,labels:cfg.occupancy?label:high,method:'Whole-cell threshold in normalized gas or liquid fraction; internal faces separating threshold classes, not interpolated isosurface. Face area and area-weighted vertex-mean face position. Gas components use internal face connectivity and declared open patches; disconnected components are candidates, not confirmed shrinkage cavities. Gas volume within threshold-selected cells differs from full-domain gas volume. Liquid/solid fraction integral is not identified as a phase volume when fraction basis is unspecified.'}
+}
+function fesInterfaceHistory(items){
+ if(!Array.isArray(items)||!items.length||items.some(x=>!x?.valid))return null;
+ const first=items[0],identity=x=>JSON.stringify([x.source.caseId,x.source.region,x.source.field,x.source.component,fesDimensions(x.source.dimensions),x.config]);
+ if(items.some((x,i)=>identity(x)!==identity(first)||!Number.isFinite(x.source.time_s)||(i&&x.source.time_s<=items[i-1].source.time_s)))return null;
+ const rows=items.map(x=>{const m=x.metrics,p=m.interfaceCentroid_m;return{time_s:x.source.time_s,...m,interfaceCentroid_m:undefined,centroidX_m:p?.[0]??null,centroidY_m:p?.[1]??null,centroidZ_m:p?.[2]??null}});
+ return{schema:'foamlens/interface-history/1',config:first.config,method:first.method,sources:items.map(x=>x.source),rows,componentSnapshots:items.map(x=>({time_s:x.source.time_s,components:x.components})),tracking:'Independent connected components at each native time; IDs are local to a frame, not persistent cavity identities.'}
+}
+function fesMaterialFoamPairs(raw,key){
+ const m=fesMaterial(raw);if(!m||!fesMaterialKeys.includes(key)||!m.properties[key])return null;
+ return '// FoamLens SI temperature/property pairs; T in K\n// '+key+' ['+m.units[key]+']; '+m.interpolation+'\n// Data fragment only: choose solver/version-specific Function1/table syntax and out-of-bounds policy separately.\n(\n'+m.temperature_K.map((t,i)=>'    ('+t+' '+m.properties[key][i]+')').join('\n')+'\n)\n'
+}
 /* FOAMLENS_ENTITY_SELECTION_CORE_END */
 let fesResult=null,fesPage=0,fesSelected=null,fesStages=[],fesStageSource=null,fesClipResult=null;
 const fesE=id=>document.getElementById(id);
@@ -896,7 +965,7 @@ function fesMaterialStatus(message){fesE('fesMatStatus').textContent=message}
 function fesMaterialList(){
  const sel=fesE('fesMatSelect'),old=sel.value;sel.replaceChildren();for(const m of fesMaterials){const o=document.createElement('option');o.value=m.name;o.textContent=m.name;sel.append(o)}if([...sel.options].some(o=>o.value===old))sel.value=old;
  const m=fesMaterialSelected(),prop=fesE('fesMatProperty'),prior=prop.value;prop.replaceChildren();for(const k of fesMaterialKeys)if(m?.properties[k]){const o=document.createElement('option');o.value=k;o.textContent=k+'(T)';prop.append(o)}if([...prop.options].some(o=>o.value===prior))prop.value=prior;
- fesE('fesMatApply').disabled=!m;fesE('fesMatRemove').disabled=!m;fesE('fesMatExport').disabled=!m;fesMaterialStatus(m?m.name+' · '+m.temperature_K.length+' '+fesUi('temperatures','temperaturas')+' · '+m.temperature_K[0]+'–'+m.temperature_K.at(-1)+' K · '+Object.keys(m.properties).join(', ')+' · '+m.cpKind:fesUi('No local materials.','Sin materiales locales.'))
+ fesE('fesMatApply').disabled=!m;fesE('fesMatRemove').disabled=!m;fesE('fesMatExport').disabled=!m;fesE('fesMatFoam').disabled=!m;fesMaterialStatus(m?m.name+' · '+m.temperature_K.length+' '+fesUi('temperatures','temperaturas')+' · '+m.temperature_K[0]+'–'+m.temperature_K.at(-1)+' K · '+Object.keys(m.properties).join(', ')+' · '+m.cpKind:fesUi('No local materials.','Sin materiales locales.'))
 }
 function fesMaterialPersist(next){try{localStorage.setItem('foamlens.material.library.v1',JSON.stringify(next))}catch{return false}fesMaterials=next;return true}
 function fesMaterialChanged(){fesDerivedReset();fesHistoryClear();fesMaterialList()}
@@ -917,10 +986,44 @@ function fesMountMaterials(box){
  '<div class="row2"><div class="field"><label data-fl-en="Delimiter" data-fl-es="Separador">Delimiter</label><select id="fesMatDelimiter"><option value=",">,</option><option value=";">;</option><option value="tab">TAB</option></select></div><div class="field"><label data-fl-en="Decimal" data-fl-es="Decimal">Decimal</label><select id="fesMatDecimal"><option value=".">.</option><option value=",">,</option></select></div></div><div class="field"><label data-fl-en="Original temperature unit" data-fl-es="Unidad de temperatura original">Original temperature unit</label><select id="fesMatUnit"><option value="K">K</option><option value="C">°C</option></select></div>'+
  '<div class="field"><label data-fl-en="Cp interpretation" data-fl-es="Interpretación de Cp">Cp interpretation</label><select id="fesMatCpKind"><option value="effective-or-unknown" data-fl-en="Effective / unknown (no added latent heat)" data-fl-es="Efectivo / desconocido (sin añadir calor latente)">Effective / unknown (no added latent heat)</option><option value="sensible-only" data-fl-en="Sensible only (explicitly confirmed)" data-fl-es="Solo sensible (confirmado explícitamente)">Sensible only (explicitly confirmed)</option></select></div>'+
  [['temperature','T','Temperature'],['cp','','Cp [J/(kg·K)]'],['k','','k [W/(m·K)]'],['rho','','ρ [kg/m³]'],['rhoSolid','','ρ solid [kg/m³]'],['rhoLiquid','','ρ liquid [kg/m³]']].map(([key,v,label])=>'<div class="field"><label>'+label+'</label><input type="text" id="fesMatMap'+key+'" value="'+v+'"></div>').join('')+
- '<button class="btn primary" type="button" id="fesMatImport" data-fl-en="Import and save locally" data-fl-es="Importar y guardar localmente">Import and save locally</button><div class="field"><label data-fl-en="Saved material" data-fl-es="Material guardado">Saved material</label><select id="fesMatSelect"></select></div><div class="field"><label data-fl-en="Property to derive from loaded temperature" data-fl-es="Propiedad a derivar de la temperatura cargada">Property to derive from loaded temperature</label><select id="fesMatProperty"></select></div><div class="extActions"><button type="button" class="btn primary" id="fesMatApply" data-fl-en="Calculate property field" data-fl-es="Calcular campo de propiedad">Calculate property field</button><button type="button" class="btn soft" id="fesMatExport">JSON</button><button type="button" class="btn soft" id="fesMatRemove" data-fl-en="Remove material" data-fl-es="Quitar material">Remove material</button></div><p class="smallnote" id="fesMatStatus" aria-live="polite"></p>';
+ '<button class="btn primary" type="button" id="fesMatImport" data-fl-en="Import and save locally" data-fl-es="Importar y guardar localmente">Import and save locally</button><div class="field"><label data-fl-en="Saved material" data-fl-es="Material guardado">Saved material</label><select id="fesMatSelect"></select></div><div class="field"><label data-fl-en="Property to derive from loaded temperature" data-fl-es="Propiedad a derivar de la temperatura cargada">Property to derive from loaded temperature</label><select id="fesMatProperty"></select></div><div class="extActions"><button type="button" class="btn primary" id="fesMatApply" data-fl-en="Calculate property field" data-fl-es="Calcular campo de propiedad">Calculate property field</button><button type="button" class="btn soft" id="fesMatExport">JSON</button><button type="button" class="btn soft" id="fesMatFoam" data-fl-en="OpenFOAM table pairs" data-fl-es="Pares de tabla OpenFOAM">OpenFOAM table pairs</button><button type="button" class="btn soft" id="fesMatRemove" data-fl-en="Remove material" data-fl-es="Quitar material">Remove material</button></div><p class="smallnote" id="fesMatStatus" aria-live="polite"></p>';
  box.querySelector('.extSectionBody').append(el);
  try{const raw=JSON.parse(localStorage.getItem('foamlens.material.library.v1')||'[]');if(Array.isArray(raw))fesMaterials=raw.map(fesMaterial).filter(Boolean)}catch{}
- fesE('fesMatImport').onclick=fesMaterialImport;fesE('fesMatSelect').onchange=fesMaterialChanged;fesE('fesMatProperty').onchange=fesDerivedReset;fesE('fesMatApply').onclick=()=>fesDerivedRun('material');fesE('fesMatExport').onclick=()=>{const m=fesMaterialSelected();if(m)downloadText('FoamLens_material.json',JSON.stringify(m,null,2),'application/json')};fesE('fesMatRemove').onclick=()=>{const m=fesMaterialSelected();if(m&&fesMaterialPersist(fesMaterials.filter(x=>x!==m)))fesMaterialChanged();else fesMaterialStatus('local-storage-unavailable')};fesMaterialList()
+ fesE('fesMatImport').onclick=fesMaterialImport;fesE('fesMatSelect').onchange=fesMaterialChanged;fesE('fesMatProperty').onchange=fesDerivedReset;fesE('fesMatApply').onclick=()=>fesDerivedRun('material');fesE('fesMatExport').onclick=()=>{const m=fesMaterialSelected();if(m)downloadText('FoamLens_material.json',JSON.stringify(m,null,2),'application/json')};fesE('fesMatFoam').onclick=()=>{const key=fesE('fesMatProperty').value,txt=fesMaterialFoamPairs(fesMaterialSelected(),key);if(txt)downloadText('FoamLens_'+key+'_tablePairs',txt,'text/plain')};fesE('fesMatRemove').onclick=()=>{const m=fesMaterialSelected();if(m&&fesMaterialPersist(fesMaterials.filter(x=>x!==m)))fesMaterialChanged();else fesMaterialStatus('local-storage-unavailable')};fesMaterialList()
+}
+let fesInterfaceSeq=0,fesInterfaceResult=null;
+function fesInterfaceClear(){fesInterfaceSeq++;fesInterfaceResult=null;fesE('fesInterfaceStatus').textContent='';fesE('fesInterfaceCsv').disabled=true;fesE('fesInterfaceJson').disabled=true;fesE('fesInterfaceRows').replaceChildren()}
+function fesInterfaceRefresh(){
+ fesInterfaceClear();const a=fesSource(),g=typeof fvCurrentFieldGroup==='function'?fvCurrentFieldGroup():null;
+ const patch=fesE('fesInterfacePatches');patch.replaceChildren();for(const p of a?.mesh?.boundaryPatches||[]){if(/^processor/i.test(p.name)||/^processor/i.test(p.type||''))continue;const o=document.createElement('option');o.value=p.name;o.textContent=p.name;patch.append(o)}
+ const times=(g?.times||[]).map(fesNum).filter(Number.isFinite).sort((a,b)=>a-b);
+ for(const [id,last] of [['fesInterfaceFrom',false],['fesInterfaceTo',true]]){const e=fesE(id);e.replaceChildren();for(const t of times){const o=document.createElement('option');o.value=String(t);o.textContent=t+' s';e.append(o)}if(last&&times.length)e.selectedIndex=times.length-1}
+}
+async function fesInterfaceRun(history){
+ fesInterfaceClear();const seq=fesInterfaceSeq,a=fesSource(),c=typeof fvCase==='function'?fvCase():null,g=typeof fvCurrentFieldGroup==='function'?fvCurrentFieldGroup():null,status=fesE('fesInterfaceStatus');
+ const check=()=>{const now=fesSource();if(seq!==fesInterfaceSeq||!now||now.mesh!==a.mesh||now.values!==a.values||JSON.stringify(now.source)!==JSON.stringify(a.source))throw Error('cancelled-or-source-changed')};
+ try{
+  if(!a||!c||!g||g.kind!=='scalar')throw Error('select-original-scalar-fraction-in-Field-A');
+  const cfg=fesInterfaceConfig({role:fesE('fesInterfaceRole').value,threshold:fesE('fesInterfaceThreshold').value,patches:[...fesE('fesInterfacePatches').selectedOptions].map(x=>x.value),sealed:fesE('fesInterfaceSealed').checked});if(!cfg)throw Error('explicit-role-threshold-and-openings-or-sealed-declaration-required');
+  const lo=fesNum(fesE('fesInterfaceFrom').value),hi=fesNum(fesE('fesInterfaceTo').value),times=history?g.times.map(fesNum).filter(t=>Number.isFinite(t)&&t>=lo&&t<=hi).sort((x,y)=>x-y):[a.source.time_s];
+  if(!times.length||new Set(times).size!==times.length||(history&&(times.length<2||times[0]!==lo||times.at(-1)!==hi)))throw Error('select-exact-native-time-range');
+  const items=[],limit=fesNum(fesE('fesIntegralBudget').value);let geometry=null;
+  for(let k=0;k<times.length;k++){check();const t=times[k];status.textContent=(k+1)+'/'+times.length+' · '+t+' s';
+   const frame=history?fesDerivedData(c,g,a.source.region,t,'value',await fvLoadFrameData(c,g,a.source.region,t,'value',{includeBoundary:false})):a;check();
+   if(!geometry||geometry.mesh!==frame.mesh||geometry.meshId!==frame.source.meshId)geometry=fesInventoryGeometry(frame,limit);
+   const gen=fesInterface(frame,cfg,geometry);let result;for(;;){check();const r=gen.next();if(r.done){result=r.value;break}status.textContent=(k+1)+'/'+times.length+' · '+r.value.done+'/'+r.value.total;await new Promise(r=>setTimeout(r,0))}
+   if(!result.valid)throw Error(result.reason+' · t='+t);const {labels,...summary}=result;items.push(summary);await new Promise(r=>setTimeout(r,0))
+  }
+  check();const result=fesInterfaceHistory(items);if(!result)throw Error('inconsistent-interface-history');fesInterfaceResult=result;fesE('fesInterfaceCsv').disabled=false;fesE('fesInterfaceJson').disabled=false;
+  const last=result.rows.at(-1);status.textContent='t='+last.time_s+' s · A ≈ '+last.interfaceArea_m2.toPrecision(6)+' m² · V '+last.fractionVolumeIntegral_m3.toPrecision(6)+' m³'+(cfg.occupancy?' · '+fesUi('Disconnected candidates','Candidatos desconectados')+' '+last.isolatedComponents:'');
+  const host=fesE('fesInterfaceRows'),table=document.createElement('table');table.style.cssText='width:100%;font-size:11px';const tr=document.createElement('tr');for(const h of ['t [s]','A [m²]','V [m³]','Disconnected']){const th=document.createElement('th');th.textContent=h;tr.append(th)}table.append(tr);
+  for(const row of fesPreview(result.rows,50)){const tr=document.createElement('tr');for(const v of [row.time_s,row.interfaceArea_m2,row.fractionVolumeIntegral_m3,row.isolatedComponents]){const td=document.createElement('td');td.textContent=Number.isFinite(v)?v.toPrecision(6):'—';tr.append(td)}table.append(tr)}host.append(table);
+ }catch(e){if(seq===fesInterfaceSeq)status.textContent=String(e?.message||e)}
+}
+function fesInterfaceExport(csv){const r=fesInterfaceResult;if(!r)return;if(!csv){downloadText('FoamLens_interface_history.json',JSON.stringify(r,null,2),'application/json');return}const keys=Object.keys(r.rows[0]).filter(k=>k!=='interfaceCentroid_m'),lines=[keys.join(','),...r.rows.map(x=>keys.map(k=>Number.isFinite(x[k])?x[k]:'').join(','))];downloadText('FoamLens_interface_history.csv',lines.join('\n')+'\n','text/csv')}
+function fesMountInterfaces(box){
+ const el=document.createElement('details');el.className='analysisExt';el.innerHTML='<summary><strong data-fl-en="Interfaces, free surface and void candidates" data-fl-es="Interfaces, superficie libre y candidatos de cavidad">Interfaces, free surface and void candidates</strong></summary><p class="smallnote" data-fl-en="Load an explicit scalar fraction in Field A. Metal/gas occupancy is NOT liquid/solid fraction. Discrete internal-face interface, not a reconstructed iso-surface. Declare physical openings or sealed domain for void connectivity." data-fl-es="Carga una fracción escalar explícita en Field A. Ocupación metal/gas NO es fracción líquido/sólido. Interfaz discreta de caras internas, no isosuperficie reconstruida. Declara aberturas físicas o dominio sellado para conectividad de cavidades.">Load an explicit scalar fraction in Field A. Metal/gas occupancy is NOT liquid/solid fraction. Discrete internal-face interface, not a reconstructed iso-surface. Declare physical openings or sealed domain for void connectivity.</p><button type="button" class="btn soft" id="fesInterfaceRefresh" data-fl-en="Refresh source" data-fl-es="Actualizar fuente">Refresh source</button><div class="field"><label data-fl-en="Field interpretation" data-fl-es="Interpretación del campo">Field interpretation</label><select id="fesInterfaceRole"><option value="">—</option><option value="metal-volume" data-fl-en="Metal occupancy (volume fraction)" data-fl-es="Ocupación de metal (volumétrica)">Metal occupancy (volume fraction)</option><option value="gas-volume" data-fl-en="Gas occupancy (volume fraction)" data-fl-es="Ocupación de gas (volumétrica)">Gas occupancy (volume fraction)</option><option value="liquid-fraction" data-fl-en="Liquid fraction — front only" data-fl-es="Fracción líquida — solo frente">Liquid fraction — front only</option><option value="solid-fraction" data-fl-en="Solid fraction — front only" data-fl-es="Fracción sólida — solo frente">Solid fraction — front only</option></select></div><div class="field"><label data-fl-en="Normalized gas or liquid threshold" data-fl-es="Umbral normalizado gas o líquido">Normalized gas or liquid threshold</label><input type="number" id="fesInterfaceThreshold" min="0" max="1" step="any" value="0.5"></div><div class="field"><label data-fl-en="Declared physical openings (occupancy only)" data-fl-es="Aberturas físicas declaradas (solo ocupación)">Declared physical openings (occupancy only)</label><select multiple size="4" id="fesInterfacePatches"></select></div><label class="inlineCheck"><input type="checkbox" id="fesInterfaceSealed"> <span data-fl-en="No openings: explicitly sealed domain" data-fl-es="Sin aberturas: dominio explícitamente sellado">No openings: explicitly sealed domain</span></label><div class="row2"><div class="field"><label data-fl-en="From" data-fl-es="Desde">From</label><select id="fesInterfaceFrom"></select></div><div class="field"><label data-fl-en="To" data-fl-es="Hasta">To</label><select id="fesInterfaceTo"></select></div></div><div class="extActions"><button type="button" class="btn primary" id="fesInterfaceCurrent" data-fl-en="Current frame" data-fl-es="Cuadro actual">Current frame</button><button type="button" class="btn primary" id="fesInterfaceHistory" data-fl-en="Native history" data-fl-es="Historia nativa">Native history</button><button type="button" class="btn soft" id="fesInterfaceCancel" data-fl-en="Cancel / clear" data-fl-es="Cancelar / limpiar">Cancel / clear</button><button type="button" class="btn soft" id="fesInterfaceCsv">CSV</button><button type="button" class="btn soft" id="fesInterfaceJson">JSON</button></div><p class="smallnote" id="fesInterfaceStatus" aria-live="polite"></p><div id="fesInterfaceRows" style="overflow:auto"></div>';
+ box.querySelector('.extSectionBody').append(el);el.addEventListener('toggle',()=>{if(el.open)fesInterfaceRefresh()});fesE('fesInterfaceRefresh').onclick=fesInterfaceRefresh;for(const e of el.querySelectorAll('input,select'))e.onchange=fesInterfaceClear;fesE('fesInterfaceCurrent').onclick=()=>fesInterfaceRun(false);fesE('fesInterfaceHistory').onclick=()=>fesInterfaceRun(true);fesE('fesInterfaceCancel').onclick=fesInterfaceClear;fesE('fesInterfaceCsv').onclick=()=>fesInterfaceExport(true);fesE('fesInterfaceJson').onclick=()=>fesInterfaceExport(false);fesInterfaceClear()
 }
 function fesMount(){
  if(fesE('fesPanel'))return true;const host=fesE('fieldViewControls');if(!host)return false;
@@ -937,7 +1040,7 @@ function fesMount(){
  '<div class="field"><label data-fl-en="Projection" data-fl-es="Proyección">Projection</label><select id="fesProjection"><option value="xy">XY</option><option value="xz">XZ</option><option value="yz">YZ</option></select></div><div id="fesPlot"></div><div class="extActions"><button class="btn tiny" id="fesPrev" type="button">←</button><span id="fesPageText"></span><button class="btn tiny" id="fesNext" type="button">→</button></div><div id="fesRows" style="display:grid;gap:4px;max-height:320px;overflow:auto"></div></div>';
  host.append(box);for(const el of box.querySelectorAll('input,textarea,select'))if(el.id!=='fesProjection')el.addEventListener('input',()=>{fesControls();fesClear(fesUi('Filter changed; extract again.','Cambió el filtro; extrae otra vez.'))});
  fesE('fesDefaults').onclick=fesDefaults;fesE('fesRun').onclick=fesRun;fesE('fesJson').onclick=()=>fesExport('json');fesE('fesCsv').onclick=()=>fesExport('csv');fesE('fesProjection').onchange=fesDraw;fesE('fesPrev').onclick=()=>{fesPage--;fesDraw()};fesE('fesNext').onclick=()=>{fesPage++;fesDraw()};
- fesMountExtra(box);fesMountPhysical(box);fesMountDerived(box);fesMountThermal(box);fesMountHistory(box);fesMountMaterials(box);try{flApplyBilingualText(box)}catch{}fesControls();fesClear();return true
+ fesMountExtra(box);fesMountPhysical(box);fesMountDerived(box);fesMountThermal(box);fesMountHistory(box);fesMountMaterials(box);fesMountInterfaces(box);try{flApplyBilingualText(box)}catch{}fesControls();fesClear();return true
 }
 function fesInstall(){if(fesMount())return;const watch=new MutationObserver(()=>{if(fesMount())watch.disconnect()});watch.observe(document.body,{childList:true,subtree:true})}
 fesInstall();

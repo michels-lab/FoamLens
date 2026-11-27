@@ -110,7 +110,7 @@ for(const name of passed)console.log('  ✓ '+name);
 
 const fesStart=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_START */'),fesEnd=surfaces.indexOf('/* FOAMLENS_ENTITY_SELECTION_CORE_END */');
 assert(fesStart>=0&&fesEnd>fesStart);
-const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish,fesHeatFlux,fesFaceArea,fesPatchPower,fesPhaseVolumes,fesDerivedPreviewData,fesInventoryProperties,fesInventoryGeometry,fesInventory,fesInventoryHistory,fesMaterial,fesParseMaterialCSV,fesMaterialAt,fesMaterialCpPrefix,fesMaterialH,fesMaterialField};')();
+const fes=new Function(surfaces.slice(fesStart,fesEnd)+';return {fesExtract,fesConfig,fesCsv,fesPreview,fesRecipe,fesRecipeMatches,fesClipTriangle,fesClipSurface,fesClipObj,fesDimensions,fesBuildCells,fesCellTree,fesLocate,fesIntegrate,fesResample,fesComparable,fesPhysicalBudget,fesCalcDimensions,fesCalculate,fesGradient,fesTemporalStart,fesTemporalStep,fesTemporalFinish,fesHeatFlux,fesFaceArea,fesPatchPower,fesPhaseVolumes,fesDerivedPreviewData,fesInventoryProperties,fesInventoryGeometry,fesInventory,fesInventoryHistory,fesMaterial,fesParseMaterialCSV,fesMaterialAt,fesMaterialCpPrefix,fesMaterialH,fesMaterialField,fesInterfaceConfig,fesInterface,fesInterfaceHistory,fesMaterialFoamPairs};')();
 const source={caseId:'a',region:'metal',field:'T',association:'volume',component:'value',unit:'K',time_s:0,paths:['0/metal/T'],dimensions:[0,0,0,1,0,0,0],meshId:'mesh-A'};
 const mesh={cellCount:4,cellCenters:[0,0,0,1,0,0,2,1,0,3,1,0]};
 const input={mesh,source,values:[0,100,200,null]};
@@ -254,4 +254,26 @@ test('piecewise-linear Cp enthalpy is integrated, not instantaneous Cp times del
 test('table property derived field retains full coverage and does not extrapolate',()=>{
  const m=fes.fesParseMaterialCSV(materialCSV,materialOptions).material,a={mesh:{cellCount:3},values:[373.15,473.15,700],source},q=finishGenerator(fes.fesMaterialField(a,m,'rho'));
  assert(q.valid);assert.deepStrictEqual(q.dimensions,[1,-3,0,0,0,0,0]);assert.strictEqual(q.columns[0].values[1],6900);assert(Number.isNaN(q.columns[0].values[2]));assert.strictEqual(q.coverage.valid,2);assert.strictEqual(q.material.name,'test alloy')
+});
+
+function interfaceChain(){
+ const pts=[];for(let x=0;x<=3;x++)for(const [y,z] of [[0,0],[1,0],[1,1],[0,1]])pts.push(x,y,z);
+ const faces=[],owners=[],neighbours=[1,2],add=(ids,i)=>{faces.push(ids);owners.push(i)};
+ add([4,5,6,7],0);add([8,9,10,11],1);
+ add([0,3,2,1],0); // x=0 opening
+ add([12,13,14,15],2);
+ for(let i=0;i<3;i++){let a=4*i,b=a+4;add([a,a+1,b+1,b],i);add([a+1,a+2,b+2,b+1],i);add([a+2,a+3,b+3,b+2],i);add([a+3,a,b,b+3],i)}
+ return{cellCount:3,points:pts,cellCenters:[.5,.5,.5,1.5,.5,.5,2.5,.5,.5],owners,neighbours,internalFaceCount:2,faceCount:faces.length,faceOffsets:Array.from({length:faces.length+1},(_,i)=>i*4),facePoints:faces.flat(),boundaryPatches:[{name:'opening',type:'patch',startFace:2,nFaces:1},{name:'wall',type:'wall',startFace:3,nFaces:faces.length-3}]}
+}
+test('occupancy components distinguish declared open gas and disconnected cavity candidates',()=>{
+ const mesh=interfaceChain(),a={mesh,values:[1,0,1],source:{...source,field:'alpha.gas',dimensions:[0,0,0,0,0,0,0]}},geometry=fes.fesInventoryGeometry(a,250000);assert(geometry);
+ const q=finishGenerator(fes.fesInterface(a,{role:'gas-volume',threshold:.5,patches:['opening']},geometry));assert(q.valid);assert.strictEqual(q.metrics.connectedComponents,1);assert.strictEqual(q.metrics.isolatedComponents,1);assert.strictEqual(q.metrics.isolatedGasVolume_m3,1);assert.strictEqual(q.metrics.interfaceArea_m2,2);assert.deepStrictEqual(q.metrics.interfaceCentroid_m,[1.5,.5,.5]);assert(q.components[1].touchesPhysicalBoundary);
+ const inv=finishGenerator(fes.fesInterface({...a,values:[0,1,0]},{role:'metal-volume',threshold:.5,patches:['opening']},geometry));assert(inv.valid);assert.strictEqual(inv.metrics.isolatedGasVolume_m3,1);
+ assert(!finishGenerator(fes.fesInterface(a,{role:'gas-volume',threshold:.5,patches:[]},geometry)).valid);
+ assert(!finishGenerator(fes.fesInterface({...a,values:[1,null,1]},{role:'gas-volume',threshold:.5,patches:['opening']},geometry)).valid);
+ const phase=finishGenerator(fes.fesInterface(a,{role:'liquid-fraction',threshold:.5,patches:[]},geometry));assert(phase.valid);assert.strictEqual(phase.metrics.isolatedComponents,null);assert.strictEqual(phase.metrics.phaseVolume_m3,null);assert.strictEqual(phase.metrics.fractionVolumeIntegral_m3,2);
+ const history=fes.fesInterfaceHistory([q,{...q,source:{...q.source,time_s:2}}]);assert(history);assert.strictEqual(history.rows.length,2);assert.strictEqual(history.rows[1].centroidX_m,1.5);assert(!fes.fesInterfaceHistory([q,q]));
+});
+test('material table pairs use exact SI temperatures and values without solver syntax claims',()=>{
+ const m=fes.fesParseMaterialCSV(materialCSV,materialOptions).material,txt=fes.fesMaterialFoamPairs(m,'cp');assert(txt.includes('(373.15 100)'));assert(txt.includes('(573.15 400)'));assert(txt.includes('Data fragment only'));assert.strictEqual(fes.fesMaterialFoamPairs(m,'not-a-property'),null)
 });
