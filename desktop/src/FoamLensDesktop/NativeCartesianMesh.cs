@@ -209,6 +209,8 @@ internal static class NativeCartesianMesh
 
     internal static void SelfTest()
     {
+        if (Script.Contains('\r') || ProbeScript().Contains('\r'))
+            throw new InvalidOperationException("WSL bash commands must use Unix line endings.");
         var fixture=new NativeCadSurfaceCheck.ProcessOutput(0,"project=OpenFOAM\nversion=14\nblockMesh=available\ncheckMesh=available\ntimeout=available\n","",false);
         var probe=ParsePreflight(fixture,"14");RequireTools(probe,"blockMesh");
         foreach(var invalid in new[]{ParsePreflight(fixture,"13"),ParsePreflight(fixture with {Truncated=true},"14"),ParsePreflight(fixture with {Stdout=fixture.Stdout+"version=13\n"},"14"),ParsePreflight(fixture with {Stdout=fixture.Stdout+"checkMesh=missing\n"},"14")})
@@ -591,7 +593,7 @@ internal static class NativeCartesianMesh
         if(names.Length==0||names.Any(n=>!System.Text.RegularExpressions.Regex.IsMatch(n,@"\Asurface_[0-9]{3}\.stl\z")))throw new ArgumentException("Invalid staged surface name.");
         return "FoamFile { version 2.0; format ascii; class dictionary; object surfaceFeaturesDict; }\nsurfaces ("+string.Join(" ",names.Select(n=>"\""+n+"\""))+");\nincludedAngle 150;\n";
     }
-    internal const string Script = """
+    internal static readonly string Script = """
         set -e
         # Foundation bashrc reads its positional arguments as configuration.
         # Source it inside a function with no case/utility arguments.
@@ -728,7 +730,7 @@ internal static class NativeCartesianMesh
           fl_quality_run "$region" "nativeQuality.$region"
         done < expected-regions.txt
         exit 0
-        """;
+        """.ReplaceLineEndings("\n");
     // Reuse the exact Foundation loader used by generation. No case directory,
     // mesher, solver, package install or arbitrary command is accepted here.
     internal static string FoundationLoader()
@@ -743,7 +745,7 @@ internal static class NativeCartesianMesh
         for tool in blockMesh checkMesh surfaceCheck gmshToFoam splitMeshRegions snappyHexMesh surfaceFeatures foamPostProcess wmake timeout; do
           if command -v "$tool" >/dev/null 2>&1; then printf '%s=available\n' "$tool"; else printf '%s=missing\n' "$tool"; fi
         done
-        """;
+        """.ReplaceLineEndings("\n");
 
     internal sealed record WslDistribution(string Name,bool IsDefault);
     internal static WslDistribution[] InstalledDistributions()
