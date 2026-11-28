@@ -5,7 +5,7 @@ No file is auto-deleted or declared unused.
 
 ## Coverage
 
-Tracked: 549; classified: 545; readable documents: 130; above read cap: 1; findings: 3.
+Tracked: 550; classified: 546; readable documents: 131; above read cap: 1; findings: 3.
 
 ## File roles
 
@@ -16,7 +16,7 @@ Tracked: 549; classified: 545; readable documents: 130; above read cap: 1; findi
 | bitacora | 2 |
 | build_script | 10 |
 | config | 8 |
-| document | 123 |
+| document | 124 |
 | index | 6 |
 | installer_metadata | 1 |
 | license | 1 |
@@ -29,7 +29,7 @@ Tracked: 549; classified: 545; readable documents: 130; above read cap: 1; findi
 
 ## Findings (human review required)
 
-- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 16 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/frontend/v13-spatial-differences.js, desktop/src/FoamLensDesktop/frontend/v13-temporal-alignment.js, desktop/src/FoamLensDesktop/frontend/v14-energy-audit.js, desktop/src/FoamLensDesktop/frontend/v14-experimental-validation.js, desktop/src/FoamLensDesktop/frontend/v14-isosurface.js, desktop/src/FoamLensDesktop/frontend/v14-probe-picking.js. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID 438b8a8e2601442d)
+- **REVIEW / POTENTIAL_UNLOGGED_CHANGES** docs/GIT_AUDIT_LOG.md: 5 implementation/config paths changed since this log's last commit; examples: desktop/src/FoamLensDesktop/Program.cs, desktop/src/FoamLensDesktop/frontend/v14-z-field-compare.js, desktop/src/FoamLensDesktop/frontend/v15-ribbon-ui.js, desktop/src/FoamLensDesktop/frontend/v16-multipanel-export.js, desktop/tests/multipanel-performance.test.cjs. Next: Inspect diffs and reconcile only meaningful decisions/results in the canonical log (ID ecb570f0d2e8c9f2)
 - **REVIEW / UNKNOWN_PURPOSE** tools/native-quality/Make/files: No reliable purpose category from path. Next: Declare role after reviewing usage (ID d9f5be2807d4a759)
 - **REVIEW / UNKNOWN_PURPOSE** tools/native-quality/Make/options: No reliable purpose category from path. Next: Declare role after reviewing usage (ID 80ac214ba57179dd)
 
