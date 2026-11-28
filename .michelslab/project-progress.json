@@ -1,4 +1,31 @@
 {
+  "granada_wsl_native_checkpoint": {
+    "candidate": "7678251a28f88fffd1cbcf6c856d894b367d6c2c",
+    "windows_build_errors": 0,
+    "cad_cartesian_self_test_exit": 0,
+    "foundation": {
+      "13": {
+        "passed": 13,
+        "total": 17,
+        "concave_single_multi_advanced": [
+          144,
+          132,
+          489
+        ],
+        "small_determinant_conformal_bands": 96
+      },
+      "14": {
+        "passed": 13,
+        "total": 17,
+        "concave_single_multi_advanced": [
+          144,
+          132,
+          490
+        ],
+        "small_determinant_conformal_bands": 96
+      }
+    }
+  },
   "schema": "michels-lab-project-progress-v1",
   "project": "FoamLens",
   "repository": "michels-lab/FoamLens",

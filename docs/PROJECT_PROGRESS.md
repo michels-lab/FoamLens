@@ -1,3 +1,16 @@
+## Granada #386 ? Windows to WSL meshing
+
+At 7678251a the Windows desktop build completed with four warnings and zero errors. The compiled CAD Cartesian self-test exited 0. Before the fix, all 17 Foundation 13 scenarios stopped in Bash on a carriage return from the Windows checkout. The corrected commands ran against Foundation 13 and 14 under Ubuntu WSL. Both completed 13 of 17 scenario assertions successfully, including diagnostic scenarios that explicitly allow poor mesh quality.
+
+| Strict failure | Foundation 13 | Foundation 14 |
+| --- | ---: | ---: |
+| Single, concave cells | 144 | 144 |
+| Multiple, concave cells | 132 | 132 |
+| Advanced, concave cells | 489 | 490 |
+| Conformal bands, cells with determinant below 0.001 | 96 | 96 |
+
+The four quality gates remain open. No threshold or geometry changed. Overall acceptance remains 8/15 milestones.
+
 ## 2026-11-27 — GRANADA: prioridad del usuario, controles 3D permanentes y Foto HD
 
 **53% → 53% (8/15)**. Dos commits funcionales 4f496977 y dc4e8a0975e5fd899a468a781e2ec5c91b7622a4: reutilización de controles originales permanentes en 3D/split, paneles Inspect/Compare independientes, filas adaptativas; botón Foto HD global y por vista, lado largo 1920/3840/7680 o personalizado, fondo blanco/negro/transparente, render WebGL al tamaño exacto con comprobación del GPU y restauración, sin escalado de captura. PNG de escena sin etiquetas DOM, leyendas/ejes; multipanel científico conserva su ruta original. 192+132=324 comprobaciones directas de ambas suites completas mediante adaptador V8 (no DOM real), sintaxis OK. Windows y descarga PNG real pendientes. Campaña importación experimental interrumpida por prioridad explícita del usuario; no commit de importador ni remoción de 4 MiB. No release/merge; v1.8.24 pública. Estado previo 1c637535: 15/16 workflows aprobados, CAD estricto pendiente. No incremento de hitos ni nuevos PR.
