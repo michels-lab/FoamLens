@@ -1078,7 +1078,9 @@ function fcAddViewportToolbar(viewport,view){
     for(const item of items)group.appendChild(item);
     bar.appendChild(group)
   };
-  row('fcToolbarSource',['.fcMoveHandle','.fcQuickCase','.fcViewDiffLabel']);
+  const photo=document.createElement('button');photo.type='button';photo.className='btn fcPhotoHd';photo.dataset.fcPhoto=String(view);photo.textContent=fcUi('HD Photo','Foto HD');photo.title=fcUi('Export this 3D view as high-resolution PNG','Exportar esta vista 3D como PNG de alta resolución');photo.setAttribute('aria-label',photo.title+' · '+letter);
+  photo.addEventListener('click',()=>window.FoamLensMultiPanelExport?.openPhoto?.(String(view)));bar.appendChild(photo);
+  row('fcToolbarSource',['.fcMoveHandle','.fcPhotoHd','.fcQuickCase','.fcViewDiffLabel']);
   row('fcToolbarSourceDetail',['.fcViewSourceDetails','.fcViewCopyFrom']);
   row('fcToolbarTime',['.fcViewTimePicker']);
   row('fcToolbarDisplay',['.fcViewportCameraPresets','.fcViewZoom','.fcDimensionSwitch']);
@@ -2353,6 +2355,7 @@ function fcInstallUi(){
     #fcViewGrid .fcToolbarRow{display:flex;flex-wrap:wrap;align-items:center;gap:7px;width:100%;min-width:0}
     #fcViewGrid .fcToolbarRow:has(>.fcViewTimePicker[hidden]){display:none}
     #fcViewGrid .fcToolbarSource .fcMoveHandle{flex:0 0 auto}
+    #fcViewGrid .fcToolbarSource button.fcPhotoHd{display:inline-flex!important;align-items:center;justify-content:center;flex:0 0 auto!important;min-width:82px!important;min-height:34px!important;width:auto!important;height:auto!important;box-sizing:border-box;padding:5px 9px!important;visibility:visible!important;white-space:nowrap!important;overflow-wrap:normal!important;border:1px solid var(--accent);background:var(--accentSoft);color:var(--text);font-size:11px;font-weight:750}
     #fcViewGrid .fcToolbarSource .fcQuickCase{flex:1 1 140px;max-width:none;min-width:0}
     #fcViewGrid .fcToolbarSourceDetail .fcViewSourceDetails{flex:1 1 180px;min-width:0}
     #fcViewGrid .fcToolbarSourceDetail .fcViewCopyFrom{flex:1 1 120px;min-width:0;max-width:none}

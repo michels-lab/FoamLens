@@ -3,15 +3,15 @@
   "project": "FoamLens",
   "repository": "michels-lab/FoamLens",
   "role": "application",
-  "as_of": "2026-11-25",
+  "as_of": "2026-11-27",
   "scope": "Ruta integral de aceptación y publicación final estable FoamLens: ciencia OpenFOAM, Field A-D, perfiles, CAD, experiencia transversal y Windows; rendimiento 3008 archivos excluido por decisión del propietario",
   "estimate_method": "equal_weight_verified_milestones",
   "progress_percent": 53,
   "verified_milestones": 8,
   "total_milestones": 15,
-  "phase": "v1.8.24 published and independently verified; G-C 4.1 WSL preflight candidate #383",
-  "source_pr": "https://github.com/michels-lab/FoamLens/pull/383",
-  "source_head_sha": "b88df9f67f260053848c960856df862b1525f267",
+  "phase": "Urgent v1.8.25 thesis photography candidate; #386 photo-only subset; native QA pending",
+  "source_pr": "https://github.com/michels-lab/FoamLens/pull/384",
+  "source_head_sha": "6d22350a56fcfd2a0d334ca497187f9e2b90ff8a",
   "latest_verified_stable": "v1.8.24",
   "release_hold": false,
   "owner_physical_acceptance": false,
@@ -151,7 +151,7 @@
       ]
     }
   ],
-  "next_step": "Validate exact native/Windows CI for #383; add explicit distribution selection and staging evidence; resolve strict snappy 4.3; owner acceptance.",
+  "next_step": "Exact Windows Setup/Portable and HD photo verification, protected publisher and public checksum audit; keep strict refined snappy rejected.",
   "limitations": "Historical 8/15, V2 N/D. v1.8.24 official verified; physical acceptance pending; preflight candidate not published, strict snappy remains diagnostic-only.",
   "last_granada": {
     "as_of": "2026-11-25",

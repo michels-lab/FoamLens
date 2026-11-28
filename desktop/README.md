@@ -1,10 +1,14 @@
-# FoamLens Desktop v1.8.24
+# FoamLens Desktop v1.8.25
 
-**FoamLens Desktop v1.8.24 with frontend v51** is the release source pending publication. Integrated CAD/Mesh Studio with curved blockMesh editing and export, native Foundation 13/14 core mesh workflow, Gmsh, quality metrics and source-bound spatial analysis. Refined snappy remains diagnostic-only, not solver-ready. Owner physical acceptance remains pending.
+**FoamLens Desktop v1.8.25 with frontend v51** is a source candidate, not yet published. Includes permanent 3D camera controls, direct HD PNG photography, floating Field/native fullscreen, scientific analysis and Case Health. Refined snappy is diagnostic-only; Case Builder and mesh experiments from #386 excluded. Owner physical acceptance pending.
+
+## Current verified published stable: v1.8.24
+
+[v1.8.24](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.24) remains the verified stable until the official release workflow publishes v1.8.25. [Publisher](https://github.com/michels-lab/FoamLens/actions/runs/45737560786) and [public binary audit](https://github.com/michels-lab/FoamLens/actions/runs/45738655721) passed.
 
 ## Previous published stable: v1.8.23
 
-[v1.8.23](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.23) remains the verified stable until the official release workflow publishes v1.8.24.
+[v1.8.23](https://github.com/michels-lab/FoamLens/releases/tag/v1.8.23) is a historical stable release.
 
 ## Previous published stable: v1.8.22
 
