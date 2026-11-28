@@ -1557,6 +1557,8 @@ internal sealed class FoamLensForm : Form
                   const compareRuntimeEnabled=window.FoamLensFieldCompare?.isEnabled?.();
                   const tools=document.querySelector('.fvViewTools');
                   const bounds=ribbon?.getBoundingClientRect();
+                  const visible=el=>!!el&&el.getBoundingClientRect().width>=20&&el.getBoundingClientRect().height>=20&&getComputedStyle(el).display!=='none'&&getComputedStyle(el).visibility!=='hidden';
+                  const permanentCamera=()=>!!shelf&&!shelf.classList.contains('hidden')&&shelf.classList.contains('flCameraToolsActive')&&visible(document.getElementById('flRaCameraIso'))&&visible(document.getElementById('flRaPhotoHd'));
                   const checks={
                     fieldActive:document.body.classList.contains('appMode-field'),
                     nonOverlappingRows:(()=>{
@@ -1570,7 +1572,9 @@ internal sealed class FoamLensForm : Form
                       return inside&&parts.every((el,i)=>parts.slice(i+1).every(other=>!overlap(el.getBoundingClientRect(),other.getBoundingClientRect())))
                     })(),
                     noClippedPrimaryRow:!!ribbon&&ribbon.scrollWidth<=ribbon.clientWidth+8,
-                    subbarsInitiallyClosed:!!shelf&&shelf.classList.contains('hidden'),
+                    cameraInitiallyVisible:permanentCamera(),
+                    contextualInitiallyClosed:!!shelf&&!shelf.querySelector('[data-fl-shelf-group="inspect"].flSubbarActive,[data-fl-shelf-group="compare"].flSubbarActive'),
+                    primaryPhotoVisible:visible(document.querySelector('[data-fc-toolbar="A"] [data-fc-photo="A"]')),
                     caseSelectorsIndependent:!!caseHost&&caseHost.contains(a)&&caseHost.contains(b)&&a!==b,
                     addViewVisible:(()=>{const el=document.getElementById('fwAdd3DViewVisible');return !!el&&el.getBoundingClientRect().width>65&&getComputedStyle(el).display!=='none'})(),
                     importCaseVisible:(()=>{const el=document.getElementById('fwImport3DCase');return !!el&&el.getBoundingClientRect().width>65&&getComputedStyle(el).display!=='none'})(),
@@ -1600,7 +1604,18 @@ internal sealed class FoamLensForm : Form
                       getComputedStyle(button).display!=='none');
                   if(namedMenu)namedMenu.open=false;
                   cameraTab?.click();
-                  checks.cameraCloses=!!shelf&&shelf.classList.contains('hidden');
+                  checks.cameraPersistsAfterToggle=permanentCamera();
+                  const inspect=tabs?.querySelector('[data-fl-subbar="inspect"]'),compareTab=tabs?.querySelector('[data-fl-subbar="compare"]');
+                  inspect?.click();
+                  checks.cameraWithInspect=permanentCamera()&&!!shelf.querySelector('[data-fl-shelf-group="inspect"].flSubbarActive');
+                  compareTab?.click();
+                  checks.cameraWithCompare=permanentCamera()&&!!shelf.querySelector('[data-fl-shelf-group="compare"].flSubbarActive')&&!shelf.querySelector('[data-fl-shelf-group="inspect"].flSubbarActive');
+                  compareTab?.click();
+                  checks.cameraAfterContextClose=permanentCamera()&&!shelf.querySelector('[data-fl-shelf-group="inspect"].flSubbarActive,[data-fl-shelf-group="compare"].flSubbarActive');
+                  document.getElementById('flRaPhotoHd')?.click();
+                  checks.photoDialogOpens=!!document.getElementById('mePhotoDialog')?.open&&!!document.getElementById('mePhotoSave')&&!!document.getElementById('mePhotoEdge');
+                  document.getElementById('mePhotoClose')?.click();
+                  checks.photoDialogCloses=!document.getElementById('mePhotoDialog')?.open;
                   return{ok:Object.values(checks).every(Boolean),checks,compareChecked:!!compare?.checked,compareRuntimeEnabled,compareUserRequested:window.FoamLensFieldWorkspace?.getState?.().compareUserRequested===true,ribbonHeight:bounds?.height||0,
                     ribbonWidth:ribbon?.clientWidth||0,ribbonScrollWidth:ribbon?.scrollWidth||0};
                 })()
@@ -2705,6 +2720,17 @@ internal sealed class FoamLensForm : Form
                         const primaryRestored=Number(primaryCanvas?.width||0)===primaryWidthBefore&&Number(primaryCanvas?.height||0)===primaryHeightBefore;
                         const hiResMeta=multiApi.getLastHiRes?.()||null;
                         const highResRerendered=!!hiResMeta?.rerendered&&Number(hiResMeta?.width)===1800&&Number(hiResMeta?.height)===1200;
+                        if(typeof multiApi.capturePhoto!=='function')throw new Error('Direct HD photo API unavailable.');
+                        const directPhoto=await multiApi.capturePhoto('A',1920,'white');
+                        const pngHeader=new DataView(await directPhoto.blob.slice(0,24).arrayBuffer());
+                        const photoPngHeader=pngHeader.getUint32(0)===0x89504e47&&pngHeader.getUint32(4)===0x0d0a1a0a&&pngHeader.getUint32(12)===0x49484452&&pngHeader.getUint32(16)===directPhoto.size.width&&pngHeader.getUint32(20)===directPhoto.size.height;
+                        const photoBitmap=await createImageBitmap(directPhoto.blob);
+                        const photoSizeValid=Math.max(photoBitmap.width,photoBitmap.height)===1920&&photoBitmap.width===directPhoto.size.width&&photoBitmap.height===directPhoto.size.height;
+                        const photoCheck=document.createElement('canvas');photoCheck.width=photoBitmap.width;photoCheck.height=photoBitmap.height;const photoCtx=photoCheck.getContext('2d');photoCtx.drawImage(photoBitmap,0,0);photoBitmap.close();
+                        const pixels=photoCtx.getImageData(0,0,photoCheck.width,photoCheck.height).data;let colored=0,opaque=0;
+                        for(let i=0;i<pixels.length;i+=4){if(pixels[i+3]===255)opaque++;if(Math.min(pixels[i],pixels[i+1],pixels[i+2])<240)colored++}
+                        const photoContentValid=colored>100&&opaque===photoCheck.width*photoCheck.height;
+                        const photoRestored=primaryCanvas.width===primaryWidthBefore&&primaryCanvas.height===primaryHeightBefore;
                         const multiResult=await multiApi.compose(multiSources.filter(x=>x.key==='primary'||x.key==='view2').slice(0,2));
                         const multiPanelSourceCount=multiResult?.sources?.length||0;
                         const multiPanelWidth=Number(multiResult?.canvas?.width||0);
@@ -2809,6 +2835,7 @@ internal sealed class FoamLensForm : Form
                           hiRes3DWidth,
                           hiRes3DHeight,
                           highResRerendered,
+                          photoPngHeader,photoSizeValid,photoContentValid,photoRestored,
                           primaryRestored,
                           multiPanelWidth,
                           multiPanelHeight,
@@ -2863,6 +2890,10 @@ internal sealed class FoamLensForm : Form
                         !root.TryGetProperty("hiRes3DWidth", out var hiRes3DWidth) || hiRes3DWidth.GetInt32() != 1800 ||
                         !root.TryGetProperty("hiRes3DHeight", out var hiRes3DHeight) || hiRes3DHeight.GetInt32() != 1200 ||
                         !root.TryGetProperty("highResRerendered", out var highResRerendered) || !highResRerendered.GetBoolean() ||
+                        !root.TryGetProperty("photoPngHeader", out var photoPngHeader) || !photoPngHeader.GetBoolean() ||
+                        !root.TryGetProperty("photoSizeValid", out var photoSizeValid) || !photoSizeValid.GetBoolean() ||
+                        !root.TryGetProperty("photoContentValid", out var photoContentValid) || !photoContentValid.GetBoolean() ||
+                        !root.TryGetProperty("photoRestored", out var photoRestored) || !photoRestored.GetBoolean() ||
                         !root.TryGetProperty("primaryRestored", out var primaryRestored) || !primaryRestored.GetBoolean() ||
                         !root.TryGetProperty("multiPanelWidth", out var multiPanelWidth) || multiPanelWidth.GetInt32() != 2400 ||
                         !root.TryGetProperty("multiPanelHeight", out var multiPanelHeight) || multiPanelHeight.GetInt32() != 1600 ||

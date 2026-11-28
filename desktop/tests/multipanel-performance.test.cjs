@@ -148,3 +148,9 @@ assert.throws(()=>photo.raster({...fixture,create:()=>({getContext:()=>null})},{
 assert(compare.includes("photo.dataset.fcPhoto=String(view)"));assert(compare.includes("openPhoto?.(String(view))"));assert(ribbon.includes("openPhoto?.('A')"));
 console.log('HD photo exact-size rendering, GPU bounds, restoration and per-view entry PASS');
 }
+
+{
+const native=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
+for(const token of ['cameraInitiallyVisible:permanentCamera()','cameraPersistsAfterToggle=permanentCamera()','cameraWithInspect=permanentCamera()','cameraWithCompare=permanentCamera()','photoDialogOpens','photoPngHeader','photoContentValid','photoRestored'])assert(native.includes(token),'Missing native photo contract '+token);
+assert(multipanel.includes('await meCapturePhoto(mePhotoView'));assert(multipanel.includes('capturePhoto:meCapturePhoto'));assert(!native.includes('checks.cameraCloses='));
+}
