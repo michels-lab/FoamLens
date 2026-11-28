@@ -14,7 +14,41 @@ const api=new Function('caseById','renderCaseManager','renderDataCatalog','updat
   ()=>null,()=>{},()=>{},()=>{}
 );
 
+function makeSetCaseTagsHarness(casesById){
+  const calls=[];
+  const setTags=new Function('caseById','renderCaseManager','renderDataCatalog','updateMeta',src+'\nreturn {normalizeCaseTags,setCaseTags};')(
+    casesById,
+    ()=>calls.push('renderCaseManager'),
+    ()=>calls.push('renderDataCatalog'),
+    ()=>calls.push('updateMeta')
+  );
+  return {setCaseTags:setTags.setCaseTags,calls};
+}
+
 const passed=[];function test(name,fn){fn();passed.push(name)}
+
+test('setCaseTags normalizes tags on the selected case and refreshes views',()=>{
+  const fakeCase={id:'case-a',tags:['old']};
+  const {setCaseTags,calls}=makeSetCaseTagsHarness(id=>id==='case-a'?fakeCase:null);
+  setCaseTags('case-a','reference, adaptive; Experiment\nREFERENCE');
+  assert.deepStrictEqual(fakeCase.tags,['reference','adaptive','Experiment']);
+  assert.deepStrictEqual(calls,['renderCaseManager','renderDataCatalog','updateMeta']);
+});
+
+test('setCaseTags accepts array input and deduplicates case-insensitively',()=>{
+  const fakeCase={id:'case-b',tags:[]};
+  const {setCaseTags}=makeSetCaseTagsHarness(id=>id==='case-b'?fakeCase:null);
+  setCaseTags('case-b',['  Steady ','STEADY','transient','']);
+  assert.deepStrictEqual(fakeCase.tags,['Steady','transient']);
+});
+
+test('setCaseTags has no side effects for an unknown case',()=>{
+  const fakeCase={id:'case-c',tags:['keep']};
+  const {setCaseTags,calls}=makeSetCaseTagsHarness(id=>id==='case-c'?fakeCase:null);
+  setCaseTags('missing','a,b');
+  assert.deepStrictEqual(fakeCase.tags,['keep']);
+  assert.deepStrictEqual(calls,[]);
+});
 
 test('case tags normalize separators and deduplicate case-insensitively',()=>{
   assert.deepStrictEqual(api.normalizeCaseTags('reference, adaptive; Experiment\nREFERENCE'),['reference','adaptive','Experiment']);
