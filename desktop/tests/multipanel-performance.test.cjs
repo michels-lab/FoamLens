@@ -154,3 +154,6 @@ const native=fs.readFileSync(path.join(root,'..','Program.cs'),'utf8');
 for(const token of ['cameraInitiallyVisible:permanentCamera()','cameraPersistsAfterToggle=permanentCamera()','cameraWithInspect=permanentCamera()','cameraWithCompare=permanentCamera()','photoDialogOpens','photoPngHeader','photoContentValid','photoRestored'])assert(native.includes(token),'Missing native photo contract '+token);
 assert(multipanel.includes('await meCapturePhoto(mePhotoView'));assert(multipanel.includes('capturePhoto:meCapturePhoto'));assert(!native.includes('checks.cameraCloses='));
 }
+
+assert(ribbon.includes('#flRaPhotoHd:not(.flScopeHidden)')&&ribbon.includes('min-width:86px!important'),'Photo command must retain text-sized reachability at compact widths');
+assert(compare.includes('button.fcPhotoHd{display:inline-flex!important')&&compare.includes('min-width:82px!important'),'Per-view photo must not collapse under compact toolbar layout');

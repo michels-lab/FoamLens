@@ -1557,6 +1557,7 @@ internal sealed class FoamLensForm : Form
                   const compareRuntimeEnabled=window.FoamLensFieldCompare?.isEnabled?.();
                   const tools=document.querySelector('.fvViewTools');
                   const bounds=ribbon?.getBoundingClientRect();
+                  const geometry=el=>{if(!el)return null;const b=el.getBoundingClientRect(),css=getComputedStyle(el);return {id:el.id,classes:el.className,width:b.width,height:b.height,left:b.left,top:b.top,display:css.display,visibility:css.visibility,opacity:css.opacity,parent:el.parentElement?.className||''}};
                   const visible=el=>!!el&&el.getBoundingClientRect().width>=20&&el.getBoundingClientRect().height>=20&&getComputedStyle(el).display!=='none'&&getComputedStyle(el).visibility!=='hidden';
                   const permanentCamera=()=>!!shelf&&!shelf.classList.contains('hidden')&&shelf.classList.contains('flCameraToolsActive')&&visible(document.getElementById('flRaCameraIso'))&&visible(document.getElementById('flRaPhotoHd'));
                   const checks={
@@ -1616,7 +1617,7 @@ internal sealed class FoamLensForm : Form
                   checks.photoDialogOpens=!!document.getElementById('mePhotoDialog')?.open&&!!document.getElementById('mePhotoSave')&&!!document.getElementById('mePhotoEdge');
                   document.getElementById('mePhotoClose')?.click();
                   checks.photoDialogCloses=!document.getElementById('mePhotoDialog')?.open;
-                  return{ok:Object.values(checks).every(Boolean),checks,compareChecked:!!compare?.checked,compareRuntimeEnabled,compareUserRequested:window.FoamLensFieldWorkspace?.getState?.().compareUserRequested===true,ribbonHeight:bounds?.height||0,
+                  return{ok:Object.values(checks).every(Boolean),checks,photoGeometry:{global:geometry(document.getElementById('flRaPhotoHd')),primary:geometry(document.querySelector('[data-fc-toolbar="A"] [data-fc-photo="A"]')),iso:geometry(iso),shelf:geometry(shelf),cameraGroup:geometry(shelf?.querySelector('[data-fl-shelf-group="camera"]'))},compareChecked:!!compare?.checked,compareRuntimeEnabled,compareUserRequested:window.FoamLensFieldWorkspace?.getState?.().compareUserRequested===true,ribbonHeight:bounds?.height||0,
                     ribbonWidth:ribbon?.clientWidth||0,ribbonScrollWidth:ribbon?.scrollWidth||0};
                 })()
                 """);
